@@ -725,6 +725,17 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 下一步
 - U1：设计令牌与主题（`src/theme.py`）
 
+## 2026-08-07 - V1.2.0 U1 设计令牌与主题
+
+### 完成内容
+- 新增 `src/theme.py`：设计令牌（颜色/状态色/浅色/报警图标/间距/字体）
+- `apply_theme()`：clam 主题 + PingFang SC/微软雅黑字体 + 组件样式
+- `utils.py` 状态色/报警色统一引用令牌
+- 主窗口启动应用主题
+
+### 验证
+- pytest：57 passed；GUI 冒烟通过
+
 ## 2026-08-07 - L4 快速配置向导
 
 ### 完成内容

@@ -45,6 +45,7 @@ from src.gui_panels import (
 from src.utils import load_config, save_config, import_from_excel, validate_production_line, setup_logger
 from src.scenario_manager import ScenarioManager
 from src.reporting import export_report
+from src.theme import apply_theme
 from src.version import __version__
 
 
@@ -73,6 +74,9 @@ class MainWindow:
         self.root = tk.Tk()
         self.root.title(f"电子烟产线仿真优化工具 v{__version__}")
         self.root.geometry("1400x800")  # 窗口大小：宽1400，高800
+
+        # 应用 V1.2.0 设计令牌与主题
+        apply_theme(self.root)
         
         # 设置窗口最小尺寸
         self.root.minsize(1000, 600)

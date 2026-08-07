@@ -56,9 +56,9 @@ def test_format_time():
 
 
 def test_color_helpers():
-    assert get_status_color("running") == "#00FF00"
-    assert get_status_color("unknown") == "#CCCCCC"
-    assert get_alert_color("warning") == "#FFA500"
+    assert get_status_color("running") == "#34C759"
+    assert get_status_color("unknown") == "#E5E5EA"
+    assert get_alert_color("warning") == "#FF9F0A"
 
 
 def test_calculate_roi():

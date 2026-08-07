@@ -20,6 +20,7 @@ from pathlib import Path
 import logging
 
 from src.models import ProductionLine, Station
+from src.theme import ALERT_COLORS, STATUS_COLORS
 
 
 # ==================== 文件I/O ====================
@@ -605,21 +606,14 @@ def get_status_color(status: str) -> str:
     Returns:
         str: 颜色代码（十六进制格式，如"#00FF00"）
         
-    颜色方案：
+    颜色方案来自 src/theme.py 设计令牌（V1.2.0）：
         - idle: 灰色（空闲）
         - running: 绿色（运行中）
         - blocked: 红色（堵塞）
-        - waiting: 黄色（等待）
+        - waiting: 橙色（等待）
         - changeover: 蓝色（切换中）
     """
-    color_map = {
-        'idle': '#CCCCCC',      # 灰色
-        'running': '#00FF00',   # 绿色
-        'blocked': '#FF0000',   # 红色
-        'waiting': '#FFFF00',   # 黄色
-        'changeover': '#0080FF' # 蓝色
-    }
-    return color_map.get(status, '#CCCCCC')  # 默认灰色
+    return STATUS_COLORS.get(status, STATUS_COLORS['idle'])
 
 
 def get_alert_color(severity: str) -> str:
@@ -632,12 +626,7 @@ def get_alert_color(severity: str) -> str:
     Returns:
         str: 颜色代码
     """
-    color_map = {
-        'critical': '#FF0000',  # 红色（严重）
-        'warning': '#FFA500',   # 橙色（警告）
-        'info': '#0080FF'       # 蓝色（信息）
-    }
-    return color_map.get(severity, '#CCCCCC')
+    return ALERT_COLORS.get(severity, '#CCCCCC')
 
 
 # ==================== 常量定义 ====================
