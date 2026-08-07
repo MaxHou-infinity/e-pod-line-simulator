@@ -1029,3 +1029,281 @@ class ScenarioCompareDialog:
                 
                 # 根据差异设置颜色（改善=绿色，恶化=红色）
                 # 注意：Treeview的颜色设置需要特殊处理，这里先不设置
+
+
+class WizardDialog:
+    """
+    快速配置向导 - 分步引导新手完成产线配置
+
+    步骤：
+    1. 选择模板（简单/标准/复杂/空白）
+    2. 选择数据来源（模板 / Excel 导入）
+    3. 设置班次
+    4. 完成（可选立即开始仿真）
+
+    使用方式：
+        dialog = WizardDialog(parent)
+        if dialog.result:
+            line = dialog.result['production_line']
+            auto_start = dialog.result['auto_start']
+    """
+
+    TEMPLATES = {
+        "simple": [
+            ("注油", 25.0, 2, "parallel"),
+            ("焊接", 30.0, 3, "parallel"),
+            ("包装", 15.0, 2, "parallel"),
+        ],
+        "standard": [
+            ("注油", 25.0, 2, "parallel"),
+            ("焊接", 30.0, 3, "parallel"),
+            ("棉芯安装", 20.0, 2, "collaborative"),
+            ("组装", 22.0, 2, "parallel"),
+            ("包装", 15.0, 2, "parallel"),
+        ],
+        "complex": [
+            ("镭雕", 25.0, 5, "parallel"),
+            ("注油", 47.0, 1, "parallel"),
+            ("预压合", 47.0, 1, "parallel"),
+            ("底座压合", 48.0, 1, "parallel"),
+            ("阻值&适配测试", 45.0, 1, "parallel"),
+            ("异物检查", 232.0, 1, "parallel"),
+            ("组装", 22.0, 2, "parallel"),
+            ("包装", 15.0, 2, "parallel"),
+        ],
+    }
+
+    def __init__(self, parent):
+        """初始化向导对话框"""
+        self.result = None
+        self.parent = parent
+        self.step_index = 0
+        self.production_line: Optional[ProductionLine] = None
+
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("快速配置向导")
+        self.dialog.geometry("680x480")
+        self.dialog.resizable(False, False)
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        self.template_var = tk.StringVar(value="standard")
+        self.excel_path_var = tk.StringVar(value="")
+        self.shift_hours_var = tk.StringVar(value="8")
+        self.break_minutes_var = tk.StringVar(value="60")
+        self.wage_var = tk.StringVar(value="20.0")
+        self.auto_start_var = tk.BooleanVar(value=True)
+
+        self._create_widgets()
+        self._show_step(0)
+
+        # 居中显示
+        self.dialog.update_idletasks()
+        x = (self.dialog.winfo_screenwidth() - self.dialog.winfo_width()) // 2
+        y = (self.dialog.winfo_screenheight() - self.dialog.winfo_height()) // 2
+        self.dialog.geometry(f"+{x}+{y}")
+
+        self.dialog.wait_window()
+
+    def _create_widgets(self) -> None:
+        """创建界面组件"""
+        self.main_frame = ttk.Frame(self.dialog, padding=15)
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # 步骤提示
+        self.step_label = ttk.Label(self.main_frame, font=('Arial', 12, 'bold'))
+        self.step_label.pack(anchor=tk.W, pady=(0, 10))
+
+        # 步骤内容容器
+        self.step_container = ttk.Frame(self.main_frame)
+        self.step_container.pack(fill=tk.BOTH, expand=True)
+
+        # 创建四个步骤的页面
+        self.page_template = ttk.Frame(self.step_container)
+        self.page_source = ttk.Frame(self.step_container)
+        self.page_shift = ttk.Frame(self.step_container)
+        self.page_finish = ttk.Frame(self.step_container)
+
+        self._build_page_template()
+        self._build_page_source()
+        self._build_page_shift()
+        self._build_page_finish()
+
+        # 底部按钮
+        button_frame = ttk.Frame(self.main_frame)
+        button_frame.pack(fill=tk.X, pady=(10, 0))
+
+        self.btn_prev = ttk.Button(button_frame, text="上一步", command=self._prev)
+        self.btn_prev.pack(side=tk.LEFT)
+        self.btn_cancel = ttk.Button(button_frame, text="取消", command=self._cancel)
+        self.btn_cancel.pack(side=tk.LEFT, padx=5)
+        self.btn_next = ttk.Button(button_frame, text="下一步", command=self._next)
+        self.btn_next.pack(side=tk.RIGHT)
+
+    def _build_page_template(self) -> None:
+        """步骤 1：模板选择"""
+        ttk.Label(self.page_template, text="选择产线模板：", font=('Arial', 10)).pack(anchor=tk.W, pady=5)
+        for key, label in [
+            ("simple", "简单产线（3 工序）"),
+            ("standard", "标准产线（5 工序）"),
+            ("complex", "复杂产线（8 工序，真实参数）"),
+            ("blank", "空白产线（手动添加）"),
+        ]:
+            ttk.Radiobutton(
+                self.page_template,
+                text=label,
+                variable=self.template_var,
+                value=key,
+            ).pack(anchor=tk.W, pady=3)
+
+    def _build_page_source(self) -> None:
+        """步骤 2：数据来源"""
+        ttk.Label(self.page_source, text="数据来源：", font=('Arial', 10)).pack(anchor=tk.W, pady=5)
+        ttk.Label(
+            self.page_source,
+            text="默认使用所选模板；也可以额外从 Excel 导入替换模板数据。",
+            foreground="gray",
+        ).pack(anchor=tk.W, pady=(0, 10))
+
+        source_frame = ttk.Frame(self.page_source)
+        source_frame.pack(fill=tk.X)
+        ttk.Button(source_frame, text="选择 Excel 文件...", command=self._pick_excel).pack(side=tk.LEFT)
+        self.excel_label = ttk.Label(source_frame, text="未选择", foreground="gray")
+        self.excel_label.pack(side=tk.LEFT, padx=10)
+
+    def _build_page_shift(self) -> None:
+        """步骤 3：班次设置"""
+        ttk.Label(self.page_shift, text="班次设置：", font=('Arial', 10)).pack(anchor=tk.W, pady=5)
+        form = ttk.Frame(self.page_shift)
+        form.pack(fill=tk.X, pady=10)
+
+        ttk.Label(form, text="班次时长(小时):").grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Entry(form, textvariable=self.shift_hours_var, width=10).grid(row=0, column=1, padx=10)
+
+        ttk.Label(form, text="休息时间(分钟):").grid(row=1, column=0, sticky=tk.W, pady=5)
+        ttk.Entry(form, textvariable=self.break_minutes_var, width=10).grid(row=1, column=1, padx=10)
+
+        ttk.Label(form, text="工人时薪(元/小时):").grid(row=2, column=0, sticky=tk.W, pady=5)
+        ttk.Entry(form, textvariable=self.wage_var, width=10).grid(row=2, column=1, padx=10)
+
+    def _build_page_finish(self) -> None:
+        """步骤 4：完成"""
+        self.summary_text = tk.Text(self.page_finish, height=12, width=70, state=tk.DISABLED)
+        self.summary_text.pack(fill=tk.BOTH, expand=True, pady=5)
+        ttk.Checkbutton(
+            self.page_finish,
+            text="配置完成后立即开始仿真",
+            variable=self.auto_start_var,
+        ).pack(anchor=tk.W, pady=5)
+
+    def _pick_excel(self) -> None:
+        """选择并导入 Excel 配置"""
+        from tkinter import filedialog
+        from src.utils import import_from_excel
+
+        path = filedialog.askopenfilename(
+            title="导入 Excel 配置",
+            filetypes=[("Excel 文件", "*.xlsx *.xls"), ("所有文件", "*.*")],
+        )
+        if not path:
+            return
+        line, error = import_from_excel(path)
+        if line:
+            self.production_line = line
+            self.excel_path_var.set(path)
+            self.excel_label.config(text=f"已导入：{path}（{len(line.stations)} 个工序）", foreground="green")
+        else:
+            messagebox.showerror("导入失败", error or "未知错误")
+
+    def _make_template_line(self) -> ProductionLine:
+        """根据所选模板创建产线"""
+        key = self.template_var.get()
+        line = ProductionLine("新产线")
+        if key == "blank":
+            return line
+        from src.models import CollaborationType
+
+        for idx, (name, time, workers, mode) in enumerate(self.TEMPLATES[key], 1):
+            line.add_station(Station(
+                id=f"s{idx:02d}",
+                name=name,
+                process_time=time,
+                worker_count=workers,
+                collaboration_type=(
+                    CollaborationType.PARALLEL if mode == "parallel" else CollaborationType.COLLABORATIVE
+                ),
+            ))
+        return line
+
+    def _show_step(self, index: int) -> None:
+        """切换步骤页面"""
+        self.step_index = index
+        pages = [self.page_template, self.page_source, self.page_shift, self.page_finish]
+        titles = ["第 1 步 / 共 4 步：选择模板", "第 2 步 / 共 4 步：数据来源", "第 3 步 / 共 4 步：班次设置", "第 4 步 / 共 4 步：完成"]
+        for i, page in enumerate(pages):
+            page.pack_forget()
+        pages[index].pack(fill=tk.BOTH, expand=True)
+        self.step_label.config(text=titles[index])
+        self.btn_prev.config(state=tk.NORMAL if index > 0 else tk.DISABLED)
+        self.btn_next.config(text="完成" if index == len(pages) - 1 else "下一步")
+        if index == len(pages) - 1:
+            self._refresh_summary()
+
+    def _refresh_summary(self) -> None:
+        """刷新完成页摘要"""
+        if self.production_line is None:
+            self.production_line = self._make_template_line()
+        line = self.production_line
+        summary = (
+            f"产线名称：{line.name}\n"
+            f"工序数量：{len(line.stations)}\n"
+            f"总人数：{sum(s.worker_count for s in line.stations)} 人\n"
+            f"班次：{self.shift_hours_var.get()} 小时 / 休息 {self.break_minutes_var.get()} 分钟\n"
+            f"时薪：{self.wage_var.get()} 元/小时\n"
+        )
+        if line.stations:
+            summary += f"瓶颈产能：{line.get_bottleneck_capacity():.0f} 颗/h\n"
+            summary += f"预计日产量：{line.calculate_daily_output():.0f} 颗\n"
+        self.summary_text.config(state=tk.NORMAL)
+        self.summary_text.delete("1.0", tk.END)
+        self.summary_text.insert("1.0", summary)
+        self.summary_text.config(state=tk.DISABLED)
+
+    def _prev(self) -> None:
+        if self.step_index > 0:
+            self._show_step(self.step_index - 1)
+
+    def _next(self) -> None:
+        if self.step_index < 3:
+            # 进入步骤 3 前确保产线已就绪
+            if self.step_index == 1 and self.production_line is None:
+                self.production_line = self._make_template_line()
+            self._show_step(self.step_index + 1)
+            return
+
+        # 完成：应用班次配置
+        try:
+            shift_hours = int(self.shift_hours_var.get())
+            break_minutes = int(self.break_minutes_var.get())
+            wage = float(self.wage_var.get())
+            if shift_hours <= 0 or break_minutes < 0 or wage <= 0:
+                raise ValueError("班次参数不合法")
+        except ValueError as e:
+            messagebox.showerror("错误", f"班次参数错误：{e}")
+            return
+
+        if self.production_line is None:
+            self.production_line = self._make_template_line()
+        self.production_line.shift_hours = shift_hours
+        self.production_line.break_minutes = break_minutes
+        self.production_line.worker_hourly_wage = wage
+
+        self.result = {
+            "production_line": self.production_line,
+            "auto_start": self.auto_start_var.get(),
+        }
+        self.dialog.destroy()
+
+    def _cancel(self) -> None:
+        self.result = None
+        self.dialog.destroy()

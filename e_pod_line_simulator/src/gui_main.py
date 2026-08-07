@@ -32,7 +32,14 @@ import threading
 from src.models import ProductionLine, Station, SimulationState
 from src.simulation import SimulationEngine
 from src.gui_canvas import CanvasView
-from src.gui_panels import ConfigPanel, KPIDashboard, AlertPanel, SaveScenarioDialog, ScenarioCompareDialog
+from src.gui_panels import (
+    ConfigPanel,
+    KPIDashboard,
+    AlertPanel,
+    SaveScenarioDialog,
+    ScenarioCompareDialog,
+    WizardDialog,
+)
 from src.utils import load_config, save_config, import_from_excel, validate_production_line, setup_logger
 from src.scenario_manager import ScenarioManager
 from src.reporting import export_report
@@ -110,6 +117,8 @@ class MainWindow:
         file_menu.add_command(label="保存配置", command=self._menu_save_config)
         file_menu.add_separator()
         file_menu.add_command(label="导入Excel", command=self._menu_import_excel)
+        file_menu.add_separator()
+        file_menu.add_command(label="快速配置向导...", command=self._menu_wizard)
         file_menu.add_separator()
         file_menu.add_command(label="退出", command=self._menu_exit)
         
@@ -430,6 +439,20 @@ class MainWindow:
         """文件菜单 - 退出"""
         if messagebox.askyesno("确认", "确定要退出吗？"):
             self.root.quit()
+
+    def _menu_wizard(self) -> None:
+        """文件菜单 - 快速配置向导"""
+        dialog = WizardDialog(self.root)
+        if not dialog.result:
+            return
+
+        self.production_line = dialog.result["production_line"]
+        self._update_display()
+        self.status_bar.config(text="快速配置向导完成")
+        self.logger.info("快速配置向导完成：%s", self.production_line.name)
+
+        if dialog.result.get("auto_start") and self.production_line.stations:
+            self._btn_start_simulation()
     
     def _menu_add_station(self) -> None:
         """编辑菜单 - 添加工序"""
