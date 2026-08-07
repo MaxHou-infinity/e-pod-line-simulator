@@ -107,6 +107,10 @@ class MainWindow:
         self._create_menu_bar()  # 创建菜单栏
         self._create_main_layout()  # 创建主布局
         self._create_status_bar()  # 创建状态栏
+
+        # 未保存修改标记与快捷键
+        self._dirty = False
+        self._bind_shortcuts()
         
         # 初始化一个默认产线（可选）
         # self._create_default_line()  # 暂时注释，避免导入问题
@@ -387,13 +391,18 @@ class MainWindow:
     
     def _menu_new_line(self) -> None:
         """文件菜单 - 新建产线"""
+        if not self._confirm_discard():
+            return
         if messagebox.askyesno("确认", "创建新产线将清空当前配置，是否继续？"):
             self.production_line = ProductionLine("新产线")
+            self._dirty = False
             self._update_display()
             self.status_bar.config(text="已创建新产线")
     
     def _menu_open_config(self) -> None:
         """文件菜单 - 打开配置"""
+        if not self._confirm_discard():
+            return
         file_path = filedialog.askopenfilename(
             title="打开配置",
             filetypes=[("JSON文件", "*.json"), ("所有文件", "*.*")]
@@ -403,6 +412,7 @@ class MainWindow:
             line = load_config(file_path)
             if line:
                 self.production_line = line
+                self._dirty = False
                 self._update_display()
                 self.status_bar.config(text=f"已加载：{line.name}")
             else:
@@ -412,7 +422,7 @@ class MainWindow:
         """文件菜单 - 保存配置"""
         if self.production_line is None:
             messagebox.showwarning("警告", "没有可保存的产线配置")
-            return
+            return False
         
         file_path = filedialog.asksaveasfilename(
             title="保存配置",
@@ -422,9 +432,12 @@ class MainWindow:
         
         if file_path:
             if save_config(self.production_line, file_path):
+                self._dirty = False
                 self.status_bar.config(text=f"已保存：{file_path}")
+                return True
             else:
                 messagebox.showerror("错误", "保存配置失败")
+        return False
     
     def _menu_import_excel(self) -> None:
         """文件菜单 - 导入Excel配置"""
@@ -442,6 +455,7 @@ class MainWindow:
         if line:
             # 导入成功
             self.production_line = line
+            self._mark_dirty()
             self._update_display()
             
             # 如果有警告信息，显示警告对话框
@@ -456,16 +470,26 @@ class MainWindow:
     
     def _menu_exit(self) -> None:
         """文件菜单 - 退出"""
+        if self._dirty:
+            choice = messagebox.askyesnocancel("退出", "当前配置有未保存的修改，是否先保存？")
+            if choice is None:
+                return
+            if choice:
+                if not self._menu_save_config():
+                    return
         if messagebox.askyesno("确认", "确定要退出吗？"):
             self.root.quit()
 
     def _menu_wizard(self) -> None:
         """文件菜单 - 快速配置向导"""
+        if not self._confirm_discard():
+            return
         dialog = WizardDialog(self.root)
         if not dialog.result:
             return
 
         self.production_line = dialog.result["production_line"]
+        self._dirty = False
         self._update_display()
         self.status_bar.config(text="快速配置向导完成")
         self.logger.info("快速配置向导完成：%s", self.production_line.name)
@@ -557,11 +581,16 @@ class MainWindow:
             if self.simulation_engine and self.simulation_engine.is_running:
                 result = self.simulation_engine.build_result()
             else:
+                self.status_bar.config(text="正在仿真以生成报告，请稍候...")
+                self.root.update_idletasks()
                 engine = SimulationEngine(self.production_line)
                 result = engine.run_sync(duration_hours=self.production_line.shift_hours)
+                self.status_bar.config(text="仿真完成，正在导出报告...")
+                self.root.update_idletasks()
         except Exception as e:
-            messagebox.showerror("导出失败", f"仿真失败：{e}")
+            messagebox.showerror("导出失败", f"仿真失败：{e}\n\n详细日志：logs/app.log")
             self.logger.error("导出前仿真失败", exc_info=True)
+            self.status_bar.config(text="导出失败")
             return
 
         file_path = filedialog.asksaveasfilename(
@@ -581,7 +610,10 @@ class MainWindow:
             self.status_bar.config(text=f"报告已导出：{file_path}")
             self.logger.info("导出报告成功：%s", file_path)
         else:
-            messagebox.showerror("失败", "报告导出失败，请检查路径或依赖（reportlab/openpyxl）")
+            messagebox.showerror(
+                "失败",
+                "报告导出失败，请检查路径或依赖（reportlab/openpyxl）。\n\n详细日志：logs/app.log",
+            )
             self.logger.error("导出报告失败：%s", file_path)
     
     def _menu_help(self) -> None:
@@ -616,7 +648,51 @@ class MainWindow:
         """Tkinter 回调异常统一处理：记录日志并弹窗提示"""
         if self.logger:
             self.logger.error("界面回调异常", exc_info=(exc_type, exc_value, exc_tb))
-        messagebox.showerror("程序错误", f"发生未预期错误：{exc_value}")
+        messagebox.showerror(
+            "程序错误",
+            f"发生未预期错误：{exc_value}\n\n详细日志：logs/app.log",
+        )
+
+    def _mark_dirty(self) -> None:
+        """标记产线配置有未保存修改"""
+        self._dirty = True
+        self.status_bar.config(text="有未保存的修改")
+
+    def _confirm_discard(self) -> bool:
+        """
+        确认放弃未保存修改
+
+        Returns:
+            bool: True 表示可以继续（放弃修改），False 表示取消操作
+        """
+        if not self._dirty:
+            return True
+        return messagebox.askyesno(
+            "未保存的修改",
+            "当前配置有未保存的修改，是否放弃并继续？",
+        )
+
+    def _bind_shortcuts(self) -> None:
+        """绑定全局键盘快捷键"""
+        self.root.bind('<Control-n>', lambda e: self._menu_new_line())
+        self.root.bind('<Control-o>', lambda e: self._menu_open_config())
+        self.root.bind('<Control-s>', lambda e: self._menu_save_config())
+        self.root.bind('<Control-e>', lambda e: self._menu_import_excel())
+        self.root.bind('<space>', self._on_space_shortcut)
+
+    def _on_space_shortcut(self, event) -> str:
+        """空格：开始/暂停/恢复仿真（输入框内不触发）"""
+        focused = self.root.focus_get()
+        if isinstance(focused, (tk.Entry, tk.Text)):
+            return 'break'
+        if self.simulation_engine and self.simulation_engine.is_running:
+            if self.simulation_engine.is_paused:
+                self._btn_start_simulation()  # 恢复
+            else:
+                self._btn_pause_simulation()
+        else:
+            self._btn_start_simulation()
+        return 'break'
     
     # ==================== 按钮事件处理 ====================
     
@@ -752,6 +828,7 @@ class MainWindow:
             self.production_line.break_minutes = dialog.result['break_minutes']
             self.production_line.worker_hourly_wage = dialog.result['worker_hourly_wage']
             
+            self._mark_dirty()
             # 更新KPI显示
             self._update_kpi()
             
@@ -773,6 +850,7 @@ class MainWindow:
             
             station = dialog.result
             self.production_line.add_station(station)
+            self._mark_dirty()
             self._update_display()
             self.status_bar.config(text=f"已添加工序：{station.name}")
     
@@ -812,6 +890,7 @@ class MainWindow:
             station.oee = updated.oee
             station.collaboration_type = updated.collaboration_type
             
+            self._mark_dirty()
             self._update_display()
             self.status_bar.config(text=f"已更新工序：{station.name}")
     
@@ -828,6 +907,7 @@ class MainWindow:
         
         if messagebox.askyesno("确认", f"确定要删除工序 '{selected.name}' 吗？"):
             self.production_line.remove_station(selected.id)
+            self._mark_dirty()
             self._update_display()
             self.status_bar.config(text=f"已删除工序：{selected.name}")
     
@@ -850,6 +930,7 @@ class MainWindow:
         self.production_line.stations = [
             station_map[sid] for sid in order_ids if sid in station_map
         ]
+        self._mark_dirty()
         self._update_display()
         self.status_bar.config(text="工序顺序已调整")
         self.logger.info("拖拽调整工序顺序：%s", order_ids)
@@ -897,6 +978,7 @@ class MainWindow:
             return
         if messagebox.askyesno("确认", f"确定要删除工序 '{station.name}' 吗？"):
             self.production_line.remove_station(station_id)
+            self._mark_dirty()
             self._update_display()
             self.status_bar.config(text=f"已删除工序：{station.name}")
 

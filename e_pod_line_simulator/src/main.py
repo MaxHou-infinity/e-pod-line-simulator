@@ -62,7 +62,7 @@ def main():
         
     except Exception as e:
         # 捕获所有其他异常
-        error_msg = f"程序运行错误：{e}"
+        error_msg = f"程序运行错误：{e}\n\n详细日志：logs/app.log"
         print(error_msg)
         
         # 记录日志
