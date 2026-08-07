@@ -784,6 +784,11 @@ class ShiftConfigDialog:
         except Exception as e:
             messagebox.showerror("错误", f"配置失败：{e}")
 
+    def _btn_cancel(self) -> None:
+        """取消按钮点击：不保存，直接关闭对话框"""
+        self.result = None
+        self.dialog.destroy()
+
 
 class SaveScenarioDialog:
     """

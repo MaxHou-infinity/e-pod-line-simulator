@@ -645,7 +645,9 @@ class CanvasView(tk.Canvas):
         """获取坐标处的工序 ID（通过 Canvas tags 查找）"""
         items = self.find_overlapping(x - 2, y - 2, x + 2, y + 2)
         if not items:
-            items = [self.find_closest(x, y)[0]]
+            closest = self.find_closest(x, y)
+            if closest:
+                items = [closest[0]]
         for item in items:
             for tag in self.gettags(item):
                 if tag.startswith("station_"):

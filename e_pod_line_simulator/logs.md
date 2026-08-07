@@ -749,6 +749,16 @@ y = max(0, min(y, screen_height - dialog_height))
 - V1.3：AI 自动优化、敏感性分析
 - V2.0：Web 化
 
+## 2026-08-07 - V1.2.0 目视检查热修复（U7.1）
+
+### 修复
+- 班次配置对话框：补 `ShiftConfigDialog._btn_cancel`（此前点"取消"直接报错）
+- 空画布鼠标移动：`find_closest` 空结果保护，不再 IndexError
+- 新增对话框方法存在性回归测试
+
+### 验证
+- pytest：59 passed
+
 ## 2026-08-07 - V1.2.0 U6 快捷键与脏状态
 
 ### 完成内容

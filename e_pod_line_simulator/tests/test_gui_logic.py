@@ -24,3 +24,23 @@ def test_build_template_line():
     assert len(build_template_line("complex").stations) == 8
     assert build_template_line("blank").stations == []
     assert build_template_line("complex").stations[0].name == "镭雕"
+
+
+def test_dialog_handler_methods_exist():
+    from src.gui_panels import (
+        SaveScenarioDialog,
+        ScenarioManageDialog,
+        ShiftConfigDialog,
+        StationDialog,
+        WizardDialog,
+    )
+
+    assert hasattr(ShiftConfigDialog, "_btn_ok")
+    assert hasattr(ShiftConfigDialog, "_btn_cancel")
+    assert hasattr(StationDialog, "_btn_ok")
+    assert hasattr(StationDialog, "_btn_cancel")
+    assert hasattr(SaveScenarioDialog, "_on_confirm")
+    assert hasattr(SaveScenarioDialog, "_on_cancel")
+    assert hasattr(WizardDialog, "_next")
+    assert hasattr(WizardDialog, "_cancel")
+    assert hasattr(ScenarioManageDialog, "_delete_selected")
