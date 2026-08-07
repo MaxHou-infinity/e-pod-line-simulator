@@ -35,6 +35,7 @@ from src.gui_canvas import CanvasView
 from src.gui_panels import ConfigPanel, KPIDashboard, AlertPanel, SaveScenarioDialog, ScenarioCompareDialog
 from src.utils import load_config, save_config, import_from_excel, validate_production_line, setup_logger
 from src.scenario_manager import ScenarioManager
+from src.version import __version__
 
 
 class MainWindow:
@@ -60,7 +61,7 @@ class MainWindow:
         """
         # 创建主窗口
         self.root = tk.Tk()
-        self.root.title("电子烟产线仿真优化工具 v1.0")
+        self.root.title(f"电子烟产线仿真优化工具 v{__version__}")
         self.root.geometry("1400x800")  # 窗口大小：宽1400，高800
         
         # 设置窗口最小尺寸
@@ -69,6 +70,9 @@ class MainWindow:
         # 初始化日志
         self.logger = setup_logger()
         self.logger.info("程序启动")
+
+        # 全局异常捕获：Tkinter 回调中的未捕获异常统一记录日志并提示
+        self.root.report_callback_exception = self._on_callback_exception
         
         # 数据模型
         self.production_line: Optional[ProductionLine] = None  # 当前产线对象
@@ -491,7 +495,7 @@ class MainWindow:
     def _menu_help(self) -> None:
         """帮助菜单 - 使用说明"""
         help_text = """
-电子烟产线仿真优化工具 v1.0
+电子烟产线仿真优化工具 v{__version__}
 
 使用步骤：
 1. 创建或加载产线配置
@@ -507,7 +511,7 @@ class MainWindow:
     def _menu_about(self) -> None:
         """帮助菜单 - 关于"""
         about_text = """
-电子烟产线仿真优化工具 v1.0
+电子烟产线仿真优化工具 v{__version__}
 
 基于SimPy的离散事件仿真引擎
 用于产线设计和人力优化
@@ -515,6 +519,12 @@ class MainWindow:
 开发：Max主人
         """
         messagebox.showinfo("关于", about_text)
+
+    def _on_callback_exception(self, exc_type, exc_value, exc_tb) -> None:
+        """Tkinter 回调异常统一处理：记录日志并弹窗提示"""
+        if self.logger:
+            self.logger.error("界面回调异常", exc_info=(exc_type, exc_value, exc_tb))
+        messagebox.showerror("程序错误", f"发生未预期错误：{exc_value}")
     
     # ==================== 按钮事件处理 ====================
     

@@ -584,3 +584,19 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 团队协作记录
 - 已尝试调度产品/后端/前端/测试子 Agent，子 Agent 未产出文件；
   改由主控 Agent 完成四角色分析并落盘（详见 `docs/v1.1/开发日志.md` L0）
+
+## 2026-08-07 - V1.1 开发启动（L0 工程化基础）
+
+### 完成内容
+- 新增 `src/version.py`（`__version__ = "1.1.0"`），窗口标题/帮助/关于统一引用
+- `setup_logger()` 默认写入 `logs/app.log`；Tkinter 回调异常统一捕获并记录
+- 新增 pytest 骨架：`conftest.py`、`test_models.py`、`test_utils.py`
+- `requirements.txt` 新增 reportlab；新增 `requirements-dev.txt`
+
+### 验证
+- pytest：14 passed
+- `tests/test_basic.py`：通过
+
+### 说明
+- 环境：Miniconda Python（已安装 pytest、pytest-cov、reportlab）
+- 详细记录见 `docs/v1.1/开发日志.md` Loop L0b

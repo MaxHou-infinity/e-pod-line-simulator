@@ -478,7 +478,7 @@ def setup_logger(log_file: Optional[str] = None, level: int = logging.INFO) -> l
     配置日志格式和输出位置，用于记录程序运行日志
     
     Args:
-        log_file: 日志文件路径，如果为None则只输出到控制台
+        log_file: 日志文件路径，如果为None则使用默认路径 logs/app.log
         level: 日志级别，默认INFO
         
     Returns:
@@ -507,6 +507,10 @@ def setup_logger(log_file: Optional[str] = None, level: int = logging.INFO) -> l
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
     
+    # 默认写入日志文件，便于追溯运行记录
+    if log_file is None:
+        log_file = LOG_FILE
+
     # 如果指定了日志文件，添加文件处理器
     if log_file:
         # 确保日志目录存在

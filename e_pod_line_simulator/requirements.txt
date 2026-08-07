@@ -4,6 +4,7 @@
 simpy>=4.0.1          # 离散事件仿真引擎 - 用于运行产线仿真
 pandas>=1.5.0         # 数据处理库 - 用于Excel导入和数据处理
 openpyxl>=3.0.0        # Excel文件读写 - 用于导入/导出Excel配置
+reportlab>=4.0.0      # PDF生成 - 用于导出报告
 
 # GUI依赖（Tkinter是Python标准库，无需安装）
 # 注意：某些Linux发行版可能需要单独安装tkinter
@@ -12,5 +13,4 @@ openpyxl>=3.0.0        # Excel文件读写 - 用于导入/导出Excel配置
 
 # 可选依赖（用于后续功能）
 # matplotlib>=3.5.0    # 图表绘制 - 用于KPI趋势图（可选）
-# reportlab>=3.6.0     # PDF生成 - 用于导出报告（可选）
 # pillow>=9.0.0         # 图像处理 - 用于图标显示（可选）

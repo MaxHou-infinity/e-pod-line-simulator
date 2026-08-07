@@ -7,6 +7,9 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+.pytest_cache/
+.coverage
+htmlcov/
 
 # IDE / 工具元数据
 .idea/
