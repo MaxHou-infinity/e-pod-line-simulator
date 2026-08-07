@@ -635,6 +635,18 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - 语法检查通过；pytest：22 passed
 
+## 2026-08-07 - L5 方案扩展至 5 个与持久化
+
+### 完成内容
+- `ScenarioManager.MAX_SCENARIOS`：3 → 5（满足 PRD 验收）
+- 新增 JSON 持久化：save_to_file / load_from_file，自动保存到
+  `configs/scenarios.json`，启动自动加载
+- "分析 → 方案管理"对话框：查看与删除方案
+- 新增 `tests/test_scenario.py`（4 个用例）
+
+### 验证
+- 语法检查通过；pytest：26 passed
+
 ## 2026-08-07 - L4 快速配置向导
 
 ### 完成内容

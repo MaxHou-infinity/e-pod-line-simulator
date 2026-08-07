@@ -25,6 +25,7 @@ GUI布局：
 """
 
 import tkinter as tk
+import os
 from tkinter import ttk, messagebox, filedialog, simpledialog
 from typing import Optional
 import threading
@@ -38,6 +39,7 @@ from src.gui_panels import (
     AlertPanel,
     SaveScenarioDialog,
     ScenarioCompareDialog,
+    ScenarioManageDialog,
     WizardDialog,
 )
 from src.utils import load_config, save_config, import_from_excel, validate_production_line, setup_logger
@@ -86,6 +88,16 @@ class MainWindow:
         self.production_line: Optional[ProductionLine] = None  # 当前产线对象
         self.simulation_engine: Optional[SimulationEngine] = None  # 仿真引擎
         self.scenario_manager = ScenarioManager()  # 方案管理器（管理保存的方案）
+
+        # 方案自动持久化：保存/删除方案后写入 configs/scenarios.json
+        default_scenario_file = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'configs',
+            'scenarios.json',
+        )
+        self.scenario_manager.set_storage_path(default_scenario_file)
+        if self.scenario_manager.load_from_file(default_scenario_file):
+            self.logger.info("已加载方案：%d 个", self.scenario_manager.get_scenario_count())
         
         # 创建GUI组件
         self._create_menu_bar()  # 创建菜单栏
@@ -142,6 +154,7 @@ class MainWindow:
         analysis_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="分析", menu=analysis_menu)
         analysis_menu.add_command(label="方案对比", command=self._menu_compare_solutions)
+        analysis_menu.add_command(label="方案管理", command=self._menu_manage_scenarios)
         analysis_menu.add_command(label="导出报告", command=self._menu_export_report)
         
         # 帮助菜单
@@ -497,6 +510,10 @@ class MainWindow:
         
         # 打开对比对话框（对比所有方案）
         ScenarioCompareDialog(self.root, self.scenario_manager, scenario_names)
+
+    def _menu_manage_scenarios(self) -> None:
+        """分析菜单 - 方案管理"""
+        ScenarioManageDialog(self.root, self.scenario_manager)
     
     def _btn_save_scenario(self) -> None:
         """保存方案按钮点击事件"""

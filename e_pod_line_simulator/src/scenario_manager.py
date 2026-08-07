@@ -13,7 +13,10 @@
 - 使用深拷贝确保方案数据独立性
 """
 
+import json
+import os
 from typing import Dict, List, Optional, Any, Tuple
+
 from src.models import Scenario, ProductionLine
 
 
@@ -22,14 +25,14 @@ class ScenarioManager:
     方案管理器类 - 管理所有保存的方案
     
     功能：
-    - 保存方案（最多3个）
+    - 保存方案（最多5个）
     - 删除方案
     - 获取方案列表
     - 对比多个方案的KPI
     
     方案数量限制：
     - 最少2个方案才能对比
-    - 最多保存3个方案
+    - 最多保存5个方案（满足 PRD 验收）
     
     使用方式：
         manager = ScenarioManager()
@@ -44,8 +47,13 @@ class ScenarioManager:
         self.scenarios: Dict[str, Scenario] = {}
         
         # 方案数量限制
-        self.MAX_SCENARIOS = 3  # 最多3个方案
+        self.MAX_SCENARIOS = 5  # 最多5个方案（PRD 验收标准）
         self.MIN_SCENARIOS_FOR_COMPARE = 2  # 至少2个方案才能对比
+        self.storage_path: Optional[str] = None  # 自动持久化路径
+
+    def set_storage_path(self, path: str) -> None:
+        """设置自动持久化路径（保存/删除方案后自动落盘）"""
+        self.storage_path = path
     
     def save_scenario(self, name: str, production_line: ProductionLine, description: str = "") -> Tuple[bool, Optional[str]]:
         """
@@ -88,6 +96,7 @@ class ScenarioManager:
         try:
             scenario = Scenario.create(name, production_line, description)
             self.scenarios[name] = scenario
+            self._persist()
             return True, None
         except Exception as e:
             return False, f"保存方案失败：{str(e)}"
@@ -113,7 +122,70 @@ class ScenarioManager:
             pass
         
         del self.scenarios[name]
+        self._persist()
         return True, None
+
+    def _persist(self) -> None:
+        """保存/删除方案后自动写入存储文件（静默失败，不影响主流程）"""
+        if self.storage_path:
+            try:
+                self.save_to_file(self.storage_path)
+            except Exception:
+                pass
+
+    def save_to_file(self, path: str) -> bool:
+        """
+        将全部方案持久化为 JSON 文件
+
+        Args:
+            path: 保存路径
+
+        Returns:
+            bool: 是否成功
+        """
+        data = {
+            name: {
+                'created_at': scenario.created_at,
+                'description': scenario.description,
+                'production_line': scenario.production_line.to_dict(),
+            }
+            for name, scenario in self.scenarios.items()
+        }
+        directory = os.path.dirname(path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+
+    def load_from_file(self, path: str) -> bool:
+        """
+        从 JSON 文件加载方案
+
+        Args:
+            path: 文件路径
+
+        Returns:
+            bool: 是否成功
+        """
+        if not os.path.exists(path):
+            return False
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            loaded = {}
+            for name, item in data.items():
+                line = ProductionLine.from_dict(item['production_line'])
+                loaded[name] = Scenario(
+                    name=name,
+                    production_line=line,
+                    created_at=item.get('created_at', ''),
+                    description=item.get('description', ''),
+                )
+            self.scenarios = loaded
+            return True
+        except Exception:
+            return False
     
     def get_scenario(self, name: str) -> Optional[Scenario]:
         """
@@ -299,4 +371,3 @@ class ScenarioManager:
             'differences': differences,
             'recommendation': recommendation_reason if best_scenario else "无法推荐"
         }
-

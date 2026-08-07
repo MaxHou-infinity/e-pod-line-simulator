@@ -1031,6 +1031,88 @@ class ScenarioCompareDialog:
                 # 注意：Treeview的颜色设置需要特殊处理，这里先不设置
 
 
+class ScenarioManageDialog:
+    """
+    方案管理对话框 - 查看与删除已保存的方案
+
+    使用方式：
+        dialog = ScenarioManageDialog(parent, scenario_manager)
+        # 删除操作会自动持久化到 ScenarioManager 的存储路径
+    """
+
+    def __init__(self, parent, scenario_manager: ScenarioManager):
+        self.scenario_manager = scenario_manager
+
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("方案管理")
+        self.dialog.geometry("720x420")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        self._create_widgets()
+
+        self.dialog.update_idletasks()
+        x = (self.dialog.winfo_screenwidth() - self.dialog.winfo_width()) // 2
+        y = (self.dialog.winfo_screenheight() - self.dialog.winfo_height()) // 2
+        self.dialog.geometry(f"+{x}+{y}")
+
+    def _create_widgets(self) -> None:
+        """创建界面组件"""
+        main_frame = ttk.Frame(self.dialog, padding=10)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        columns = ('name', 'created_at', 'description', 'unit_cost')
+        self.tree = ttk.Treeview(main_frame, columns=columns, show='headings', height=14)
+        self.tree.heading('name', text='方案名称')
+        self.tree.heading('created_at', text='创建时间')
+        self.tree.heading('description', text='描述')
+        self.tree.heading('unit_cost', text='单颗成本(元/颗)')
+        self.tree.column('name', width=140)
+        self.tree.column('created_at', width=150)
+        self.tree.column('description', width=260)
+        self.tree.column('unit_cost', width=110)
+        self.tree.pack(fill=tk.BOTH, expand=True)
+
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X, pady=(10, 0))
+        ttk.Button(button_frame, text="删除选中", command=self._delete_selected).pack(side=tk.LEFT)
+        ttk.Button(button_frame, text="关闭", command=self.dialog.destroy).pack(side=tk.RIGHT)
+
+        self._refresh()
+
+    def _refresh(self) -> None:
+        """刷新方案列表"""
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        for name in self.scenario_manager.list_scenarios():
+            scenario = self.scenario_manager.get_scenario(name)
+            kpis = scenario.get_kpis()
+            self.tree.insert('', tk.END, values=(
+                name,
+                scenario.created_at,
+                scenario.description,
+                f"{kpis['unit_cost']:.3f}",
+            ), tags=(name,))
+
+    def _delete_selected(self) -> None:
+        """删除选中的方案"""
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showwarning("警告", "请先选择一个方案")
+            return
+        item = selection[0]
+        tags = self.tree.item(item, 'tags')
+        if not tags:
+            return
+        name = tags[0]
+        if messagebox.askyesno("确认", f"确定删除方案 '{name}' 吗？"):
+            ok, err = self.scenario_manager.delete_scenario(name)
+            if ok:
+                self._refresh()
+            else:
+                messagebox.showerror("错误", err or "删除失败")
+
+
 class WizardDialog:
     """
     快速配置向导 - 分步引导新手完成产线配置
