@@ -5,5 +5,5 @@
 避免多处维护导致版本不一致。
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 VERSION_STRING = f"v{__version__}"
