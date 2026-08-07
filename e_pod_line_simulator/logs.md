@@ -611,3 +611,15 @@ y = max(0, min(y, screen_height - dialog_height))
 
 ### 验证
 - pytest：19 passed（L1 时点）
+
+## 2026-08-07 - L2 报告导出（Excel / PDF）
+
+### 完成内容
+- 新增 `src/reporting.py`：export_excel / export_pdf / export_report
+- Excel 报告 5 个 Sheet：KPI、工序产出、报警记录、WIP 采样、切换事件
+- PDF 报告支持中文字体（Arial Unicode.ttf）
+- GUI"分析 → 导出报告"接入实际导出
+- 新增 `tests/test_reporting.py`（3 个用例）
+
+### 验证
+- pytest：22 passed

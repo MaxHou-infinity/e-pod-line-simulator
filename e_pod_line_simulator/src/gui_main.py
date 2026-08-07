@@ -35,6 +35,7 @@ from src.gui_canvas import CanvasView
 from src.gui_panels import ConfigPanel, KPIDashboard, AlertPanel, SaveScenarioDialog, ScenarioCompareDialog
 from src.utils import load_config, save_config, import_from_excel, validate_production_line, setup_logger
 from src.scenario_manager import ScenarioManager
+from src.reporting import export_report
 from src.version import __version__
 
 
@@ -490,7 +491,42 @@ class MainWindow:
     
     def _menu_export_report(self) -> None:
         """分析菜单 - 导出报告"""
-        messagebox.showinfo("提示", "导出报告功能将在后续版本实现")
+        if self.production_line is None or not self.production_line.stations:
+            messagebox.showwarning("警告", "没有可导出的产线配置")
+            return
+
+        # 有正在运行的仿真时导出当前进度；否则用当前配置快速仿真一次
+        result = None
+        try:
+            if self.simulation_engine and self.simulation_engine.is_running:
+                result = self.simulation_engine.build_result()
+            else:
+                engine = SimulationEngine(self.production_line)
+                result = engine.run_sync(duration_hours=self.production_line.shift_hours)
+        except Exception as e:
+            messagebox.showerror("导出失败", f"仿真失败：{e}")
+            self.logger.error("导出前仿真失败", exc_info=True)
+            return
+
+        file_path = filedialog.asksaveasfilename(
+            title="导出报告",
+            defaultextension=".xlsx",
+            filetypes=[
+                ("Excel 报告", "*.xlsx"),
+                ("PDF 报告", "*.pdf"),
+                ("所有文件", "*.*"),
+            ],
+        )
+        if not file_path:
+            return
+
+        if export_report(result, file_path):
+            messagebox.showinfo("成功", f"报告已导出：\n{file_path}")
+            self.status_bar.config(text=f"报告已导出：{file_path}")
+            self.logger.info("导出报告成功：%s", file_path)
+        else:
+            messagebox.showerror("失败", "报告导出失败，请检查路径或依赖（reportlab/openpyxl）")
+            self.logger.error("导出报告失败：%s", file_path)
     
     def _menu_help(self) -> None:
         """帮助菜单 - 使用说明"""
