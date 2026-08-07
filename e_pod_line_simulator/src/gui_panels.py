@@ -164,6 +164,16 @@ class ConfigPanel(ttk.Frame):
             Optional[Station]: 选中的工序对象，如果没有选中返回None
         """
         return self.selected_station
+
+    def select_station(self, station_id: str) -> None:
+        """按 ID 选中工序列表中的一行（供画布单击联动）"""
+        for item in self.tree.get_children():
+            tags = self.tree.item(item, 'tags')
+            if tags and tags[0] == station_id:
+                self.tree.selection_set(item)
+                self.tree.focus(item)
+                self.tree.see(item)
+                break
     
     def _btn_add(self) -> None:
         """添加按钮点击"""

@@ -15,7 +15,7 @@ Canvas绘制原理：
 """
 
 import tkinter as tk
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Callable
 
 from src.models import ProductionLine, Station, SimulationState
 from src.utils import get_status_color, CANVAS_WIDTH, CANVAS_HEIGHT, STATION_WIDTH, STATION_HEIGHT
@@ -38,7 +38,17 @@ class CanvasView(tk.Canvas):
         canvas.update_production_line(production_line)
     """
     
-    def __init__(self, parent, width: int = CANVAS_WIDTH, height: int = CANVAS_HEIGHT, **kwargs):
+    def __init__(
+        self,
+        parent,
+        width: int = CANVAS_WIDTH,
+        height: int = CANVAS_HEIGHT,
+        on_reorder: Optional[Callable[[List[str]], None]] = None,
+        on_station_edit: Optional[Callable[[str], None]] = None,
+        on_station_select: Optional[Callable[[str], None]] = None,
+        on_station_menu: Optional[Callable[[str, int, int], None]] = None,
+        **kwargs
+    ):
         """
         初始化画布视图
         
@@ -52,12 +62,29 @@ class CanvasView(tk.Canvas):
         # 产线数据
         self.production_line: Optional[ProductionLine] = None
         self.simulation_state: Optional[SimulationState] = None
+
+        # 交互回调
+        self.on_reorder = on_reorder
+        self.on_station_edit = on_station_edit
+        self.on_station_select = on_station_select
+        self.on_station_menu = on_station_menu
         
         # 图形元素存储（用于更新）
         self.station_rects: Dict[str, int] = {}  # 工序矩形ID
         self.station_texts: Dict[str, List[int]] = {}  # 工序文本ID列表
         self.connection_lines: Dict[str, int] = {}  # 连接线ID
         self.wip_labels: Dict[str, int] = {}  # WIP标签ID
+        self.station_positions: Dict[str, tuple] = {}  # 工序中心坐标
+
+        # 拖拽状态
+        self._drag_station_id: Optional[str] = None
+        self._drag_start_x = 0
+        self._drag_start_y = 0
+        self._drag_last_x = 0
+        self._drag_last_y = 0
+        self._drag_total_dx = 0
+        self._drag_total_dy = 0
+        self._drag_moved = False
         
         # 布局参数
         self.station_spacing = 200  # 工序间距（像素）
@@ -68,7 +95,10 @@ class CanvasView(tk.Canvas):
         
         # 绑定事件
         self.bind("<Double-Button-1>", self._on_double_click)
-        self.bind("<Button-1>", self._on_click)
+        self.bind("<ButtonPress-1>", self._on_drag_start)
+        self.bind("<B1-Motion>", self._on_drag_move)
+        self.bind("<ButtonRelease-1>", self._on_drag_end)
+        self.bind("<Button-3>", self._on_right_click)
         
         # 绑定窗口大小变化事件（当画布大小变化时重新布局）
         self.bind("<Configure>", self._on_canvas_resize)
@@ -91,6 +121,7 @@ class CanvasView(tk.Canvas):
         self.station_texts.clear()
         self.connection_lines.clear()
         self.wip_labels.clear()
+        self.station_positions.clear()
         
         if not production_line or not production_line.stations:
             return
@@ -152,6 +183,7 @@ class CanvasView(tk.Canvas):
             
             # 保存位置
             station_positions[station.id] = (x, y)
+        self.station_positions = station_positions
         
         # 第二步：绘制所有工序节点
         for station in production_line.stations:
@@ -464,27 +496,96 @@ class CanvasView(tk.Canvas):
         Args:
             event: 鼠标事件
         """
-        # 获取点击位置的图形元素
-        item = self.find_closest(event.x, event.y)[0]
-        tags = self.gettags(item)
-        
-        # 检查是否是工序节点
-        for tag in tags:
-            if tag.startswith("station_"):
-                station_id = tag.replace("station_", "")
-                # 触发编辑事件（需要主窗口处理）
-                # 这里可以通过事件或回调实现
-                break
-    
-    def _on_click(self, event: tk.Event) -> None:
-        """
-        单击事件处理
-        
-        Args:
-            event: 鼠标事件
-        """
-        # 可以在这里实现单击选择功能
-        pass
+        station_id = self._station_id_at(event.x, event.y)
+        if station_id and self.on_station_edit:
+            self.on_station_edit(station_id)
+
+    def _station_id_at(self, x: int, y: int) -> Optional[str]:
+        """获取坐标处的工序 ID（通过 Canvas tags 查找）"""
+        items = self.find_overlapping(x - 2, y - 2, x + 2, y + 2)
+        if not items:
+            items = [self.find_closest(x, y)[0]]
+        for item in items:
+            for tag in self.gettags(item):
+                if tag.startswith("station_"):
+                    return tag.replace("station_", "")
+        return None
+
+    def _on_drag_start(self, event: tk.Event) -> None:
+        """拖拽开始：记录被拖动的工序与起始位置"""
+        station_id = self._station_id_at(event.x, event.y)
+        self._drag_station_id = station_id
+        self._drag_start_x = event.x
+        self._drag_start_y = event.y
+        self._drag_last_x = event.x
+        self._drag_last_y = event.y
+        self._drag_total_dx = 0
+        self._drag_total_dy = 0
+        self._drag_moved = False
+
+    def _on_drag_move(self, event: tk.Event) -> None:
+        """拖拽移动：移动工序节点及其文本，提供视觉反馈"""
+        if not self._drag_station_id:
+            return
+        dx = event.x - self._drag_last_x
+        dy = event.y - self._drag_last_y
+        self._drag_last_x = event.x
+        self._drag_last_y = event.y
+        self._drag_total_dx += dx
+        self._drag_total_dy += dy
+        if abs(self._drag_total_dx) > 5 or abs(self._drag_total_dy) > 5:
+            self._drag_moved = True
+        self.move(f"station_{self._drag_station_id}", dx, dy)
+
+    def _on_drag_end(self, event: tk.Event) -> None:
+        """拖拽结束：若发生位移则计算新顺序并触发重排回调"""
+        station_id = self._drag_station_id
+        moved = self._drag_moved
+        self._drag_station_id = None
+
+        if not station_id or not moved or not self.on_reorder:
+            # 未发生拖拽视为单击选择
+            if station_id and not moved and self.on_station_select:
+                self.on_station_select(station_id)
+            return
+
+        if station_id not in self.station_positions or not self.production_line:
+            return
+
+        old_x, old_y = self.station_positions[station_id]
+        final_x = old_x + self._drag_total_dx
+        final_y = old_y + self._drag_total_dy
+
+        # 找到距离拖拽终点最近的其它工序
+        nearest_id = None
+        nearest_dist = float("inf")
+        for other_id, (ox, oy) in self.station_positions.items():
+            if other_id == station_id:
+                continue
+            dist = (final_x - ox) ** 2 + (final_y - oy) ** 2
+            if dist < nearest_dist:
+                nearest_dist = dist
+                nearest_id = other_id
+
+        if nearest_id is None:
+            return
+
+        order_ids = [s.id for s in self.production_line.stations]
+        current_index = order_ids.index(station_id)
+        target_index = order_ids.index(nearest_id)
+
+        # 将工序移动到目标位置（模拟插入）
+        order_ids.pop(current_index)
+        order_ids.insert(target_index, station_id)
+
+        if order_ids != [s.id for s in self.production_line.stations]:
+            self.on_reorder(order_ids)
+
+    def _on_right_click(self, event: tk.Event) -> None:
+        """右键菜单：弹出工序操作菜单"""
+        station_id = self._station_id_at(event.x, event.y)
+        if station_id and self.on_station_menu:
+            self.on_station_menu(station_id, event.x_root, event.y_root)
     
     def _on_canvas_resize(self, event: tk.Event) -> None:
         """

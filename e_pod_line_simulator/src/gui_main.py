@@ -25,7 +25,7 @@ GUI布局：
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox, filedialog, simpledialog
 from typing import Optional
 import threading
 
@@ -126,6 +126,8 @@ class MainWindow:
         sim_menu.add_command(label="开始仿真", command=self._menu_start_simulation)
         sim_menu.add_command(label="暂停仿真", command=self._menu_pause_simulation)
         sim_menu.add_command(label="停止仿真", command=self._menu_stop_simulation)
+        sim_menu.add_separator()
+        sim_menu.add_command(label="触发切换...", command=self._menu_trigger_changeover)
         
         # 分析菜单
         analysis_menu = tk.Menu(menubar, tearoff=0)
@@ -173,7 +175,15 @@ class MainWindow:
         canvas_frame = ttk.Frame(right_frame)
         canvas_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
-        self.canvas_view = CanvasView(canvas_frame, width=1000, height=500)
+        self.canvas_view = CanvasView(
+            canvas_frame,
+            width=1000,
+            height=500,
+            on_reorder=self._on_canvas_reorder,
+            on_station_edit=self._on_edit_station,
+            on_station_select=self._on_canvas_select_station,
+            on_station_menu=self._on_canvas_station_menu,
+        )
         self.canvas_view.pack(fill=tk.BOTH, expand=True)
         
         # 底部：KPI仪表盘和控制按钮
@@ -766,7 +776,90 @@ class MainWindow:
         # 在画布上高亮显示选中的工序
         if self.canvas_view:
             self.canvas_view.highlight_station(station.id)
-    
+
+    def _on_canvas_reorder(self, order_ids: list) -> None:
+        """画布拖拽排序回调：更新产线工序顺序"""
+        if self.production_line is None:
+            return
+        if self.simulation_engine and self.simulation_engine.is_running:
+            messagebox.showwarning("警告", "仿真运行中不能调整工序顺序")
+            self.canvas_view.update_production_line(self.production_line)
+            return
+
+        station_map = {s.id: s for s in self.production_line.stations}
+        self.production_line.stations = [
+            station_map[sid] for sid in order_ids if sid in station_map
+        ]
+        self._update_display()
+        self.status_bar.config(text="工序顺序已调整")
+        self.logger.info("拖拽调整工序顺序：%s", order_ids)
+
+    def _on_canvas_select_station(self, station_id: str) -> None:
+        """画布单击工序：高亮并联动配置面板"""
+        if self.canvas_view:
+            self.canvas_view.highlight_station(station_id)
+        if self.config_panel:
+            self.config_panel.select_station(station_id)
+
+    def _on_canvas_station_menu(self, station_id: str, x: int, y: int) -> None:
+        """画布右键菜单：编辑 / 删除 / 触发切换"""
+        station = self.production_line.get_station(station_id) if self.production_line else None
+        if station is None:
+            return
+
+        menu = tk.Menu(self.root, tearoff=0)
+        menu.add_command(label="编辑工序", command=lambda: self._on_edit_station(station_id))
+        menu.add_command(label="删除工序", command=lambda: self._delete_station_by_id(station_id))
+        menu.add_separator()
+        menu.add_command(label="触发切换...", command=lambda: self._trigger_changeover(station_id))
+        try:
+            menu.tk_popup(x, y)
+        finally:
+            menu.grab_release()
+
+    def _delete_station_by_id(self, station_id: str) -> None:
+        """按 ID 删除工序（供右键菜单调用）"""
+        if self.production_line is None:
+            return
+        station = self.production_line.get_station(station_id)
+        if station is None:
+            return
+        if messagebox.askyesno("确认", f"确定要删除工序 '{station.name}' 吗？"):
+            self.production_line.remove_station(station_id)
+            self._update_display()
+            self.status_bar.config(text=f"已删除工序：{station.name}")
+
+    def _menu_trigger_changeover(self) -> None:
+        """仿真菜单 - 触发切换（使用当前选中工序）"""
+        selected = self.config_panel.get_selected_station()
+        if selected is None:
+            messagebox.showwarning("警告", "请先选择一个工序")
+            return
+        self._trigger_changeover(selected.id)
+
+    def _trigger_changeover(self, station_id: str) -> None:
+        """触发指定工序的切换停机"""
+        if not self.simulation_engine or not self.simulation_engine.is_running:
+            messagebox.showwarning("警告", "请先开始仿真，再触发切换")
+            return
+        station = self.production_line.get_station(station_id)
+        if station is None:
+            return
+        minutes = simpledialog.askinteger(
+            "触发切换",
+            f"请输入「{station.name}」的切换停机时长（分钟）：",
+            initialvalue=station.changeover_time or 45,
+            minvalue=1,
+            maxvalue=600,
+        )
+        if not minutes:
+            return
+        try:
+            self.simulation_engine.trigger_changeover(station_id, minutes)
+            self.status_bar.config(text=f"已触发「{station.name}」切换，停机{minutes}分钟")
+        except ValueError as e:
+            messagebox.showerror("错误", str(e))
+
     # ==================== 仿真回调 ====================
     
     def _on_simulation_state_update(self, state: SimulationState) -> None:
