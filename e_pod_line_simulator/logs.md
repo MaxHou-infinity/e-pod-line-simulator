@@ -787,6 +787,12 @@ y = max(0, min(y, screen_height - dialog_height))
 - gh CLI 已安装但 token 失效（MaxHou-infinity）
 - 等待用户完成 `gh auth login` 授权后推送私有仓库
 
+## 2026-08-07 - V1.2.0 GitHub 私有交付完成
+
+- 已创建私有仓库：https://github.com/MaxHou-infinity/e-pod-line-simulator
+- 已推送：main 分支 + v1.1.0 / v1.2.0 标签
+- 本地压缩包：`E-Pod-Line-Simulator-v1.2.0.zip`（含 README 与双平台启动器）
+
 ## 2026-08-07 - V1.2.0 U6 快捷键与脏状态
 
 ### 完成内容
