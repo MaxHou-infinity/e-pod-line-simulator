@@ -1,0 +1,27 @@
+@echo off
+chcp 65001 >nul
+rem ============================================================
+rem 电子烟产线仿真优化工具 - 普通用户启动器（Windows）
+rem 双击本文件即可启动；首次运行会自动安装依赖（需网络）。
+rem ============================================================
+cd /d "%~dp0"
+
+where python >nul 2>nul
+if %errorlevel% neq 0 (
+  echo 未找到 Python，请先安装 Python 3.8+：https://www.python.org/downloads/
+  pause
+  exit /b 1
+)
+
+python -c "import simpy, pandas, openpyxl, reportlab" >nul 2>nul
+if errorlevel 1 (
+  echo 首次运行，正在安装依赖，请稍候...
+  python -m pip install -r requirements.txt
+  if errorlevel 1 (
+    echo 依赖安装失败，请检查网络后重试。
+    pause
+    exit /b 1
+  )
+)
+
+python run.py
