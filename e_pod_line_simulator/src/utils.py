@@ -1,0 +1,654 @@
+"""
+工具函数层 - 提供各种辅助功能
+
+这个文件包含所有工具函数，包括：
+- 文件I/O：JSON和Excel的读写
+- 参数校验：验证用户输入
+- 日志管理：记录程序运行日志
+- 辅助函数：格式化、计算等
+
+设计原则：
+1. 函数独立：每个函数只做一件事，不依赖其他业务逻辑
+2. 错误处理：完善的异常处理和错误提示
+3. 易于测试：纯函数，输入输出明确
+"""
+
+import json
+import os
+from typing import Dict, Any, List, Optional, Tuple
+from pathlib import Path
+import logging
+
+from src.models import ProductionLine, Station
+
+
+# ==================== 文件I/O ====================
+
+def load_config(file_path: str) -> Optional[ProductionLine]:
+    """
+    从JSON文件加载产线配置
+    
+    这是配置文件加载的核心函数，用于：
+    - 加载用户保存的产线配置
+    - 加载示例配置
+    - 导入其他来源的配置
+    
+    Args:
+        file_path: JSON文件路径
+        
+    Returns:
+        Optional[ProductionLine]: 加载的产线对象，如果加载失败返回None
+        
+    示例：
+        line = load_config("configs/default.json")
+        if line:
+            print(f"加载产线：{line.name}")
+    """
+    try:
+        # 检查文件是否存在
+        if not os.path.exists(file_path):
+            print(f"文件不存在：{file_path}")
+            return None
+        
+        # 读取JSON文件
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # 从字典创建产线对象
+        line = ProductionLine.from_dict(data)
+        
+        return line
+        
+    except json.JSONDecodeError as e:
+        # JSON格式错误
+        print(f"JSON格式错误：{e}")
+        return None
+    except KeyError as e:
+        # 缺少必需字段
+        print(f"配置文件缺少字段：{e}")
+        return None
+    except Exception as e:
+        # 其他错误
+        print(f"加载配置失败：{e}")
+        return None
+
+
+def save_config(production_line: ProductionLine, file_path: str) -> bool:
+    """
+    将产线配置保存为JSON文件
+    
+    用于保存用户配置，方便下次使用
+    
+    Args:
+        production_line: 要保存的产线对象
+        file_path: 保存路径
+        
+    Returns:
+        bool: 是否保存成功
+        
+    示例：
+        success = save_config(line, "configs/my_line.json")
+        if success:
+            print("保存成功")
+    """
+    try:
+        # 确保目录存在
+        directory = os.path.dirname(file_path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+        
+        # 转换为字典
+        data = production_line.to_dict()
+        
+        # 写入JSON文件（格式化输出，便于阅读）
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        return True
+        
+    except Exception as e:
+        print(f"保存配置失败：{e}")
+        return False
+
+
+def import_from_excel(file_path: str) -> Tuple[Optional[ProductionLine], Optional[str]]:
+    """
+    从Excel文件导入产线配置
+    
+    Excel格式要求（标准模板）：
+    | 工序名 | 耗时(秒) | 人数 | 模式 | OEE | 人员效率 | 切换时间(分钟) | 缓冲区容量 |
+    |--------|----------|------|------|-----|----------|----------------|------------|
+    | 注油   | 25       | 2    | 并联 | 0.85| 0.95     | 45             | 100        |
+    
+    必填字段：工序名、耗时(秒)、人数
+    可选字段：模式（默认"并联"）、OEE（默认0.85）、人员效率（默认0.95）、切换时间（默认45）、缓冲区容量（默认100）
+    
+    Args:
+        file_path: Excel文件路径
+        
+    Returns:
+        Tuple[Optional[ProductionLine], Optional[str]]: 
+            - 第一个元素：导入的产线对象，如果导入失败返回None
+            - 第二个元素：错误消息，如果成功返回None
+            
+    示例：
+        line, error = import_from_excel("configs/产线配置.xlsx")
+        if line:
+            print(f"导入成功：{line.name}")
+        else:
+            print(f"导入失败：{error}")
+    """
+    try:
+        # 尝试导入pandas（如果安装了）
+        try:
+            import pandas as pd
+        except ImportError:
+            error_msg = "需要安装pandas和openpyxl库才能导入Excel\n请运行：pip install pandas openpyxl"
+            return None, error_msg
+        
+        # 检查文件是否存在
+        if not os.path.exists(file_path):
+            return None, f"文件不存在：{file_path}"
+        
+        # 读取Excel文件（支持.xlsx和.xls格式）
+        try:
+            df = pd.read_excel(file_path, engine='openpyxl')
+        except Exception as e:
+            return None, f"无法读取Excel文件：{str(e)}\n请确保文件格式正确（.xlsx或.xls）"
+        
+        # 检查是否为空文件
+        if df.empty:
+            return None, "Excel文件为空，没有数据行"
+        
+        # 列名映射（支持多种可能的列名）
+        column_mapping = {
+            'name': ['工序名', '工序名称', '名称', 'name', 'Name', 'NAME'],
+            'process_time': ['耗时(秒)', '耗时', '单颗耗时', 'process_time', 'Process Time', 'PROCESS_TIME', '时间', '秒'],
+            'worker_count': ['人数', '工人数', '人员数', 'worker_count', 'Worker Count', 'WORKER_COUNT', '工人数量'],
+            'collaboration_type': ['模式', '协作模式', 'collaboration_type', 'Collaboration Type', 'COLLABORATION_TYPE', '类型'],
+            'oee': ['OEE', 'oee', '设备效率', '设备综合效率'],
+            'efficiency': ['人员效率', '效率', 'efficiency', 'Efficiency', 'EFFICIENCY', '人员效率系数'],
+            'changeover_time': ['切换时间(分钟)', '切换时间', 'changeover_time', 'Changeover Time', 'CHANGEOVER_TIME', '切换'],
+            'buffer_capacity': ['缓冲区容量', '缓冲区', 'buffer_capacity', 'Buffer Capacity', 'BUFFER_CAPACITY', '缓冲']
+        }
+        
+        # 查找实际列名
+        actual_columns = {}
+        for key, possible_names in column_mapping.items():
+            for col in df.columns:
+                col_str = str(col).strip()
+                if col_str in possible_names:
+                    actual_columns[key] = col_str
+                    break
+        
+        # 检查必填字段
+        required_fields = ['name', 'process_time', 'worker_count']
+        missing_fields = [field for field in required_fields if field not in actual_columns]
+        if missing_fields:
+            field_names = {
+                'name': '工序名',
+                'process_time': '耗时(秒)',
+                'worker_count': '人数'
+            }
+            missing_names = [field_names.get(f, f) for f in missing_fields]
+            return None, f"Excel文件缺少必填列：{', '.join(missing_names)}\n请参考模板格式"
+        
+        # 创建产线对象
+        line = ProductionLine(name="从Excel导入")
+        
+        # 错误收集列表
+        errors = []
+        
+        # 遍历每一行，创建工序
+        for idx, row in df.iterrows():
+            try:
+                # 获取必填字段
+                name = str(row[actual_columns['name']]).strip()
+                if not name or name == 'nan' or name.lower() == 'nan':
+                    errors.append(f"第{idx+2}行：工序名不能为空")
+                    continue
+                
+                # 获取耗时（秒）
+                try:
+                    process_time = float(row[actual_columns['process_time']])
+                    if process_time <= 0:
+                        errors.append(f"第{idx+2}行（{name}）：耗时必须大于0")
+                        continue
+                except (ValueError, TypeError):
+                    errors.append(f"第{idx+2}行（{name}）：耗时格式错误，必须是数字")
+                    continue
+                
+                # 获取人数
+                try:
+                    worker_count = int(float(row[actual_columns['worker_count']]))
+                    if worker_count < 1:
+                        errors.append(f"第{idx+2}行（{name}）：人数至少为1")
+                        continue
+                except (ValueError, TypeError):
+                    errors.append(f"第{idx+2}行（{name}）：人数格式错误，必须是整数")
+                    continue
+                
+                # 获取可选字段（使用默认值）
+                collaboration_type_str = 'parallel'  # 默认并联
+                if 'collaboration_type' in actual_columns:
+                    col_val = str(row[actual_columns['collaboration_type']]).strip().lower()
+                    if col_val in ['并联', 'parallel', 'parallel']:
+                        collaboration_type_str = 'parallel'
+                    elif col_val in ['协同', 'collaborative', 'collaborative']:
+                        collaboration_type_str = 'collaborative'
+                
+                oee = 0.85  # 默认OEE
+                if 'oee' in actual_columns:
+                    try:
+                        oee_val = float(row[actual_columns['oee']])
+                        if 0 < oee_val <= 1:
+                            oee = oee_val
+                    except (ValueError, TypeError):
+                        pass  # 使用默认值
+                
+                efficiency = 0.95  # 默认人员效率
+                if 'efficiency' in actual_columns:
+                    try:
+                        eff_val = float(row[actual_columns['efficiency']])
+                        if 0 < eff_val <= 1:
+                            efficiency = eff_val
+                    except (ValueError, TypeError):
+                        pass  # 使用默认值
+                
+                changeover_time = 45  # 默认切换时间（分钟）
+                if 'changeover_time' in actual_columns:
+                    try:
+                        changeover_val = int(float(row[actual_columns['changeover_time']]))
+                        if changeover_val >= 0:
+                            changeover_time = changeover_val
+                    except (ValueError, TypeError):
+                        pass  # 使用默认值
+                
+                buffer_capacity = 100  # 默认缓冲区容量
+                if 'buffer_capacity' in actual_columns:
+                    try:
+                        buffer_val = int(float(row[actual_columns['buffer_capacity']]))
+                        if buffer_val > 0:
+                            buffer_capacity = buffer_val
+                    except (ValueError, TypeError):
+                        pass  # 使用默认值
+                
+                # 创建工序对象
+                # 导入CollaborationType（延迟导入避免循环依赖）
+                from models import CollaborationType
+                collaboration_type = CollaborationType.PARALLEL if collaboration_type_str == 'parallel' else CollaborationType.COLLABORATIVE
+                
+                station = Station(
+                    id=f"s{idx+1:02d}",
+                    name=name,
+                    process_time=process_time,
+                    worker_count=worker_count,
+                    collaboration_type=collaboration_type,
+                    oee=oee,
+                    efficiency=efficiency,
+                    changeover_time=changeover_time,
+                    buffer_capacity=buffer_capacity
+                )
+                
+                # 校验工序参数
+                valid, error_msg = validate_station(name, process_time, worker_count)
+                if not valid:
+                    errors.append(f"第{idx+2}行（{name}）：{error_msg}")
+                    continue
+                
+                line.add_station(station)
+                
+            except Exception as e:
+                errors.append(f"第{idx+2}行：处理失败 - {str(e)}")
+                continue
+        
+        # 检查是否成功创建了至少一个工序
+        if not line.stations:
+            error_msg = "未能成功导入任何工序。\n"
+            if errors:
+                error_msg += "\n错误详情：\n" + "\n".join(errors[:10])  # 最多显示10个错误
+                if len(errors) > 10:
+                    error_msg += f"\n... 还有{len(errors)-10}个错误"
+            return None, error_msg
+        
+        # 如果有部分错误，但仍然成功导入了部分数据，给出警告
+        warning_msg = None
+        if errors:
+            warning_msg = f"成功导入{len(line.stations)}个工序，但有{len(errors)}行数据有错误：\n" + "\n".join(errors[:5])
+            if len(errors) > 5:
+                warning_msg += f"\n... 还有{len(errors)-5}个错误"
+        
+        # 校验整个产线配置
+        valid, error_msg = validate_production_line(line)
+        if not valid:
+            return None, f"导入的产线配置不合法：{error_msg}"
+        
+        # 返回结果（如果有警告，会在GUI中显示）
+        return line, warning_msg
+        
+    except Exception as e:
+        return None, f"导入Excel失败：{str(e)}"
+
+
+def create_excel_template(file_path: str) -> bool:
+    """
+    创建Excel导入模板文件
+    
+    创建一个标准的Excel模板文件，用户可以参考这个模板来填写自己的产线配置
+    
+    Args:
+        file_path: 模板文件保存路径
+        
+    Returns:
+        bool: 是否创建成功
+        
+    示例：
+        success = create_excel_template("configs/产线配置模板.xlsx")
+    """
+    try:
+        # 尝试导入pandas（如果安装了）
+        try:
+            import pandas as pd
+        except ImportError:
+            print("需要安装pandas和openpyxl库才能创建Excel模板\n请运行：pip install pandas openpyxl")
+            return False
+        
+        # 确保目录存在
+        directory = os.path.dirname(file_path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+        
+        # 创建示例数据
+        template_data = [
+            ['注油', 25, 2, '并联', 0.85, 0.95, 45, 100],
+            ['焊接', 30, 3, '并联', 0.90, 0.95, 45, 100],
+            ['组装', 20, 2, '协同', 0.88, 0.95, 0, 100],
+            ['包装', 15, 2, '并联', 0.92, 0.95, 0, 100]
+        ]
+        
+        # 创建DataFrame
+        df = pd.DataFrame(
+            template_data,
+            columns=['工序名', '耗时(秒)', '人数', '模式', 'OEE', '人员效率', '切换时间(分钟)', '缓冲区容量']
+        )
+        
+        # 保存为Excel文件
+        df.to_excel(file_path, index=False, engine='openpyxl')
+        
+        return True
+        
+    except Exception as e:
+        print(f"创建Excel模板失败：{e}")
+        return False
+
+
+# ==================== 参数校验 ====================
+
+def validate_station(name: str, process_time: float, worker_count: int) -> Tuple[bool, str]:
+    """
+    校验工序参数
+    
+    检查用户输入的工序参数是否合法
+    
+    Args:
+        name: 工序名称
+        process_time: 单颗耗时（秒）
+        worker_count: 工人数量
+        
+    Returns:
+        Tuple[bool, str]: (是否合法, 错误消息)
+        
+    示例：
+        valid, error = validate_station("注油", 25, 2)
+        if not valid:
+            print(f"验证失败：{error}")
+    """
+    # 校验名称
+    if not name or not name.strip():
+        return False, "工序名称不能为空"
+    
+    if len(name) > 20:
+        return False, "工序名称不能超过20个字符"
+    
+    # 校验耗时
+    if process_time <= 0:
+        return False, "单颗耗时必须大于0"
+    
+    if process_time > 3600:
+        return False, "单颗耗时不能超过3600秒（1小时）"
+    
+    # 校验人数
+    if worker_count < 1:
+        return False, "工人数量至少为1"
+    
+    if worker_count > 20:
+        return False, "工人数量不能超过20（单工序）"
+    
+    # 所有检查通过
+    return True, ""
+
+
+def validate_production_line(line: ProductionLine) -> Tuple[bool, str]:
+    """
+    校验产线配置
+    
+    检查产线配置是否完整和合法
+    
+    Args:
+        line: 产线对象
+        
+    Returns:
+        Tuple[bool, str]: (是否合法, 错误消息)
+    """
+    # 检查是否有工序
+    if not line.stations:
+        return False, "产线至少需要一个工序"
+    
+    # 检查工序数量
+    if len(line.stations) > 20:
+        return False, "产线工序数量不能超过20个"
+    
+    # 检查每个工序
+    station_ids = set()
+    for station in line.stations:
+        # 检查ID是否重复
+        if station.id in station_ids:
+            return False, f"工序ID重复：{station.id}"
+        station_ids.add(station.id)
+        
+        # 校验工序参数
+        valid, error = validate_station(
+            station.name,
+            station.process_time,
+            station.worker_count
+        )
+        if not valid:
+            return False, f"工序'{station.name}'参数错误：{error}"
+    
+    # 所有检查通过
+    return True, ""
+
+
+# ==================== 日志管理 ====================
+
+def setup_logger(log_file: Optional[str] = None, level: int = logging.INFO) -> logging.Logger:
+    """
+    设置日志系统
+    
+    配置日志格式和输出位置，用于记录程序运行日志
+    
+    Args:
+        log_file: 日志文件路径，如果为None则只输出到控制台
+        level: 日志级别，默认INFO
+        
+    Returns:
+        logging.Logger: 配置好的日志对象
+        
+    示例：
+        logger = setup_logger("logs/app.log")
+        logger.info("程序启动")
+    """
+    # 创建日志格式
+    # 格式：时间 - 级别 - 消息
+    formatter = logging.Formatter(
+        '%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
+    # 创建日志对象
+    logger = logging.getLogger('epod_simulator')
+    logger.setLevel(level)
+    
+    # 清除已有的处理器（避免重复添加）
+    logger.handlers.clear()
+    
+    # 添加控制台处理器
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    
+    # 如果指定了日志文件，添加文件处理器
+    if log_file:
+        # 确保日志目录存在
+        log_dir = os.path.dirname(log_file)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+        
+        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+    
+    return logger
+
+
+# ==================== 辅助函数 ====================
+
+def format_time(seconds: float) -> str:
+    """
+    格式化时间显示
+    
+    将秒数转换为易读的时间格式（小时:分钟:秒）
+    
+    Args:
+        seconds: 时间（秒）
+        
+    Returns:
+        str: 格式化后的时间字符串
+        
+    示例：
+        print(format_time(3661))  # 输出："01:01:01"
+    """
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
+def format_number(num: float, decimals: int = 2) -> str:
+    """
+    格式化数字显示
+    
+    将浮点数格式化为指定小数位数的字符串
+    
+    Args:
+        num: 要格式化的数字
+        decimals: 小数位数，默认2位
+        
+    Returns:
+        str: 格式化后的字符串
+        
+    示例：
+        print(format_number(123.456))  # 输出："123.46"
+    """
+    return f"{num:.{decimals}f}"
+
+
+def calculate_roi(investment: float, daily_savings: float) -> float:
+    """
+    计算投资回收期（天数）
+    
+    ROI = Return on Investment，投资回报率
+    这里计算的是投资回收期，即需要多少天才能收回投资
+    
+    Args:
+        investment: 投资金额（元）
+        daily_savings: 每日节省金额（元/天）
+        
+    Returns:
+        float: 回收期（天），如果daily_savings<=0则返回0
+        
+    示例：
+        roi = calculate_roi(10000, 200)  # 投资1万，每天省200，回收期50天
+    """
+    if daily_savings <= 0:
+        return 0.0
+    
+    return investment / daily_savings
+
+
+def get_status_color(status: str) -> str:
+    """
+    根据状态获取颜色代码
+    
+    用于GUI显示，不同状态用不同颜色
+    
+    Args:
+        status: 状态字符串（idle/running/blocked/waiting/changeover）
+        
+    Returns:
+        str: 颜色代码（十六进制格式，如"#00FF00"）
+        
+    颜色方案：
+        - idle: 灰色（空闲）
+        - running: 绿色（运行中）
+        - blocked: 红色（堵塞）
+        - waiting: 黄色（等待）
+        - changeover: 蓝色（切换中）
+    """
+    color_map = {
+        'idle': '#CCCCCC',      # 灰色
+        'running': '#00FF00',   # 绿色
+        'blocked': '#FF0000',   # 红色
+        'waiting': '#FFFF00',   # 黄色
+        'changeover': '#0080FF' # 蓝色
+    }
+    return color_map.get(status, '#CCCCCC')  # 默认灰色
+
+
+def get_alert_color(severity: str) -> str:
+    """
+    根据报警严重程度获取颜色
+    
+    Args:
+        severity: 严重程度（critical/warning/info）
+        
+    Returns:
+        str: 颜色代码
+    """
+    color_map = {
+        'critical': '#FF0000',  # 红色（严重）
+        'warning': '#FFA500',   # 橙色（警告）
+        'info': '#0080FF'       # 蓝色（信息）
+    }
+    return color_map.get(severity, '#CCCCCC')
+
+
+# ==================== 常量定义 ====================
+
+# 默认配置路径
+DEFAULT_CONFIG_DIR = "configs"
+DEFAULT_CONFIG_FILE = os.path.join(DEFAULT_CONFIG_DIR, "default.json")
+
+# 日志文件路径
+LOG_DIR = "logs"
+LOG_FILE = os.path.join(LOG_DIR, "app.log")
+
+# GUI配置
+CANVAS_WIDTH = 1200  # 画布宽度（像素）
+CANVAS_HEIGHT = 600  # 画布高度（像素）
+STATION_WIDTH = 120  # 工序节点宽度
+STATION_HEIGHT = 80  # 工序节点高度
+
+# 仿真配置
+DEFAULT_SIMULATION_HOURS = 8.0  # 默认仿真时长（小时）
+DEFAULT_SIMULATION_SPEED = 16   # 默认仿真速度（倍数）

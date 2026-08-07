@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# IDE / 工具元数据
+.idea/
+.vscode/
+*.swp
+.trae/
+
+# 运行时产物
+logs/
+*.log

@@ -1,0 +1,78 @@
+{
+  "name": "电子烟产线_标准版",
+  "shift_hours": 8,
+  "break_minutes": 60,
+  "worker_hourly_wage": 20.0,
+  "stations": [
+    {
+      "id": "s01",
+      "name": "注油",
+      "process_time": 25,
+      "worker_count": 2,
+      "collaboration_type": "parallel",
+      "oee": 0.85,
+      "efficiency": 0.95,
+      "changeover_time": 45,
+      "buffer_capacity": 100,
+      "current_status": "idle",
+      "wip_count": 0,
+      "total_output": 0
+    },
+    {
+      "id": "s02",
+      "name": "焊接",
+      "process_time": 30,
+      "worker_count": 3,
+      "collaboration_type": "parallel",
+      "oee": 0.90,
+      "efficiency": 0.95,
+      "changeover_time": 45,
+      "buffer_capacity": 100,
+      "current_status": "idle",
+      "wip_count": 0,
+      "total_output": 0
+    },
+    {
+      "id": "s03",
+      "name": "棉芯安装",
+      "process_time": 20,
+      "worker_count": 2,
+      "collaboration_type": "collaborative",
+      "oee": 0.88,
+      "efficiency": 0.95,
+      "changeover_time": 0,
+      "buffer_capacity": 100,
+      "current_status": "idle",
+      "wip_count": 0,
+      "total_output": 0
+    },
+    {
+      "id": "s04",
+      "name": "组装",
+      "process_time": 22,
+      "worker_count": 2,
+      "collaboration_type": "parallel",
+      "oee": 0.87,
+      "efficiency": 0.95,
+      "changeover_time": 0,
+      "buffer_capacity": 100,
+      "current_status": "idle",
+      "wip_count": 0,
+      "total_output": 0
+    },
+    {
+      "id": "s05",
+      "name": "包装",
+      "process_time": 15,
+      "worker_count": 2,
+      "collaboration_type": "parallel",
+      "oee": 0.92,
+      "efficiency": 0.95,
+      "changeover_time": 0,
+      "buffer_capacity": 100,
+      "current_status": "idle",
+      "wip_count": 0,
+      "total_output": 0
+    }
+  ]
+}

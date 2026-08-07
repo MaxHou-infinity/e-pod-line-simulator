@@ -1,0 +1,302 @@
+"""
+方案管理器模块 - 管理所有保存的方案
+
+这个模块提供方案管理功能，包括：
+- 保存方案
+- 删除方案
+- 获取方案列表
+- 对比方案KPI
+
+设计说明：
+- 方案保存在内存中（程序关闭后丢失）
+- 方案数量限制：至少2个，至多3个
+- 使用深拷贝确保方案数据独立性
+"""
+
+from typing import Dict, List, Optional, Any, Tuple
+from src.models import Scenario, ProductionLine
+
+
+class ScenarioManager:
+    """
+    方案管理器类 - 管理所有保存的方案
+    
+    功能：
+    - 保存方案（最多3个）
+    - 删除方案
+    - 获取方案列表
+    - 对比多个方案的KPI
+    
+    方案数量限制：
+    - 最少2个方案才能对比
+    - 最多保存3个方案
+    
+    使用方式：
+        manager = ScenarioManager()
+        manager.save_scenario("方案A", production_line)
+        scenarios = manager.list_scenarios()
+        comparison = manager.compare_scenarios(["方案A", "方案B"])
+    """
+    
+    def __init__(self):
+        """初始化方案管理器"""
+        # 方案字典，key为方案名称，value为Scenario对象
+        self.scenarios: Dict[str, Scenario] = {}
+        
+        # 方案数量限制
+        self.MAX_SCENARIOS = 3  # 最多3个方案
+        self.MIN_SCENARIOS_FOR_COMPARE = 2  # 至少2个方案才能对比
+    
+    def save_scenario(self, name: str, production_line: ProductionLine, description: str = "") -> Tuple[bool, Optional[str]]:
+        """
+        保存方案
+        
+        如果方案数量已达到上限（3个），会返回错误提示
+        
+        Args:
+            name: 方案名称（必填，不能重复）
+            production_line: 要保存的产线对象
+            description: 方案描述（可选）
+            
+        Returns:
+            tuple[bool, Optional[str]]: 
+                - 第一个元素：是否保存成功
+                - 第二个元素：错误消息（如果失败）
+                
+        示例：
+            success, error = manager.save_scenario("方案A", line, "优化后的配置")
+            if success:
+                print("保存成功")
+            else:
+                print(f"保存失败：{error}")
+        """
+        # 验证方案名称
+        if not name or not name.strip():
+            return False, "方案名称不能为空"
+        
+        name = name.strip()
+        
+        # 检查名称是否已存在
+        if name in self.scenarios:
+            return False, f"方案名称'{name}'已存在，请使用不同的名称"
+        
+        # 检查方案数量限制
+        if len(self.scenarios) >= self.MAX_SCENARIOS:
+            return False, f"方案数量已达到上限（{self.MAX_SCENARIOS}个），请先删除一个方案"
+        
+        # 创建方案对象（使用工厂方法，自动处理深拷贝和时间戳）
+        try:
+            scenario = Scenario.create(name, production_line, description)
+            self.scenarios[name] = scenario
+            return True, None
+        except Exception as e:
+            return False, f"保存方案失败：{str(e)}"
+    
+    def delete_scenario(self, name: str) -> Tuple[bool, Optional[str]]:
+        """
+        删除方案
+        
+        Args:
+            name: 方案名称
+            
+        Returns:
+            tuple[bool, Optional[str]]: 
+                - 第一个元素：是否删除成功
+                - 第二个元素：错误消息（如果失败）
+        """
+        if name not in self.scenarios:
+            return False, f"方案'{name}'不存在"
+        
+        # 检查删除后是否还能满足对比要求
+        if len(self.scenarios) <= self.MIN_SCENARIOS_FOR_COMPARE:
+            # 如果删除后方案数量少于2个，仍然允许删除（用户可能想重新开始）
+            pass
+        
+        del self.scenarios[name]
+        return True, None
+    
+    def get_scenario(self, name: str) -> Optional[Scenario]:
+        """
+        获取指定方案
+        
+        Args:
+            name: 方案名称
+            
+        Returns:
+            Optional[Scenario]: 方案对象，如果不存在返回None
+        """
+        return self.scenarios.get(name)
+    
+    def list_scenarios(self) -> List[str]:
+        """
+        获取所有方案名称列表
+        
+        Returns:
+            List[str]: 方案名称列表，按创建时间排序
+        """
+        # 按创建时间排序
+        sorted_scenarios = sorted(
+            self.scenarios.items(),
+            key=lambda x: x[1].created_at
+        )
+        return [name for name, _ in sorted_scenarios]
+    
+    def get_scenario_count(self) -> int:
+        """
+        获取当前方案数量
+        
+        Returns:
+            int: 方案数量
+        """
+        return len(self.scenarios)
+    
+    def can_add_scenario(self) -> bool:
+        """
+        检查是否可以添加新方案
+        
+        Returns:
+            bool: 是否可以添加（方案数量未达上限）
+        """
+        return len(self.scenarios) < self.MAX_SCENARIOS
+    
+    def can_compare(self) -> bool:
+        """
+        检查是否可以对比方案
+        
+        Returns:
+            bool: 是否可以对比（至少2个方案）
+        """
+        return len(self.scenarios) >= self.MIN_SCENARIOS_FOR_COMPARE
+    
+    def compare_scenarios(self, scenario_names: List[str]) -> Dict[str, Any]:
+        """
+        对比多个方案的KPI
+        
+        对比逻辑：
+        1. 计算每个方案的所有KPI
+        2. 以第一个方案为基准，计算其他方案的差异
+        3. 推荐最佳方案（单颗成本最低）
+        
+        Args:
+            scenario_names: 要对比的方案名称列表（至少2个）
+            
+        Returns:
+            Dict[str, Any]: 对比结果，包含：
+                - 'scenarios': 方案KPI列表
+                - 'differences': 差异列表
+                - 'recommendation': 推荐方案名称和理由
+                
+        示例：
+            comparison = manager.compare_scenarios(["方案A", "方案B", "方案C"])
+            # 返回对比结果，包含KPI和差异
+        """
+        # 验证方案数量
+        if len(scenario_names) < self.MIN_SCENARIOS_FOR_COMPARE:
+            raise ValueError(f"至少需要{self.MIN_SCENARIOS_FOR_COMPARE}个方案才能对比")
+        
+        # 验证所有方案都存在
+        for name in scenario_names:
+            if name not in self.scenarios:
+                raise ValueError(f"方案'{name}'不存在")
+        
+        # 获取所有方案的KPI
+        scenario_kpis = []
+        for name in scenario_names:
+            scenario = self.scenarios[name]
+            kpis = scenario.get_kpis()
+            scenario_kpis.append({
+                'name': name,
+                'kpis': kpis
+            })
+        
+        # 计算差异（以第一个方案为基准）
+        differences = []
+        if len(scenario_kpis) > 1:
+            base_kpis = scenario_kpis[0]['kpis']
+            
+            # KPI指标列表（用于对比）
+            kpi_metrics = [
+                ('total_workers', '总人数', '人'),
+                ('bottleneck_capacity', '瓶颈产能', '颗/h'),
+                ('daily_output', '日产量', '颗'),
+                ('total_cost', '日成本', '元'),
+                ('unit_cost', '单颗成本', '元/颗'),
+                ('balance_rate', '产线平衡率', '%'),
+                ('upph', 'UPPH', '颗/人·h')
+            ]
+            
+            for metric_key, metric_name, unit in kpi_metrics:
+                base_value = base_kpis[metric_key]
+                
+                # 计算每个方案相对于基准方案的差异
+                diff_values = []
+                for i, scenario_data in enumerate(scenario_kpis):
+                    value = scenario_data['kpis'][metric_key]
+                    if i == 0:
+                        # 基准方案，差异为0
+                        diff_values.append({
+                            'value': value,
+                            'diff_absolute': 0.0,
+                            'diff_percent': 0.0
+                        })
+                    else:
+                        # 计算绝对差异和百分比差异
+                        diff_absolute = value - base_value
+                        if base_value != 0:
+                            diff_percent = (diff_absolute / base_value) * 100
+                        else:
+                            diff_percent = 0.0 if diff_absolute == 0 else 100.0
+                        
+                        diff_values.append({
+                            'value': value,
+                            'diff_absolute': diff_absolute,
+                            'diff_percent': diff_percent
+                        })
+                
+                differences.append({
+                    'metric_key': metric_key,
+                    'metric_name': metric_name,
+                    'unit': unit,
+                    'values': diff_values
+                })
+        
+        # 推荐最佳方案（单颗成本最低）
+        best_scenario = None
+        best_unit_cost = float('inf')
+        recommendation_reason = ""
+        
+        for scenario_data in scenario_kpis:
+            unit_cost = scenario_data['kpis']['unit_cost']
+            if unit_cost > 0 and unit_cost < best_unit_cost:
+                best_unit_cost = unit_cost
+                best_scenario = scenario_data['name']
+        
+        if best_scenario:
+            # 获取最佳方案的其他优势
+            best_kpis = next(s['kpis'] for s in scenario_kpis if s['name'] == best_scenario)
+            advantages = []
+            
+            # 检查各项指标是否最优
+            for scenario_data in scenario_kpis:
+                if scenario_data['name'] == best_scenario:
+                    continue
+                other_kpis = scenario_data['kpis']
+                
+                if best_kpis['daily_output'] > other_kpis['daily_output']:
+                    advantages.append("产能最高")
+                if best_kpis['balance_rate'] > other_kpis['balance_rate']:
+                    advantages.append("平衡率最高")
+                if best_kpis['upph'] > other_kpis['upph']:
+                    advantages.append("UPPH最高")
+            
+            if advantages:
+                recommendation_reason = f"{best_scenario}（单颗成本最低，{', '.join(advantages)}）"
+            else:
+                recommendation_reason = f"{best_scenario}（单颗成本最低）"
+        
+        return {
+            'scenarios': scenario_kpis,
+            'differences': differences,
+            'recommendation': recommendation_reason if best_scenario else "无法推荐"
+        }
+
