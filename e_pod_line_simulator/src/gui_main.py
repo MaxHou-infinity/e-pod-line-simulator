@@ -45,7 +45,7 @@ from src.gui_panels import (
 from src.utils import load_config, save_config, import_from_excel, validate_production_line, setup_logger
 from src.scenario_manager import ScenarioManager
 from src.reporting import export_report
-from src.theme import apply_theme
+from src.theme import ToolTip, apply_theme
 from src.version import __version__
 
 
@@ -272,15 +272,24 @@ class MainWindow:
         self.speed_combo = speed_combo
         
         # 班次配置按钮
-        btn_config = ttk.Button(control_frame, text="班次配置", command=self._btn_config_shift)
-        btn_config.pack(side=tk.LEFT, padx=5)
+        self.btn_config_shift = ttk.Button(control_frame, text="班次配置", command=self._btn_config_shift)
+        self.btn_config_shift.pack(side=tk.LEFT, padx=5)
         
         # 保存方案按钮
-        ttk.Button(
+        self.btn_save_scenario = ttk.Button(
             control_frame,
             text="保存方案",
             command=self._btn_save_scenario
-        ).pack(side=tk.LEFT, padx=5)
+        )
+        self.btn_save_scenario.pack(side=tk.LEFT, padx=5)
+
+        # 关键控件 Tooltip（V1.2.0）
+        ToolTip(self.btn_start, "开始仿真（空格）")
+        ToolTip(self.btn_pause, "暂停仿真（空格）")
+        ToolTip(self.btn_stop, "停止仿真")
+        ToolTip(self.btn_config_shift, "配置班次时长 / 休息时间 / 时薪")
+        ToolTip(self.btn_save_scenario, "保存当前产线配置为方案")
+        ToolTip(self.speed_combo, "仿真速度倍数（1x-64x）")
         
         # 报警面板
         alert_frame = ttk.Frame(right_frame)

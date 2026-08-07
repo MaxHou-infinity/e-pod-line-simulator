@@ -20,7 +20,7 @@ from typing import List, Optional, Callable, Dict, Any
 from src.models import Station, Alert, CollaborationType, ProductionLine
 from src.utils import validate_station, get_alert_color
 from src.scenario_manager import ScenarioManager
-from src.theme import ALERT_ICONS, COLORS, resolve_font_family
+from src.theme import ALERT_ICONS, COLORS, ToolTip, resolve_font_family
 
 
 def build_template_line(key: str) -> ProductionLine:
@@ -112,14 +112,17 @@ class ConfigPanel(ttk.Frame):
         # 添加按钮
         self.btn_add = ttk.Button(button_frame, text="添加", command=self._btn_add)
         self.btn_add.pack(side=tk.LEFT, padx=2)
+        ToolTip(self.btn_add, "添加新工序")
 
         # 编辑按钮
         self.btn_edit = ttk.Button(button_frame, text="编辑", command=self._btn_edit)
         self.btn_edit.pack(side=tk.LEFT, padx=2)
+        ToolTip(self.btn_edit, "编辑选中工序")
 
         # 删除按钮
         self.btn_delete = ttk.Button(button_frame, text="删除", command=self._btn_delete)
         self.btn_delete.pack(side=tk.LEFT, padx=2)
+        ToolTip(self.btn_delete, "删除选中工序")
         
         # 工序列表（使用Treeview显示）
         list_frame = ttk.Frame(self)

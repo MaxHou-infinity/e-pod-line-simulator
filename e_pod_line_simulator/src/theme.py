@@ -6,6 +6,7 @@ GUI 组件通过引用令牌保持视觉一致，避免散落硬编码。
 """
 
 import platform
+import tkinter as tk
 
 
 # ==================== 设计令牌 ====================
@@ -143,3 +144,66 @@ def apply_theme(root) -> None:
 
     root.configure(bg=COLORS['bg'])
     root.option_add('*Font', (family, 11))
+
+    # HiDPI：按系统实际 DPI 设置 Tk 缩放，保证高分屏清晰
+    try:
+        root.tk.call('tk', 'scaling', root.winfo_fpixels('1i') / 72.0)
+    except Exception:
+        pass
+
+
+class ToolTip:
+    """
+    轻量 Tooltip：悬停显示提示文本
+
+    使用方式：
+        ToolTip(button, "开始仿真（空格）")
+    """
+
+    def __init__(self, widget, text: str, delay_ms: int = 400):
+        self.widget = widget
+        self.text = text
+        self.delay_ms = delay_ms
+        self._after_id = None
+        self._tip_window = None
+        widget.bind('<Enter>', self._schedule, add='+')
+        widget.bind('<Leave>', self._hide, add='+')
+        widget.bind('<ButtonPress>', self._hide, add='+')
+
+    def _schedule(self, event=None) -> None:
+        self._cancel()
+        self._after_id = self.widget.after(self.delay_ms, self._show)
+
+    def _show(self) -> None:
+        self._after_id = None
+        if self._tip_window is not None:
+            return
+        x = self.widget.winfo_rootx() + 8
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
+        self._tip_window = tk.Toplevel(self.widget)
+        self._tip_window.wm_overrideredirect(True)
+        self._tip_window.wm_geometry(f"+{x}+{y}")
+        tk.Label(
+            self._tip_window,
+            text=self.text,
+            justify='left',
+            bg=COLORS['text'],
+            fg=COLORS['surface'],
+            padx=6,
+            pady=3,
+            font=(resolve_font_family(), 10),
+        ).pack()
+
+    def _hide(self, event=None) -> None:
+        self._cancel()
+        if self._tip_window is not None:
+            self._tip_window.destroy()
+            self._tip_window = None
+
+    def _cancel(self) -> None:
+        if self._after_id is not None:
+            try:
+                self.widget.after_cancel(self._after_id)
+            except Exception:
+                pass
+            self._after_id = None

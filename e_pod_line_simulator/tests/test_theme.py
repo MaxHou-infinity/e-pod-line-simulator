@@ -28,3 +28,7 @@ def test_utils_uses_theme_tokens():
     assert get_status_color('running') == '#34C759'
     assert get_alert_color('critical') == theme.ALERT_COLORS['critical']
     assert get_alert_color('unknown') == '#CCCCCC'
+
+
+def test_tooltip_class_available():
+    assert hasattr(theme, 'ToolTip')

@@ -736,6 +736,19 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：57 passed；GUI 冒烟通过
 
+## 2026-08-07 - V1.2.0 U7 收尾与发布
+
+### 完成内容
+- 关键控件 Tooltip；apply_theme 增加 HiDPI 缩放
+- 全量回归：pytest 58 passed，核心覆盖率 88%-94%
+- 深度 GUI 冒烟通过（V1.2.0 全部视觉/交互特性）
+- README / 成熟度分析 / 路线图 / 开发日志同步
+- 已打 tag `v1.2.0`
+
+### 遗留
+- V1.3：AI 自动优化、敏感性分析
+- V2.0：Web 化
+
 ## 2026-08-07 - V1.2.0 U6 快捷键与脏状态
 
 ### 完成内容
