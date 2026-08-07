@@ -265,6 +265,7 @@ class MainWindow:
             state="readonly"
         )
         speed_combo.pack(side=tk.LEFT)
+        self.speed_combo = speed_combo
         
         # 班次配置按钮
         btn_config = ttk.Button(control_frame, text="班次配置", command=self._btn_config_shift)
@@ -664,6 +665,10 @@ class MainWindow:
             self.alert_panel.clear()
             self.kpi_dashboard.reset_timestamp()  # 重置时间戳
             self.kpi_dashboard.set_run_state('running')
+            # 运行中禁用编辑/速度/拖拽，避免无效操作
+            self.canvas_view.drag_enabled = False
+            self.speed_combo.config(state=tk.DISABLED)
+            self.config_panel.set_editable(False)
         else:
             # 暂停后继续
             self.kpi_dashboard.set_run_state('running')
@@ -718,6 +723,10 @@ class MainWindow:
                 # 注意：停止时不清空报警信息，只在重新开始仿真时清空
                 self.status_bar.config(text="仿真已停止")
                 self.kpi_dashboard.set_run_state('stopped')
+                # 恢复编辑能力
+                self.canvas_view.drag_enabled = True
+                self.speed_combo.config(state='readonly')
+                self.config_panel.set_editable(True)
     
     def _btn_config_shift(self) -> None:
         """班次配置按钮"""
@@ -858,9 +867,20 @@ class MainWindow:
         if station is None:
             return
 
+        running = bool(self.simulation_engine and self.simulation_engine.is_running)
+        edit_state = tk.DISABLED if running else tk.NORMAL
+
         menu = tk.Menu(self.root, tearoff=0)
-        menu.add_command(label="编辑工序", command=lambda: self._on_edit_station(station_id))
-        menu.add_command(label="删除工序", command=lambda: self._delete_station_by_id(station_id))
+        menu.add_command(
+            label="编辑工序",
+            command=lambda: self._on_edit_station(station_id),
+            state=edit_state,
+        )
+        menu.add_command(
+            label="删除工序",
+            command=lambda: self._delete_station_by_id(station_id),
+            state=edit_state,
+        )
         menu.add_separator()
         menu.add_command(label="触发切换...", command=lambda: self._trigger_changeover(station_id))
         try:

@@ -109,16 +109,16 @@ class ConfigPanel(ttk.Frame):
         button_frame.pack(fill=tk.X, padx=5, pady=5)
         
         # 添加按钮
-        btn_add = ttk.Button(button_frame, text="添加", command=self._btn_add)
-        btn_add.pack(side=tk.LEFT, padx=2)
-        
+        self.btn_add = ttk.Button(button_frame, text="添加", command=self._btn_add)
+        self.btn_add.pack(side=tk.LEFT, padx=2)
+
         # 编辑按钮
-        btn_edit = ttk.Button(button_frame, text="编辑", command=self._btn_edit)
-        btn_edit.pack(side=tk.LEFT, padx=2)
-        
+        self.btn_edit = ttk.Button(button_frame, text="编辑", command=self._btn_edit)
+        self.btn_edit.pack(side=tk.LEFT, padx=2)
+
         # 删除按钮
-        btn_delete = ttk.Button(button_frame, text="删除", command=self._btn_delete)
-        btn_delete.pack(side=tk.LEFT, padx=2)
+        self.btn_delete = ttk.Button(button_frame, text="删除", command=self._btn_delete)
+        self.btn_delete.pack(side=tk.LEFT, padx=2)
         
         # 工序列表（使用Treeview显示）
         list_frame = ttk.Frame(self)
@@ -218,6 +218,12 @@ class ConfigPanel(ttk.Frame):
         """删除按钮点击"""
         if self.on_delete:
             self.on_delete()
+
+    def set_editable(self, enabled: bool) -> None:
+        """切换工序编辑能力（仿真运行中禁用）"""
+        state = tk.NORMAL if enabled else tk.DISABLED
+        for btn in (self.btn_add, self.btn_edit, self.btn_delete):
+            btn.config(state=state)
     
     def _on_select(self, event: tk.Event) -> None:
         """工序选择事件"""

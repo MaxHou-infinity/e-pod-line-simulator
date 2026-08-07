@@ -154,6 +154,8 @@ class CanvasView(tk.Canvas):
         self._drag_total_dx = 0
         self._drag_total_dy = 0
         self._drag_moved = False
+        self._drop_indicator: Optional[int] = None
+        self.drag_enabled = True  # 仿真运行中由主窗口置 False
         
         # 布局参数
         self.station_spacing = 200  # 工序间距（像素）
@@ -168,6 +170,7 @@ class CanvasView(tk.Canvas):
         self.bind("<B1-Motion>", self._on_drag_move)
         self.bind("<ButtonRelease-1>", self._on_drag_end)
         self.bind("<Button-3>", self._on_right_click)
+        self.bind("<Motion>", self._on_motion)
         
         # 绑定窗口大小变化事件（当画布大小变化时重新布局）
         self.bind("<Configure>", self._on_canvas_resize)
@@ -651,6 +654,8 @@ class CanvasView(tk.Canvas):
 
     def _on_drag_start(self, event: tk.Event) -> None:
         """拖拽开始：记录被拖动的工序与起始位置"""
+        if not self.drag_enabled:
+            return
         station_id = self._station_id_at(event.x, event.y)
         self._drag_station_id = station_id
         self._drag_start_x = event.x
@@ -674,9 +679,42 @@ class CanvasView(tk.Canvas):
         if abs(self._drag_total_dx) > 5 or abs(self._drag_total_dy) > 5:
             self._drag_moved = True
         self.move(f"station_{self._drag_station_id}", dx, dy)
+        self._update_drop_indicator(event.x, event.y)
+
+    def _update_drop_indicator(self, x: int, y: int) -> None:
+        """绘制拖拽落点指示（高亮最近目标工序卡片）"""
+        if self._drop_indicator is not None:
+            self.delete(self._drop_indicator)
+            self._drop_indicator = None
+        if not self._drag_station_id or not self.station_positions:
+            return
+
+        nearest_id = None
+        nearest_dist = float("inf")
+        for other_id, (ox, oy) in self.station_positions.items():
+            if other_id == self._drag_station_id:
+                continue
+            dist = (x - ox) ** 2 + (y - oy) ** 2
+            if dist < nearest_dist:
+                nearest_dist = dist
+                nearest_id = other_id
+        if nearest_id is None or nearest_id not in self.station_cards:
+            return
+
+        x1, y1, x2, y2 = self.bbox(self.station_cards[nearest_id])
+        self._drop_indicator = self.create_rectangle(
+            x1 - 3, y1 - 3, x2 + 3, y2 + 3,
+            outline=COLORS['primary'],
+            width=2,
+            dash=(4, 4),
+            tags=("drop_indicator",),
+        )
 
     def _on_drag_end(self, event: tk.Event) -> None:
         """拖拽结束：若发生位移则计算新顺序并触发重排回调"""
+        if self._drop_indicator is not None:
+            self.delete(self._drop_indicator)
+            self._drop_indicator = None
         station_id = self._drag_station_id
         moved = self._drag_moved
         self._drag_station_id = None
@@ -700,6 +738,11 @@ class CanvasView(tk.Canvas):
         )
         if new_order and new_order != order_ids:
             self.on_reorder(new_order)
+
+    def _on_motion(self, event: tk.Event) -> None:
+        """鼠标悬停反馈：工序节点上显示手型光标"""
+        station_id = self._station_id_at(event.x, event.y)
+        self.configure(cursor='hand2' if station_id and self.drag_enabled else 'arrow')
 
     def _on_right_click(self, event: tk.Event) -> None:
         """右键菜单：弹出工序操作菜单"""
