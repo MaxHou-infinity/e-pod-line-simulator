@@ -219,6 +219,7 @@ class MainWindow:
         # KPI仪表盘
         self.kpi_dashboard = KPIDashboard(bottom_frame)
         self.kpi_dashboard.pack(fill=tk.X, pady=5)
+        self.kpi_dashboard.set_run_state('stopped')
         
         # 控制按钮
         control_frame = ttk.Frame(bottom_frame)
@@ -662,6 +663,10 @@ class MainWindow:
         if is_new_simulation:
             self.alert_panel.clear()
             self.kpi_dashboard.reset_timestamp()  # 重置时间戳
+            self.kpi_dashboard.set_run_state('running')
+        else:
+            # 暂停后继续
+            self.kpi_dashboard.set_run_state('running')
         
         # 获取仿真速度
         speed = int(self.speed_var.get())
@@ -682,6 +687,7 @@ class MainWindow:
         if self.simulation_engine:
             self.simulation_engine.pause()
             self.status_bar.config(text="仿真已暂停")
+            self.kpi_dashboard.set_run_state('paused')
             # 暂停时，时间戳不再更新（保持当前值）
     
     def _btn_stop_simulation(self) -> None:
@@ -711,6 +717,7 @@ class MainWindow:
                 
                 # 注意：停止时不清空报警信息，只在重新开始仿真时清空
                 self.status_bar.config(text="仿真已停止")
+                self.kpi_dashboard.set_run_state('stopped')
     
     def _btn_config_shift(self) -> None:
         """班次配置按钮"""

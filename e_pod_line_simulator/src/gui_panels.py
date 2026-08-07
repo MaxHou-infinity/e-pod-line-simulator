@@ -287,6 +287,15 @@ class KPIDashboard(ttk.LabelFrame):
             foreground='green'
         )
         self.timestamp_label.pack(side=tk.LEFT, padx=5)
+
+        # 运行状态徽标
+        self.run_state_label = ttk.Label(
+            timestamp_frame,
+            text="● 已停止",
+            font=('Arial', 10, 'bold'),
+            foreground='gray',
+        )
+        self.run_state_label.pack(side=tk.RIGHT, padx=5)
         
         # 分隔线
         separator = ttk.Separator(self, orient=tk.HORIZONTAL)
@@ -340,6 +349,23 @@ class KPIDashboard(ttk.LabelFrame):
         """重置时间戳为0"""
         if hasattr(self, 'timestamp_label'):
             self.timestamp_label.config(text="0.0 分钟")
+
+    def set_run_state(self, state: str) -> None:
+        """
+        更新运行状态徽标
+
+        Args:
+            state: running / paused / stopped
+        """
+        if not hasattr(self, 'run_state_label'):
+            return
+        state_map = {
+            'running': ('● 运行中', '#34C759'),
+            'paused': ('⏸ 已暂停', '#FF9F0A'),
+            'stopped': ('■ 已停止', '#6B7280'),
+        }
+        text, color = state_map.get(state, state_map['stopped'])
+        self.run_state_label.config(text=text, foreground=color)
     
     def update_kpis(self, kpis: Dict[str, float]) -> None:
         """

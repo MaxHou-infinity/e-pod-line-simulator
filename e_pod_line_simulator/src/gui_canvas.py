@@ -19,6 +19,7 @@ from typing import Optional, Dict, Any, List, Callable
 
 from src.models import ProductionLine, Station, SimulationState
 from src.utils import get_status_color, CANVAS_WIDTH, CANVAS_HEIGHT, STATION_WIDTH, STATION_HEIGHT
+from src.theme import COLORS, resolve_font_family
 
 
 def compute_reorder_order(
@@ -163,6 +164,25 @@ class CanvasView(tk.Canvas):
         self.station_positions.clear()
         
         if not production_line or not production_line.stations:
+            # 空状态：显示引导提示，避免空白画布无反馈
+            self.delete("all")
+            self.station_rects.clear()
+            self.station_texts.clear()
+            self.connection_lines.clear()
+            self.wip_labels.clear()
+            self.station_positions.clear()
+            family = resolve_font_family()
+            width = self.winfo_width() if self.winfo_width() > 1 else CANVAS_WIDTH
+            height = self.winfo_height() if self.winfo_height() > 1 else CANVAS_HEIGHT
+            self.create_text(
+                width // 2,
+                height // 2,
+                text="暂无工序\n\n请点击左侧「添加」按钮，或使用「文件 → 快速配置向导」",
+                font=(family, 14),
+                fill=COLORS['text_secondary'],
+                justify='center',
+                tags=("empty_state",),
+            )
             return
         
         # 计算每行最大工序数（基于画布宽度）
