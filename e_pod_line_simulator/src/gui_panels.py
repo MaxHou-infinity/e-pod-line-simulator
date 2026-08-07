@@ -22,6 +22,35 @@ from src.utils import validate_station, get_alert_color
 from src.scenario_manager import ScenarioManager
 
 
+def build_template_line(key: str) -> ProductionLine:
+    """
+    按模板 key 创建产线（纯函数，供向导与测试复用）
+
+    Args:
+        key: simple / standard / complex / blank
+
+    Returns:
+        ProductionLine: 新产线
+    """
+    from src.models import CollaborationType
+
+    line = ProductionLine("新产线")
+    if key == "blank":
+        return line
+
+    for idx, (name, time, workers, mode) in enumerate(WizardDialog.TEMPLATES[key], 1):
+        line.add_station(Station(
+            id=f"s{idx:02d}",
+            name=name,
+            process_time=time,
+            worker_count=workers,
+            collaboration_type=(
+                CollaborationType.PARALLEL if mode == "parallel" else CollaborationType.COLLABORATIVE
+            ),
+        ))
+    return line
+
+
 class ConfigPanel(ttk.Frame):
     """
     配置面板 - 显示和管理工序列表
@@ -1299,23 +1328,7 @@ class WizardDialog:
 
     def _make_template_line(self) -> ProductionLine:
         """根据所选模板创建产线"""
-        key = self.template_var.get()
-        line = ProductionLine("新产线")
-        if key == "blank":
-            return line
-        from src.models import CollaborationType
-
-        for idx, (name, time, workers, mode) in enumerate(self.TEMPLATES[key], 1):
-            line.add_station(Station(
-                id=f"s{idx:02d}",
-                name=name,
-                process_time=time,
-                worker_count=workers,
-                collaboration_type=(
-                    CollaborationType.PARALLEL if mode == "parallel" else CollaborationType.COLLABORATIVE
-                ),
-            ))
-        return line
+        return build_template_line(self.template_var.get())
 
     def _show_step(self, index: int) -> None:
         """切换步骤页面"""

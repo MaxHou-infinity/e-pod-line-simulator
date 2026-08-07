@@ -21,6 +21,45 @@ from src.models import ProductionLine, Station, SimulationState
 from src.utils import get_status_color, CANVAS_WIDTH, CANVAS_HEIGHT, STATION_WIDTH, STATION_HEIGHT
 
 
+def compute_reorder_order(
+    order_ids: List[str],
+    station_id: str,
+    positions: Dict[str, tuple],
+    final_x: float,
+    final_y: float,
+) -> Optional[List[str]]:
+    """
+    计算拖拽后的新工序顺序（纯函数，便于单元测试）
+
+    将拖拽工序插入到距离其最终位置最近工序的索引处。
+
+    Returns:
+        Optional[List[str]]: 新顺序；无法计算时返回 None
+    """
+    if station_id not in order_ids or station_id not in positions:
+        return None
+
+    nearest_id = None
+    nearest_dist = float("inf")
+    for other_id, (ox, oy) in positions.items():
+        if other_id == station_id:
+            continue
+        dist = (final_x - ox) ** 2 + (final_y - oy) ** 2
+        if dist < nearest_dist:
+            nearest_dist = dist
+            nearest_id = other_id
+
+    if nearest_id is None:
+        return None
+
+    new_order = list(order_ids)
+    current_index = new_order.index(station_id)
+    target_index = new_order.index(nearest_id)
+    new_order.pop(current_index)
+    new_order.insert(target_index, station_id)
+    return new_order
+
+
 class CanvasView(tk.Canvas):
     """
     画布视图类 - 2D产线可视化
@@ -556,30 +595,12 @@ class CanvasView(tk.Canvas):
         final_x = old_x + self._drag_total_dx
         final_y = old_y + self._drag_total_dy
 
-        # 找到距离拖拽终点最近的其它工序
-        nearest_id = None
-        nearest_dist = float("inf")
-        for other_id, (ox, oy) in self.station_positions.items():
-            if other_id == station_id:
-                continue
-            dist = (final_x - ox) ** 2 + (final_y - oy) ** 2
-            if dist < nearest_dist:
-                nearest_dist = dist
-                nearest_id = other_id
-
-        if nearest_id is None:
-            return
-
         order_ids = [s.id for s in self.production_line.stations]
-        current_index = order_ids.index(station_id)
-        target_index = order_ids.index(nearest_id)
-
-        # 将工序移动到目标位置（模拟插入）
-        order_ids.pop(current_index)
-        order_ids.insert(target_index, station_id)
-
-        if order_ids != [s.id for s in self.production_line.stations]:
-            self.on_reorder(order_ids)
+        new_order = compute_reorder_order(
+            order_ids, station_id, self.station_positions, final_x, final_y
+        )
+        if new_order and new_order != order_ids:
+            self.on_reorder(new_order)
 
     def _on_right_click(self, event: tk.Event) -> None:
         """右键菜单：弹出工序操作菜单"""
