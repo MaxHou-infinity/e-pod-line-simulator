@@ -85,6 +85,20 @@ def test_changeover_event_for_other_station_is_routed():
     assert result.changeover_events[0]["station_id"] == "s02"
 
 
+def test_multiple_changeover_events_chain_in_order():
+    engine = SimulationEngine(make_line())
+    engine.trigger_changeover("s01", minutes=10)
+    engine.trigger_changeover("s01", minutes=5)
+    result_two = engine.run_sync(duration_hours=1.0)
+
+    engine_single = SimulationEngine(make_line())
+    engine_single.trigger_changeover("s01", minutes=10)
+    result_single = engine_single.run_sync(duration_hours=1.0)
+
+    assert len(result_two.changeover_events) == 2
+    assert result_two.total_output < result_single.total_output
+
+
 def test_collaborative_station_run():
     line = ProductionLine("协同产线", shift_hours=1, break_minutes=0)
     line.add_station(Station(

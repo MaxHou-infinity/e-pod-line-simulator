@@ -28,6 +28,7 @@ Top-level PRD files (`电子烟产线仿真优化*.md`) and scenario JSONs
 pip install -r requirements.txt        # Install SimPy, pandas, openpyxl
 python run.py                          # Launch the GUI
 python tests/test_basic.py             # Run the basic test suite
+python -m pytest tests -q              # Run the full pytest suite
 ```
 
 There is no build step; packaging (PyInstaller) is not configured yet.

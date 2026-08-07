@@ -305,6 +305,9 @@ class SimulationEngine:
             changeover_events = self._drain_events(station.id)
             if changeover_events:
                 changeover = changeover_events[0]
+                # 同工序的其余切换事件放回队列，按顺序继续执行
+                for extra in changeover_events[1:]:
+                    self.event_queue.put(extra)
                 station.current_status = "changeover"
                 yield self.env.timeout(float(changeover['minutes']) * 60)
                 station.current_status = "idle"
