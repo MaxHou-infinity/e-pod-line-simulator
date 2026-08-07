@@ -20,6 +20,7 @@ from typing import List, Optional, Callable, Dict, Any
 from src.models import Station, Alert, CollaborationType, ProductionLine
 from src.utils import validate_station, get_alert_color
 from src.scenario_manager import ScenarioManager
+from src.theme import ALERT_ICONS, COLORS, resolve_font_family
 
 
 def build_template_line(key: str) -> ProductionLine:
@@ -307,7 +308,7 @@ class KPIDashboard(ttk.LabelFrame):
         separator = ttk.Separator(self, orient=tk.HORIZONTAL)
         separator.pack(fill=tk.X, pady=10)
         
-        # 使用Grid布局，6列显示6个KPI
+        # 使用Grid布局，6列显示6个KPI（卡片化）
         kpis = [
             ('bottleneck_capacity', '瓶颈产能', '颗/h'),
             ('daily_output', '预计日产量', '颗'),
@@ -316,29 +317,52 @@ class KPIDashboard(ttk.LabelFrame):
             ('balance_rate', '产线平衡率', '%'),
             ('upph', 'UPPH', '颗/人·h')
         ]
-        
+
         kpi_frame = ttk.Frame(self)
         kpi_frame.pack(fill=tk.BOTH, expand=True)
-        
+
+        family = resolve_font_family()
         for i, (key, label, unit) in enumerate(kpis):
-            # KPI名称
-            name_label = ttk.Label(kpi_frame, text=label)
-            name_label.grid(row=0, column=i, padx=10, pady=5)
-            
-            # KPI数值
-            value_label = ttk.Label(
+            # 卡片容器
+            cell = tk.Frame(
                 kpi_frame,
-                text="--",
-                font=('Arial', 14, 'bold'),
-                foreground='blue'
+                bg=COLORS['surface'],
+                highlightbackground=COLORS['border'],
+                highlightthickness=1,
+                padx=10,
+                pady=8,
             )
-            value_label.grid(row=1, column=i, padx=10, pady=5)
-            
-            # 单位标签
-            unit_label = ttk.Label(kpi_frame, text=unit, font=('Arial', 9))
-            unit_label.grid(row=2, column=i, padx=10)
-            
-            # 保存标签引用
+            cell.grid(row=0, column=i, sticky='nsew', padx=6, pady=4)
+            kpi_frame.grid_columnconfigure(i, weight=1)
+
+            # KPI 名称
+            tk.Label(
+                cell,
+                text=label,
+                bg=COLORS['surface'],
+                fg=COLORS['text_secondary'],
+                font=(family, 9),
+            ).pack()
+
+            # KPI 数值
+            value_label = tk.Label(
+                cell,
+                text="--",
+                bg=COLORS['surface'],
+                fg=COLORS['text'],
+                font=(family, 15, 'bold'),
+            )
+            value_label.pack()
+
+            # 单位
+            tk.Label(
+                cell,
+                text=unit,
+                bg=COLORS['surface'],
+                fg=COLORS['text_secondary'],
+                font=(family, 8),
+            ).pack()
+
             self.kpi_labels[key] = value_label
     
     def update_timestamp(self, minutes: float) -> None:
@@ -451,9 +475,10 @@ class AlertPanel(ttk.LabelFrame):
         
         # 格式化时间戳（分钟）
         time_str = f"{alert.timestamp_minutes:.1f}分钟"
+        icon = ALERT_ICONS.get(alert.severity, '•')
         
         # 插入报警文本（包含时间戳）
-        text = f"[{time_str}] [{alert.severity.upper()}] {alert.message}\n"
+        text = f"[{time_str}] {icon} [{alert.severity.upper()}] {alert.message}\n"
         if alert.suggestion:
             text += f"  建议：{alert.suggestion}\n"
         text += "\n"
