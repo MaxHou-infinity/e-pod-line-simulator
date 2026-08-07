@@ -1,5 +1,7 @@
 """仿真引擎单元测试（headless 模式与切换事件）"""
 
+import time
+
 import pytest
 
 from src.models import CollaborationType, ProductionLine, Station
@@ -57,3 +59,79 @@ def test_detect_waste():
     bottleneck_capacity = line.get_bottleneck_capacity()
     alerts = detect_waste(line.stations, bottleneck_capacity)
     assert any(a.alert_type == "waste" for a in alerts)
+
+
+def test_set_callback_and_state_updates():
+    engine = SimulationEngine(make_line())
+    collected = []
+    engine.set_callback(lambda state: collected.append(state))
+    result = engine.run_sync(duration_hours=0.05)
+    assert len(collected) > 0
+    assert result.total_output > 0
+
+
+def test_callback_exception_does_not_crash_simulation():
+    engine = SimulationEngine(make_line())
+    engine.set_callback(lambda state: (_ for _ in ()).throw(RuntimeError("模拟异常")))
+    result = engine.run_sync(duration_hours=0.02)
+    assert result.total_output >= 0
+
+
+def test_changeover_event_for_other_station_is_routed():
+    engine = SimulationEngine(make_line())
+    engine.trigger_changeover("s02", minutes=10)
+    result = engine.run_sync(duration_hours=0.2)
+    assert len(result.changeover_events) == 1
+    assert result.changeover_events[0]["station_id"] == "s02"
+
+
+def test_collaborative_station_run():
+    line = ProductionLine("协同产线", shift_hours=1, break_minutes=0)
+    line.add_station(Station(
+        "s01", "组装", 5.0, 3,
+        collaboration_type=CollaborationType.COLLABORATIVE,
+    ))
+    result = SimulationEngine(line).run_sync(duration_hours=0.1)
+    assert result.total_output > 0
+
+
+def test_wip_blockage_alert():
+    line = ProductionLine("堵塞测试", shift_hours=1, break_minutes=0)
+    line.add_station(Station("s01", "快工序", 1.0, 10, buffer_capacity=5))
+    line.add_station(Station("s02", "慢工序", 100.0, 1, buffer_capacity=5))
+    result = SimulationEngine(line).run_sync(duration_hours=1.0)
+    assert any(a.alert_type == "blockage" for a in result.alerts)
+
+
+def test_empty_line_headless_run():
+    line = ProductionLine("空产线")
+    result = SimulationEngine(line).run_sync(duration_hours=0.02)
+    assert result.total_output == 0
+
+
+def test_threaded_run_pause_resume_stop():
+    engine = SimulationEngine(make_line())
+    engine.set_callback(lambda state: None)
+    engine.run(duration_hours=0.01, speed=10)
+    assert engine.is_running is True
+    time.sleep(0.3)
+    engine.pause()
+    assert engine.is_paused is True
+    time.sleep(0.2)
+    engine.resume()
+    assert engine.is_paused is False
+    time.sleep(0.3)
+    engine.stop()
+    time.sleep(0.1)
+    assert engine.is_running is False
+    results = engine.get_results()
+    assert "total_output" in results
+
+
+def test_threaded_run_real_time_mode():
+    engine = SimulationEngine(make_line())
+    engine.run(duration_hours=2 / 3600, speed=1)
+    time.sleep(0.3)
+    engine.stop()
+    time.sleep(0.2)
+    assert engine.is_running is False

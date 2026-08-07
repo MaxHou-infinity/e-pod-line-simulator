@@ -275,7 +275,10 @@ def import_from_excel(file_path: str) -> Tuple[Optional[ProductionLine], Optiona
                 
                 # 创建工序对象
                 # 导入CollaborationType（延迟导入避免循环依赖）
-                from models import CollaborationType
+                try:
+                    from src.models import CollaborationType
+                except ImportError:
+                    from models import CollaborationType
                 collaboration_type = CollaborationType.PARALLEL if collaboration_type_str == 'parallel' else CollaborationType.COLLABORATIVE
                 
                 station = Station(

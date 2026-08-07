@@ -638,10 +638,14 @@ class SimulationEngine:
         self.is_paused = False
     
     def stop(self) -> None:
-        """停止仿真"""
+        """
+        停止仿真
+
+        仿真循环按小步长推进（≤1 秒仿真时间），设置 is_running=False 后
+        线程会在下一个循环检查时退出；SimPy Environment 本身没有
+        interrupt 方法，因此无需也不能直接中断环境。
+        """
         self.is_running = False
-        if self.env:
-            self.env.interrupt()
     
     def get_results(self) -> Dict[str, Any]:
         """

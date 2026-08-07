@@ -647,6 +647,20 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - 语法检查通过；pytest：26 passed
 
+## 2026-08-07 - L6 测试覆盖完善与覆盖率测量
+
+### 完成内容
+- 修复存量 Bug：
+  - `SimulationEngine.stop()` 移除 SimPy 不存在的 `env.interrupt()`
+  - `import_from_excel` 修复 CollaborationType 导入路径（支持根目录运行）
+- 新增测试：线程模式仿真、切换事件路由、WIP 堵塞报警、空产线、
+  方案对比/持久化边界、Excel 模板往返等
+
+### 验证
+- pytest：49 passed
+- 覆盖率：models 94% / simulation 94% / scenario_manager 94% /
+  reporting 88% / utils 71% / 总计 87%
+
 ## 2026-08-07 - L4 快速配置向导
 
 ### 完成内容
