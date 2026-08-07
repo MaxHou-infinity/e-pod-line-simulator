@@ -746,3 +746,25 @@ class Scenario:
             created_at=created_at,
             description=description
         )
+
+
+@dataclass
+class SimulationResult:
+    """
+    仿真结果聚合对象 - 用于报告导出与测试断言
+
+    由 SimulationEngine.build_result() 生成，包含：
+    - 产线基本信息与 KPI
+    - 各工序产出与 WIP
+    - 报警列表、WIP 采样与切换事件记录
+    """
+
+    line_name: str
+    duration_seconds: float
+    total_output: int
+    station_outputs: Dict[str, int]
+    station_wips: Dict[str, int]
+    kpis: Dict[str, float]
+    alerts: List[Alert] = field(default_factory=list)
+    wip_samples: List[Dict[str, Any]] = field(default_factory=list)
+    changeover_events: List[Dict[str, Any]] = field(default_factory=list)

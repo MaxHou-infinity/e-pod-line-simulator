@@ -27,11 +27,18 @@ SimPy是一个离散事件仿真库，用于模拟系统中的事件流。
 
 import simpy
 from typing import List, Dict, Callable, Optional, Any
-from queue import Queue
+from queue import Queue, Empty
 import threading
 import time
 
-from src.models import ProductionLine, Station, Alert, SimulationState, CollaborationType
+from src.models import (
+    ProductionLine,
+    Station,
+    Alert,
+    SimulationState,
+    SimulationResult,
+    CollaborationType,
+)
 
 
 class SimulationEngine:
@@ -81,6 +88,14 @@ class SimulationEngine:
         
         # 报警队列
         self.alert_queue: Queue = Queue()
+        # 外部事件注入队列（如切换事件），跨线程安全
+        self.event_queue: Queue = Queue()
+        # 报警完整记录（供报告导出与测试断言）
+        self.alert_log: List[Alert] = []
+        # WIP 时间序列采样（供报告导出）
+        self.wip_samples: List[Dict[str, Any]] = []
+        # 切换事件记录（供报告导出与测试断言）
+        self.changeover_events: List[Dict[str, Any]] = []
     
     def set_callback(self, callback: Callable[[SimulationState], None]) -> None:
         """
@@ -92,6 +107,75 @@ class SimulationEngine:
             callback: 回调函数，接收SimulationState参数
         """
         self.state_callback = callback
+
+    def _emit_alert(self, alert: Alert) -> None:
+        """记录报警：同时写入完整记录列表与 GUI 消费队列"""
+        self.alert_log.append(alert)
+        self.alert_queue.put(alert)
+
+    def trigger_changeover(self, station_id: str, minutes: int = 45) -> bool:
+        """
+        触发指定工序的切换（口味更换）停机事件
+
+        Args:
+            station_id: 工序 ID
+            minutes: 切换停机时长（分钟），默认 45
+
+        Returns:
+            bool: 是否成功触发
+        """
+        if minutes <= 0:
+            raise ValueError("切换时长必须大于0分钟")
+
+        station = self.line.get_station(station_id)
+        if station is None:
+            raise ValueError(f"工序不存在：{station_id}")
+
+        event = {
+            'type': 'changeover',
+            'station_id': station_id,
+            'minutes': int(minutes),
+        }
+        self.event_queue.put(event)
+
+        timestamp_minutes = self.env.now / 60.0 if self.env else 0.0
+        self.changeover_events.append({
+            'time': self.env.now if self.env else 0.0,
+            'station_id': station_id,
+            'station_name': station.name,
+            'minutes': int(minutes),
+        })
+        self._emit_alert(Alert(
+            alert_type='changeover',
+            severity='info',
+            station_id=station_id,
+            message=f"{station.name}开始切换，停机{int(minutes)}分钟",
+            suggestion="切换完成后自动恢复生产",
+            timestamp_minutes=timestamp_minutes,
+        ))
+        return True
+
+    def _drain_events(self, station_id: str) -> List[Dict[str, Any]]:
+        """
+        从事件队列取出属于指定工序的切换事件，其余事件放回队列
+
+        SimPy 进程为单线程执行，此方法在工序进程内调用是安全的；
+        事件队列本身由 queue.Queue 保证跨线程安全。
+        """
+        events = []
+        others = []
+        while True:
+            try:
+                event = self.event_queue.get_nowait()
+            except Empty:
+                break
+            if event.get('type') == 'changeover' and event.get('station_id') == station_id:
+                events.append(event)
+            else:
+                others.append(event)
+        for event in others:
+            self.event_queue.put(event)
+        return events
     
     def run(self, duration_hours: float = 8.0, speed: int = 16) -> None:
         """
@@ -119,7 +203,7 @@ class SimulationEngine:
         self.station_outputs = {station.id: 0 for station in self.line.stations}
         self.station_wips = {station.id: 0 for station in self.line.stations}
         self.total_output = 0
-        
+
         # 步骤1：创建SimPy环境
         # Environment是SimPy的核心，管理仿真时钟和事件队列
         self.env = simpy.Environment()
@@ -217,6 +301,15 @@ class SimulationEngine:
         
         # 无限循环，模拟持续的物料加工
         while True:
+            # 检查是否有针对本工序的切换事件
+            changeover_events = self._drain_events(station.id)
+            if changeover_events:
+                changeover = changeover_events[0]
+                station.current_status = "changeover"
+                yield self.env.timeout(float(changeover['minutes']) * 60)
+                station.current_status = "idle"
+                continue
+
             try:
                 # 步骤1：从上游缓冲区获取物料（如果不是第一个工序）
                 if station_index > 0:
@@ -307,7 +400,7 @@ class SimulationEngine:
                     suggestion=f"建议增加{bottleneck.name}的工人数量或提升OEE",
                     timestamp_minutes=timestamp_minutes
                 )
-                self.alert_queue.put(alert)
+                self._emit_alert(alert)
                 last_bottleneck_id = bottleneck.id
     
     def _monitor_wip(self) -> simpy.events.Process:
@@ -331,6 +424,14 @@ class SimulationEngine:
                 buffer = self.buffers[station.id]
                 wip_count = len(buffer.items)
                 utilization = wip_count / station.buffer_capacity if station.buffer_capacity > 0 else 0
+
+                # 记录 WIP 时间序列采样（供报告导出）
+                self.wip_samples.append({
+                    'time': self.env.now,
+                    'station_id': station.id,
+                    'station_name': station.name,
+                    'wip': wip_count,
+                })
                 
                 # 如果WIP超过80%容量，发出警报
                 if utilization >= 0.8:
@@ -342,7 +443,7 @@ class SimulationEngine:
                         suggestion=f"建议增加{station.name}的下游产能或扩大缓冲区",
                         timestamp_minutes=timestamp_minutes
                     )
-                    self.alert_queue.put(alert)
+                    self._emit_alert(alert)
     
     def _update_state_periodically(self) -> simpy.events.Process:
         """
@@ -555,6 +656,61 @@ class SimulationEngine:
             'station_wips': self.station_wips.copy(),
             'bottleneck': self.line.find_bottleneck()
         }
+
+    def run_sync(self, duration_hours: float = 8.0) -> SimulationResult:
+        """
+        同步（headless）运行仿真
+
+        不启动独立线程，直接运行 SimPy 环境到结束，返回聚合结果。
+        用于自动化测试与报告导出，不依赖 GUI。
+
+        Args:
+            duration_hours: 仿真时长（小时）
+
+        Returns:
+            SimulationResult: 仿真结果聚合对象
+        """
+        self.is_running = True
+        self.is_paused = False
+        self.speed = 1
+
+        self.station_outputs = {station.id: 0 for station in self.line.stations}
+        self.station_wips = {station.id: 0 for station in self.line.stations}
+        self.total_output = 0
+
+        self.env = simpy.Environment()
+        self._init_resources()
+        for station in self.line.stations:
+            self.env.process(self._station_process(station))
+        self.env.process(self._monitor_bottleneck())
+        self.env.process(self._monitor_wip())
+        self.env.process(self._update_state_periodically())
+
+        self.duration_seconds = duration_hours * 3600
+        self.env.run(until=self.duration_seconds)
+        self.is_running = False
+        return self.build_result()
+
+    def build_result(self) -> SimulationResult:
+        """构建仿真结果聚合对象（用于报告导出与测试）"""
+        return SimulationResult(
+            line_name=self.line.name,
+            duration_seconds=self.duration_seconds,
+            total_output=self.total_output,
+            station_outputs=self.station_outputs.copy(),
+            station_wips=self.station_wips.copy(),
+            kpis={
+                'bottleneck_capacity': self.line.get_bottleneck_capacity(),
+                'daily_output': self.line.calculate_daily_output(),
+                'total_cost': self.line.calculate_total_cost(),
+                'unit_cost': self.line.calculate_unit_cost(),
+                'balance_rate': self.line.calculate_line_balance_rate(),
+                'upph': self.line.calculate_upph(),
+            },
+            alerts=list(self.alert_log),
+            wip_samples=list(self.wip_samples),
+            changeover_events=list(self.changeover_events),
+        )
 
 
 

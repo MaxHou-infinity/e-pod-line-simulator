@@ -600,3 +600,14 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 说明
 - 环境：Miniconda Python（已安装 pytest、pytest-cov、reportlab）
 - 详细记录见 `docs/v1.1/开发日志.md` Loop L0b
+
+## 2026-08-07 - L1 切换事件与 headless 仿真
+
+### 完成内容
+- `SimulationEngine` 新增事件队列与 `trigger_changeover()`（默认 45 分钟停机）
+- 新增 `run_sync()` headless 模式与 `build_result()` 结果聚合
+- `models.py` 新增 `SimulationResult`（KPI、报警、WIP 采样、切换事件）
+- 新增 `tests/test_simulation.py`（5 个用例）
+
+### 验证
+- pytest：19 passed（L1 时点）
