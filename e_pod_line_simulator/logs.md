@@ -773,6 +773,20 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：64 passed；GUI 冒烟（含剪贴板复制验证）通过
 
+## 2026-08-07 - V1.2.0 定版与交付准备
+
+### 定版
+- 版本号统一 v1.2.0，tag `v1.2.0` 指向最终提交
+- 新增仓库根 README（项目总览 + 压缩包快速开始）
+- README / 成熟度分析 / V1.2 路线图 / 开发日志全部同步
+
+### 压缩包
+- 生成 `产线仿真-v1.2.0.zip`（含源码、启动器、README、文档）
+
+### GitHub 交付
+- gh CLI 已安装但 token 失效（MaxHou-infinity）
+- 等待用户完成 `gh auth login` 授权后推送私有仓库
+
 ## 2026-08-07 - V1.2.0 U6 快捷键与脏状态
 
 ### 完成内容
