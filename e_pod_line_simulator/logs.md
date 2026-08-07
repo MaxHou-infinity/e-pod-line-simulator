@@ -673,6 +673,21 @@ y = max(0, min(y, screen_height - dialog_height))
 - pytest：49 passed；test_basic：通过
 - GUI 冒烟：通过（授权环境执行）
 
+## 2026-08-07 - L8 V1.1 全量验收与发布（v1.1.0）
+
+### 验收结果
+- P0（1-5）与 P1（1-4）全部完成并通过测试
+- pytest：52 passed；test_basic：通过
+- 覆盖率：models 94% / simulation 94% / scenario_manager 94% /
+  reporting 88% / utils 71% / 总计 87%
+- GUI 冒烟：通过（授权环境）
+- 已打 tag `v1.1.0`
+
+### 遗留
+- P2：KPI 历史趋势图、平台打包、配置 Excel 导出
+- V1.2：AI 自动优化、敏感性分析
+- V2.0：Web 化（纯前端方案）
+
 ## 2026-08-07 - L4 快速配置向导
 
 ### 完成内容
