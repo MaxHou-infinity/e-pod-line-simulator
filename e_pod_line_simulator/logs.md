@@ -661,6 +661,18 @@ y = max(0, min(y, screen_height - dialog_height))
 - 覆盖率：models 94% / simulation 94% / scenario_manager 94% /
   reporting 88% / utils 71% / 总计 87%
 
+## 2026-08-07 - L7 文档同步与全量回归
+
+### 完成内容
+- README 更新 V1.1 功能清单、开发/测试命令、FAQ、版本历史
+- 项目成熟度分析更新（整体约 92%，P0/P1 全部落地）
+- V1.1 路线图加入 Loop 进度表
+- GUI 冒烟验证通过（主窗口、默认产线、画布、KPI）
+
+### 验证
+- pytest：49 passed；test_basic：通过
+- GUI 冒烟：通过（授权环境执行）
+
 ## 2026-08-07 - L4 快速配置向导
 
 ### 完成内容
