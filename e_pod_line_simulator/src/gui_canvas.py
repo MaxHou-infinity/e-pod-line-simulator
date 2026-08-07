@@ -19,7 +19,7 @@ from typing import Optional, Dict, Any, List, Callable
 
 from src.models import ProductionLine, Station, SimulationState
 from src.utils import get_status_color, CANVAS_WIDTH, CANVAS_HEIGHT, STATION_WIDTH, STATION_HEIGHT
-from src.theme import COLORS, resolve_font_family
+from src.theme import COLORS, STATUS_COLORS, STATUS_SOFT, resolve_font_family
 
 
 def compute_reorder_order(
@@ -59,6 +59,32 @@ def compute_reorder_order(
     new_order.pop(current_index)
     new_order.insert(target_index, station_id)
     return new_order
+
+
+def _round_rect(canvas, x1, y1, x2, y2, radius=12, **kwargs):
+    """
+    在 Canvas 上绘制圆角矩形（多边形平滑近似）
+
+    Returns:
+        int: 图形 item id
+    """
+    r = min(radius, (x2 - x1) // 2, (y2 - y1) // 2)
+    r = max(1, r)
+    points = [
+        x1 + r, y1,
+        x2 - r, y1,
+        x2, y1,
+        x2, y1 + r,
+        x2, y2 - r,
+        x2, y2,
+        x2 - r, y2,
+        x1 + r, y2,
+        x1, y2,
+        x1, y2 - r,
+        x1, y1 + r,
+        x1, y1,
+    ]
+    return canvas.create_polygon(points, smooth=True, **kwargs)
 
 
 class CanvasView(tk.Canvas):
@@ -115,6 +141,9 @@ class CanvasView(tk.Canvas):
         self.connection_lines: Dict[str, int] = {}  # 连接线ID
         self.wip_labels: Dict[str, int] = {}  # WIP标签ID
         self.station_positions: Dict[str, tuple] = {}  # 工序中心坐标
+        self.station_cards: Dict[str, int] = {}  # 节点卡片ID
+        self.status_strips: Dict[str, int] = {}  # 顶部状态条ID
+        self.bottleneck_badges: Dict[str, int] = {}  # 瓶颈徽标ID
 
         # 拖拽状态
         self._drag_station_id: Optional[str] = None
@@ -162,6 +191,9 @@ class CanvasView(tk.Canvas):
         self.connection_lines.clear()
         self.wip_labels.clear()
         self.station_positions.clear()
+        self.station_cards.clear()
+        self.status_strips.clear()
+        self.bottleneck_badges.clear()
         
         if not production_line or not production_line.stations:
             # 空状态：显示引导提示，避免空白画布无反馈
@@ -274,51 +306,67 @@ class CanvasView(tk.Canvas):
         rect_y1 = y - STATION_HEIGHT // 2
         rect_x2 = x + STATION_WIDTH // 2
         rect_y2 = y + STATION_HEIGHT // 2
-        
+
         # 获取状态颜色
         color = get_status_color(station.current_status)
-        
-        # 绘制矩形（工序节点）
-        rect_id = self.create_rectangle(
+        soft_color = STATUS_SOFT.get(station.current_status, STATUS_SOFT['idle'])
+        family = resolve_font_family()
+
+        # 节点卡片：浅色填充 + 圆角 + 边框
+        card_id = _round_rect(
+            self,
             rect_x1, rect_y1, rect_x2, rect_y2,
-            fill=color,
-            outline='black',
-            width=2,
-            tags=(f"station_{station.id}", "station")  # 使用tags便于管理
+            radius=10,
+            fill=soft_color,
+            outline=COLORS['border'],
+            width=1.5,
+            tags=(f"station_{station.id}", "station"),
         )
-        self.station_rects[station.id] = rect_id
-        
+        self.station_rects[station.id] = card_id
+        self.station_cards[station.id] = card_id
+
+        # 顶部状态条：实心状态色
+        strip_id = _round_rect(
+            self,
+            rect_x1 + 4, rect_y1 + 4, rect_x2 - 4, rect_y1 + 14,
+            radius=5,
+            fill=color,
+            outline='',
+            tags=(f"station_{station.id}", "station"),
+        )
+        self.status_strips[station.id] = strip_id
+
         # 绘制文本信息
         text_ids = []
-        
+
         # 工序名称（第一行）
         text_id1 = self.create_text(
-            x, y - 25,
+            x, y - 24,
             text=station.name,
-            font=('Arial', 12, 'bold'),
+            font=(family, 12, 'bold'),
             tags=(f"station_{station.id}", "station")
         )
         text_ids.append(text_id1)
-        
+
         # 工人数量（第二行）
         text_id2 = self.create_text(
-            x, y - 5,
+            x, y - 4,
             text=f"👥 {station.worker_count}人",
-            font=('Arial', 10),
+            font=(family, 10),
             tags=(f"station_{station.id}", "station")
         )
         text_ids.append(text_id2)
-        
+
         # 产能（第三行）
         capacity = station.get_capacity()
         text_id3 = self.create_text(
             x, y + 15,
             text=f"⚡ {capacity:.0f} 颗/h",
-            font=('Arial', 10),
+            font=(family, 10),
             tags=(f"station_{station.id}", "station")
         )
         text_ids.append(text_id3)
-        
+
         # 负荷率（第四行）
         if self.production_line:
             bottleneck_capacity = self.production_line.get_bottleneck_capacity()
@@ -326,12 +374,30 @@ class CanvasView(tk.Canvas):
             text_id4 = self.create_text(
                 x, y + 35,
                 text=f"📊 {utilization:.0%}",
-                font=('Arial', 10),
+                font=(family, 10),
                 tags=(f"station_{station.id}", "station")
             )
             text_ids.append(text_id4)
-        
+
         self.station_texts[station.id] = text_ids
+
+        # 瓶颈徽标：右上角红色圆形
+        bottleneck = self.production_line.find_bottleneck() if self.production_line else None
+        if bottleneck and bottleneck.id == station.id:
+            badge_id = self.create_oval(
+                rect_x2 - 18, rect_y1 + 18, rect_x2 - 4, rect_y1 + 32,
+                fill=COLORS['danger'],
+                outline='',
+                tags=(f"station_{station.id}", "station"),
+            )
+            self.create_text(
+                rect_x2 - 11, rect_y1 + 25,
+                text="!",
+                fill='white',
+                font=(family, 10, 'bold'),
+                tags=(f"station_{station.id}", "station"),
+            )
+            self.bottleneck_badges[station.id] = badge_id
     
     def _draw_connection_curved(self, from_station_id: str, to_station_id: str, pos1: tuple, pos2: tuple) -> None:
         """
@@ -503,15 +569,20 @@ class CanvasView(tk.Canvas):
         # 更新各工序的状态
         for station in self.production_line.stations:
             station_state = state.station_states.get(station.id, {})
-            
+
             # 更新状态颜色
             status = station_state.get('status', 'idle')
             color = get_status_color(status)
-            
-            # 更新矩形颜色
-            if station.id in self.station_rects:
-                self.itemconfig(self.station_rects[station.id], fill=color)
-            
+
+            # 更新卡片底色（浅色）与顶部状态条（实色）
+            if station.id in self.station_cards:
+                self.itemconfig(
+                    self.station_cards[station.id],
+                    fill=STATUS_SOFT.get(status, STATUS_SOFT['idle']),
+                )
+            if station.id in self.status_strips:
+                self.itemconfig(self.status_strips[station.id], fill=color)
+
             # 更新产能文本（如果有变化）
             if station.id in self.station_texts and len(self.station_texts[station.id]) >= 3:
                 capacity = station_state.get('capacity', station.get_capacity())
@@ -539,12 +610,20 @@ class CanvasView(tk.Canvas):
         """
         # 先取消所有高亮
         for station in self.production_line.stations if self.production_line else []:
-            if station.id in self.station_rects:
-                self.itemconfig(self.station_rects[station.id], outline='black', width=2)
-        
+            if station.id in self.station_cards:
+                self.itemconfig(
+                    self.station_cards[station.id],
+                    outline=COLORS['border'],
+                    width=1.5,
+                )
+
         # 高亮指定工序
-        if station_id in self.station_rects:
-            self.itemconfig(self.station_rects[station_id], outline='red', width=4)
+        if station_id in self.station_cards:
+            self.itemconfig(
+                self.station_cards[station_id],
+                outline=COLORS['primary'],
+                width=3,
+            )
     
     def _on_double_click(self, event: tk.Event) -> None:
         """
