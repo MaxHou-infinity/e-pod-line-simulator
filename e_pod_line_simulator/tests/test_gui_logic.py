@@ -28,6 +28,7 @@ def test_build_template_line():
 
 def test_dialog_handler_methods_exist():
     from src.gui_panels import (
+        AlertPanel,
         SaveScenarioDialog,
         ScenarioManageDialog,
         ShiftConfigDialog,
@@ -44,3 +45,4 @@ def test_dialog_handler_methods_exist():
     assert hasattr(WizardDialog, "_next")
     assert hasattr(WizardDialog, "_cancel")
     assert hasattr(ScenarioManageDialog, "_delete_selected")
+    assert hasattr(AlertPanel, "_copy_alerts")

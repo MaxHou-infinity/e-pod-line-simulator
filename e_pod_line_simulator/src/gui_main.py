@@ -40,6 +40,7 @@ from src.gui_panels import (
     SaveScenarioDialog,
     ScenarioCompareDialog,
     ScenarioManageDialog,
+    GlossaryDialog,
     WizardDialog,
 )
 from src.utils import load_config, save_config, import_from_excel, validate_production_line, setup_logger
@@ -169,6 +170,7 @@ class MainWindow:
         help_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="帮助", menu=help_menu)
         help_menu.add_command(label="使用说明", command=self._menu_help)
+        help_menu.add_command(label="术语说明", command=self._menu_glossary)
         help_menu.add_command(label="关于", command=self._menu_about)
     
     def _create_main_layout(self) -> None:
@@ -652,6 +654,10 @@ class MainWindow:
 开发：Max主人
         """
         messagebox.showinfo("关于", about_text)
+
+    def _menu_glossary(self) -> None:
+        """帮助菜单 - 术语说明"""
+        GlossaryDialog(self.root)
 
     def _on_callback_exception(self, exc_type, exc_value, exc_tb) -> None:
         """Tkinter 回调异常统一处理：记录日志并弹窗提示"""

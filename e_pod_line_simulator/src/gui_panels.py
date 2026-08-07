@@ -21,6 +21,7 @@ from src.models import Station, Alert, CollaborationType, ProductionLine
 from src.utils import validate_station, get_alert_color
 from src.scenario_manager import ScenarioManager
 from src.theme import ALERT_ICONS, COLORS, ToolTip, resolve_font_family
+from src.glossary import GLOSSARY
 
 
 def build_template_line(key: str) -> ProductionLine:
@@ -101,9 +102,18 @@ class ConfigPanel(ttk.Frame):
     
     def _create_widgets(self) -> None:
         """创建界面组件"""
-        # 标题
-        title_label = ttk.Label(self, text="工序配置", font=('Arial', 12, 'bold'))
-        title_label.pack(pady=5)
+        # 标题 + 术语速查
+        title_frame = ttk.Frame(self)
+        title_frame.pack(fill=tk.X, pady=5)
+        ttk.Label(title_frame, text="工序配置", font=('Arial', 12, 'bold')).pack(side=tk.LEFT, padx=5)
+        self.btn_glossary = ttk.Button(
+            title_frame,
+            text="术语?",
+            width=6,
+            command=self._open_glossary,
+        )
+        self.btn_glossary.pack(side=tk.RIGHT, padx=5)
+        ToolTip(self.btn_glossary, "查看供应链关键术语说明")
         
         # 按钮框架
         button_frame = ttk.Frame(self)
@@ -228,6 +238,10 @@ class ConfigPanel(ttk.Frame):
         state = tk.NORMAL if enabled else tk.DISABLED
         for btn in (self.btn_add, self.btn_edit, self.btn_delete):
             btn.config(state=state)
+
+    def _open_glossary(self) -> None:
+        """打开术语说明对话框"""
+        GlossaryDialog(self.winfo_toplevel())
     
     def _on_select(self, event: tk.Event) -> None:
         """工序选择事件"""
@@ -356,6 +370,8 @@ class KPIDashboard(ttk.LabelFrame):
                 font=(family, 15, 'bold'),
             )
             value_label.pack()
+            if key == 'total_cost':
+                ToolTip(value_label, "日成本 = 总人数 × 时薪 × 班次时长（元/天）")
 
             # 单位
             tk.Label(
@@ -455,7 +471,19 @@ class AlertPanel(ttk.LabelFrame):
     def __init__(self, parent):
         """初始化报警面板"""
         super().__init__(parent, text="报警信息", padding=10)
-        
+
+        # 头部：一键复制报警文本
+        header = ttk.Frame(self)
+        header.pack(fill=tk.X)
+        self.btn_copy_alerts = ttk.Button(
+            header,
+            text="📋 复制报警",
+            width=12,
+            command=self._copy_alerts,
+        )
+        self.btn_copy_alerts.pack(side=tk.RIGHT)
+        ToolTip(self.btn_copy_alerts, "一键复制全部报警文本到剪贴板")
+
         # 报警列表（使用Text组件显示）
         self.text_widget = tk.Text(self, height=10, wrap=tk.WORD)
         self.text_widget.pack(fill=tk.BOTH, expand=True)
@@ -506,6 +534,18 @@ class AlertPanel(ttk.LabelFrame):
         self.text_widget.config(state=tk.NORMAL)
         self.text_widget.delete(1.0, tk.END)
         self.text_widget.config(state=tk.DISABLED)
+
+    def _copy_alerts(self) -> None:
+        """一键复制全部报警文本到剪贴板"""
+        content = self.text_widget.get("1.0", tk.END).strip()
+        if not content:
+            messagebox.showinfo("提示", "当前没有报警信息")
+            return
+        top = self.winfo_toplevel()
+        top.clipboard_clear()
+        top.clipboard_append(content)
+        self.btn_copy_alerts.config(text="✅ 已复制")
+        self.after(1200, lambda: self.btn_copy_alerts.config(text="📋 复制报警"))
 
 
 class StationDialog:
@@ -693,7 +733,7 @@ class ShiftConfigDialog:
         # 创建对话框窗口（更小巧）
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("班次配置")
-        self.dialog.geometry("320x200")  # 缩小对话框尺寸
+        self.dialog.geometry("360x230")
         self.dialog.transient(parent)
         self.dialog.grab_set()
         
@@ -747,6 +787,15 @@ class ShiftConfigDialog:
         
         # 聚焦到第一个输入框
         shift_entry.focus()
+
+        # 日成本计算说明
+        family = resolve_font_family()
+        ttk.Label(
+            main_frame,
+            text="日成本 = 总人数 × 时薪 × 班次时长（不含休息扣减）",
+            foreground=COLORS['text_secondary'],
+            font=(family, 9),
+        ).grid(row=4, column=0, columnspan=2, pady=(0, 5))
     
     def _btn_ok(self) -> None:
         """确定按钮点击"""
@@ -1207,6 +1256,58 @@ class ScenarioManageDialog:
                 messagebox.showerror("错误", err or "删除失败")
 
 
+class GlossaryDialog:
+    """
+    术语说明对话框 - 展示供应链关键术语与意义梗概
+
+    使用方式：
+        GlossaryDialog(parent)
+    """
+
+    def __init__(self, parent):
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("术语说明")
+        self.dialog.geometry("600x520")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        main_frame = ttk.Frame(self.dialog, padding=10)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(
+            main_frame,
+            text="供应链关键术语速查",
+            font=('Arial', 13, 'bold'),
+        ).pack(anchor=tk.W, pady=(0, 8))
+
+        table_frame = ttk.Frame(main_frame)
+        table_frame.pack(fill=tk.BOTH, expand=True)
+
+        columns = ('term', 'meaning')
+        self.tree = ttk.Treeview(table_frame, columns=columns, show='headings', height=18)
+        self.tree.heading('term', text='术语')
+        self.tree.heading('meaning', text='意义梗概')
+        self.tree.column('term', width=120, anchor=tk.W)
+        self.tree.column('meaning', width=440, anchor=tk.W)
+
+        scrollbar = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        for term, meaning in GLOSSARY:
+            self.tree.insert('', tk.END, values=(term, meaning))
+
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X, pady=(10, 0))
+        ttk.Button(button_frame, text="关闭", command=self.dialog.destroy).pack(side=tk.RIGHT)
+
+        self.dialog.update_idletasks()
+        x = (self.dialog.winfo_screenwidth() - self.dialog.winfo_width()) // 2
+        y = (self.dialog.winfo_screenheight() - self.dialog.winfo_height()) // 2
+        self.dialog.geometry(f"+{x}+{y}")
+
+
 class WizardDialog:
     """
     快速配置向导 - 分步引导新手完成产线配置
@@ -1331,6 +1432,11 @@ class WizardDialog:
                 variable=self.template_var,
                 value=key,
             ).pack(anchor=tk.W, pady=3)
+        ttk.Button(
+            self.page_template,
+            text="术语速查",
+            command=lambda: GlossaryDialog(self.dialog),
+        ).pack(anchor=tk.W, pady=8)
 
     def _build_page_source(self) -> None:
         """步骤 2：数据来源"""

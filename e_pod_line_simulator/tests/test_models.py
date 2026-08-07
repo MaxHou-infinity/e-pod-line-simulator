@@ -56,6 +56,26 @@ def test_production_line_kpis():
     assert line.calculate_upph() > 0
 
 
+def test_daily_cost_and_output_formula():
+    line = ProductionLine(
+        "成本测试",
+        shift_hours=8,
+        break_minutes=60,
+        worker_hourly_wage=20.0,
+    )
+    line.add_station(make_station("s01", "注油", 25, 3))
+
+    # 日成本 = 总人数 × 时薪 × 班次时长（不扣休息）
+    assert line.calculate_total_cost() == 3 * 20.0 * 8
+
+    # 日产量 = 瓶颈产能 × 有效工时（班次时长 - 休息时间）
+    effective_hours = 8 - 60 / 60
+    assert line.calculate_daily_output() == pytest.approx(
+        line.get_bottleneck_capacity() * effective_hours,
+        rel=1e-9,
+    )
+
+
 def test_production_line_empty_returns_zero():
     line = ProductionLine("空产线")
     assert line.find_bottleneck() is None

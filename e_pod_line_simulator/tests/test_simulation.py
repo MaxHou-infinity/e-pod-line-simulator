@@ -117,6 +117,20 @@ def test_wip_blockage_alert():
     assert any(a.alert_type == "blockage" for a in result.alerts)
 
 
+def test_wip_respects_buffer_capacity():
+    line = ProductionLine("WIP边界测试", shift_hours=1, break_minutes=0)
+    line.add_station(Station("s01", "快工序", 1.0, 10, buffer_capacity=100))
+    line.add_station(Station("s02", "慢工序", 100.0, 1, buffer_capacity=5))
+    result = SimulationEngine(line).run_sync(duration_hours=1.0)
+
+    # WIP 采样恒为非负且不超过缓冲区容量
+    assert all(0 <= sample["wip"] <= 5 for sample in result.wip_samples)
+    # 结果汇总中的 WIP 同样受容量约束
+    assert 0 <= result.station_wips["s02"] <= 5
+    # 下游满缓冲时触发堵塞报警
+    assert any(a.alert_type == "blockage" for a in result.alerts)
+
+
 def test_empty_line_headless_run():
     line = ProductionLine("空产线")
     result = SimulationEngine(line).run_sync(duration_hours=0.02)
