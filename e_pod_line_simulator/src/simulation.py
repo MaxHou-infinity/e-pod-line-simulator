@@ -831,6 +831,7 @@ class SimulationEngine:
             batch_results=list(self.batch_results),
             quality_results=list(self.quality_results),
             cleaning_events=list(self.cleaning_events),
+            labor_summary=dict(self.line.labor_config),
         )
 
 

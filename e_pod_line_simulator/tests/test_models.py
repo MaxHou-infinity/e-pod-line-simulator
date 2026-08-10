@@ -225,3 +225,25 @@ def test_pouch_template_line_machine_takt():
     assert filling.machine_takt == 1.5
     # 填充机产能 = 3600/1.5 × 2 × 0.90 × 0.95 × (1 - 75/480) = 3462.75 袋/h
     assert filling.get_capacity() == pytest.approx(3462.75, rel=1e-6)
+
+
+def test_labor_validation():
+    line = create_liquid_line()
+    assert line.validate_labor() == (True, "")
+
+    # 洁净区超限
+    line.cleanroom_limits = {"C": 1}
+    ok, msg = line.validate_labor()
+    assert ok is False and "超过上限" in msg
+    line.cleanroom_limits = {"C": 6}
+
+    # 未知工种
+    line.labor_config["bogus"] = 1
+    ok, msg = line.validate_labor()
+    assert ok is False and "未知工种" in msg
+    del line.labor_config["bogus"]
+
+    # 技能矩阵未知角色
+    line.skill_matrix["bogus"] = []
+    ok, msg = line.validate_labor()
+    assert ok is False and "技能矩阵" in msg

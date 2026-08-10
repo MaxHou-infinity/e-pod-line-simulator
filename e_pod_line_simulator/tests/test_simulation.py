@@ -193,6 +193,8 @@ def test_liquid_batch_simulation_matches_manual():
 
     # 罐液位 = 批次量 × 收率
     assert line.tanks[0].current_level_l == pytest.approx(500 * 0.95, rel=1e-6)
+    # 人力汇总
+    assert result.labor_summary["qc_technician"] == 1
 
 
 def test_cleaning_between_recipes():

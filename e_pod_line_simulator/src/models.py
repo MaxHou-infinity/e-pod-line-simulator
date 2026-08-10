@@ -14,7 +14,7 @@
 - SimulationState: 仿真状态（记录仿真过程中的快照）
 """
 
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 from datetime import datetime
@@ -651,6 +651,48 @@ class ProductionLine:
         upph = bottleneck_capacity / total_workers
         
         return upph
+
+    def validate_labor(self) -> Tuple[bool, str]:
+        """
+        校验人力模型（V1.3）
+
+        检查：
+        - 工种合法性
+        - 技能矩阵可互换工种合法性
+        - 洁净区人数上限
+
+        Returns:
+            Tuple[bool, str]: (是否合法, 错误消息)
+        """
+        if not self.labor_config and not self.cleanroom_limits and not self.skill_matrix:
+            return True, ""
+
+        valid_roles = {role.value for role in JobRole}
+
+        for role in self.labor_config:
+            if role not in valid_roles:
+                return False, f"未知工种：{role}"
+
+        for role, interchangeable in self.skill_matrix.items():
+            if role not in valid_roles:
+                return False, f"技能矩阵包含未知工种：{role}"
+            for other in interchangeable:
+                if other not in valid_roles:
+                    return False, f"技能矩阵包含未知互换工种：{other}"
+
+        # 洁净区人数上限（按工序人数汇总）
+        zone_count: Dict[str, int] = {}
+        for station in self.stations:
+            if station.cleanroom_zone:
+                zone_count[station.cleanroom_zone] = (
+                    zone_count.get(station.cleanroom_zone, 0) + station.worker_count
+                )
+        for zone, limit in self.cleanroom_limits.items():
+            actual = zone_count.get(zone, 0)
+            if actual > limit:
+                return False, f"洁净区 {zone} 人数 {actual} 超过上限 {limit}"
+
+        return True, ""
     
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -950,6 +992,7 @@ class SimulationResult:
     batch_results: List[Dict[str, Any]] = field(default_factory=list)
     quality_results: List[Dict[str, Any]] = field(default_factory=list)
     cleaning_events: List[Dict[str, Any]] = field(default_factory=list)
+    labor_summary: Dict[str, int] = field(default_factory=dict)
 
 
 # ==================== V1.3 模板产线工厂函数 ====================

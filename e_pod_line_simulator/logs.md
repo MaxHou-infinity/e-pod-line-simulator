@@ -882,6 +882,16 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：74 passed
 
+## 2026-08-10 - V1.3 L5 人力模型
+
+### 完成内容
+- 工种/技能矩阵/洁净区上限校验（validate_labor）
+- 非组装类型配置校验接入 validate_production_line
+- SimulationResult 输出 labor_summary
+
+### 验证
+- pytest：75 passed
+
 ## 2026-08-07 - V1.2.0 U6 快捷键与脏状态
 
 ### 完成内容

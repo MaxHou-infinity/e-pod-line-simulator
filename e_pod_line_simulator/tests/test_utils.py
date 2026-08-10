@@ -4,7 +4,13 @@ import logging
 
 import pandas as pd
 
-from src.models import CollaborationType, ProductionLine, ProductionType, Station
+from src.models import (
+    CollaborationType,
+    ProductionLine,
+    ProductionType,
+    Station,
+    create_liquid_line,
+)
 from src.utils import (
     calculate_roi,
     create_excel_template,
@@ -33,6 +39,12 @@ def test_validate_production_line():
     assert validate_production_line(line)[0] is False
     line.add_station(Station("s01", "注油", 25, 2))
     assert validate_production_line(line) == (True, "")
+
+    liquid = create_liquid_line()
+    assert validate_production_line(liquid) == (True, "")
+    liquid.cleanroom_limits = {"C": 1}
+    ok, msg = validate_production_line(liquid)
+    assert ok is False and "超过上限" in msg
 
 
 def test_save_and_load_config(tmp_path):

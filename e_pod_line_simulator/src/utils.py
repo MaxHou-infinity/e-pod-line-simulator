@@ -554,6 +554,12 @@ def validate_production_line(line: ProductionLine) -> Tuple[bool, str]:
         )
         if not valid:
             return False, f"工序'{station.name}'参数错误：{error}"
+
+    # V1.3：非组装类型校验人力模型（工种/技能矩阵/洁净区上限）
+    if line.production_type != ProductionType.ASSEMBLY:
+        labor_ok, labor_msg = line.validate_labor()
+        if not labor_ok:
+            return False, labor_msg
     
     # 所有检查通过
     return True, ""
