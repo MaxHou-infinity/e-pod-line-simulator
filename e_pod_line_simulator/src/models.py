@@ -947,6 +947,9 @@ class SimulationResult:
     alerts: List[Alert] = field(default_factory=list)
     wip_samples: List[Dict[str, Any]] = field(default_factory=list)
     changeover_events: List[Dict[str, Any]] = field(default_factory=list)
+    batch_results: List[Dict[str, Any]] = field(default_factory=list)
+    quality_results: List[Dict[str, Any]] = field(default_factory=list)
+    cleaning_events: List[Dict[str, Any]] = field(default_factory=list)
 
 
 # ==================== V1.3 模板产线工厂函数 ====================

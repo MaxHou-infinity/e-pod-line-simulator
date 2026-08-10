@@ -4,7 +4,12 @@ import time
 
 import pytest
 
-from src.models import CollaborationType, ProductionLine, Station
+from src.models import (
+    CollaborationType,
+    ProductionLine,
+    Station,
+    create_liquid_line,
+)
 from src.simulation import SimulationEngine, detect_waste
 
 
@@ -163,3 +168,24 @@ def test_threaded_run_real_time_mode():
     engine.stop()
     time.sleep(0.2)
     assert engine.is_running is False
+
+
+def test_liquid_batch_simulation_matches_manual():
+    line = create_liquid_line()
+    recipe = line.recipes[0]
+    result = SimulationEngine(line).run_sync(duration_hours=24.0)
+
+    assert len(result.batch_results) == 1
+    batch = result.batch_results[0]
+    assert batch["status"] == "released"
+    assert batch["recipe_name"] == "经典烟草"
+
+    # 手工计算：调配 + 陈化 + 灌装 + QC（分钟）
+    fill_min = recipe.batch_volume_l / recipe.filling_rate_l_per_h * 60
+    expected_cycle = (
+        recipe.mixing_time_min + recipe.aging_time_min + fill_min + recipe.qc_time_min
+    )
+    assert abs(batch["cycle_min"] - expected_cycle) / expected_cycle < 0.03
+
+    # 罐液位 = 批次量 × 收率
+    assert line.tanks[0].current_level_l == pytest.approx(500 * 0.95, rel=1e-6)

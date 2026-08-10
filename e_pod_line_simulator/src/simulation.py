@@ -32,7 +32,9 @@ import threading
 import time
 
 from src.models import (
+    BatchStatus,
     ProductionLine,
+    ProductionType,
     Station,
     Alert,
     SimulationState,
@@ -96,6 +98,10 @@ class SimulationEngine:
         self.wip_samples: List[Dict[str, Any]] = []
         # 切换事件记录（供报告导出与测试断言）
         self.changeover_events: List[Dict[str, Any]] = []
+        # V1.3：批次/质量/清洗结果
+        self.batch_results: List[Dict[str, Any]] = []
+        self.quality_results: List[Dict[str, Any]] = []
+        self.cleaning_events: List[Dict[str, Any]] = []
     
     def set_callback(self, callback: Callable[[SimulationState], None]) -> None:
         """
@@ -176,6 +182,67 @@ class SimulationEngine:
         for event in others:
             self.event_queue.put(event)
         return events
+
+    def _batch_process(self, batch) -> simpy.events.Process:
+        """
+        批次过程（V1.3 烟油灌装）
+
+        流程：调配 → 陈化 → 灌装 → QC → 放行；罐液位同步更新。
+        """
+        recipe = next((r for r in self.line.recipes if r.name == batch.recipe_name), None)
+        if recipe is None:
+            batch.status = BatchStatus.RELEASED
+            self.batch_results.append({
+                'batch_id': batch.id,
+                'recipe_name': batch.recipe_name,
+                'status': 'released',
+                'error': '配方不存在',
+                'start_time': self.env.now,
+                'end_time': self.env.now,
+                'yield_l': 0.0,
+                'cycle_min': 0.0,
+                'pass_rate': 0.0,
+            })
+            return
+
+        batch.status = BatchStatus.MIXING
+        start_time = self.env.now
+        yield self.env.timeout(recipe.mixing_time_min * 60)
+
+        if recipe.aging_time_min > 0:
+            batch.status = BatchStatus.AGING
+            yield self.env.timeout(recipe.aging_time_min * 60)
+
+        batch.status = BatchStatus.FILLING
+        fill_seconds = recipe.batch_volume_l / recipe.filling_rate_l_per_h * 3600
+        yield self.env.timeout(fill_seconds)
+
+        batch.status = BatchStatus.QC
+        yield self.env.timeout(recipe.qc_time_min * 60)
+
+        yielded_l = recipe.batch_volume_l * recipe.yield_rate
+        pass_rate = 1.0  # 质量门在 L6 细化
+        batch.status = BatchStatus.RELEASED
+        end_time = self.env.now
+        batch.end_time = end_time
+        batch.pass_rate = pass_rate
+
+        # 罐液位更新（取第一个有空间的罐）
+        for tank in self.line.tanks:
+            if tank.current_level_l + yielded_l <= tank.capacity_l + 1e-6:
+                tank.current_level_l += yielded_l
+                break
+
+        self.batch_results.append({
+            'batch_id': batch.id,
+            'recipe_name': batch.recipe_name,
+            'status': 'released',
+            'start_time': start_time,
+            'end_time': end_time,
+            'yield_l': round(yielded_l, 3),
+            'cycle_min': round((end_time - start_time) / 60.0, 3),
+            'pass_rate': pass_rate,
+        })
     
     def run(self, duration_hours: float = 8.0, speed: int = 16) -> None:
         """
@@ -203,6 +270,9 @@ class SimulationEngine:
         self.station_outputs = {station.id: 0 for station in self.line.stations}
         self.station_wips = {station.id: 0 for station in self.line.stations}
         self.total_output = 0
+        self.batch_results = []
+        self.quality_results = []
+        self.cleaning_events = []
 
         # 步骤1：创建SimPy环境
         # Environment是SimPy的核心，管理仿真时钟和事件队列
@@ -684,11 +754,20 @@ class SimulationEngine:
         self.station_outputs = {station.id: 0 for station in self.line.stations}
         self.station_wips = {station.id: 0 for station in self.line.stations}
         self.total_output = 0
+        self.batch_results = []
+        self.quality_results = []
+        self.cleaning_events = []
 
         self.env = simpy.Environment()
         self._init_resources()
-        for station in self.line.stations:
-            self.env.process(self._station_process(station))
+        if self.line.production_type == ProductionType.LIQUID_FILLING:
+            # 烟油：批量过程驱动
+            for batch in self.line.batches:
+                self.env.process(self._batch_process(batch))
+        else:
+            # 组装 / 尼古丁袋：工序进程驱动（袋装使用机台节拍）
+            for station in self.line.stations:
+                self.env.process(self._station_process(station))
         self.env.process(self._monitor_bottleneck())
         self.env.process(self._monitor_wip())
         self.env.process(self._update_state_periodically())
@@ -717,6 +796,9 @@ class SimulationEngine:
             alerts=list(self.alert_log),
             wip_samples=list(self.wip_samples),
             changeover_events=list(self.changeover_events),
+            batch_results=list(self.batch_results),
+            quality_results=list(self.quality_results),
+            cleaning_events=list(self.cleaning_events),
         )
 
 
