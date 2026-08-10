@@ -80,6 +80,13 @@ class BatchStatus(Enum):
     RELEASED = "released"
 
 
+UNIT_LABELS = {
+    ProductionType.ASSEMBLY: "颗",
+    ProductionType.LIQUID_FILLING: "升",
+    ProductionType.POUCH_PACKAGING: "袋",
+}
+
+
 @dataclass
 class Station:
     """
@@ -720,6 +727,16 @@ class ProductionLine:
         if not machines:
             return 0.0
         return sum(s.oee for s in machines) / len(machines)
+
+    def get_unit(self) -> str:
+        """
+        获取当前生产类型的计量单位
+
+        - 烟弹组装：颗
+        - 烟油灌装：升
+        - 尼古丁袋：袋
+        """
+        return UNIT_LABELS.get(self.production_type, "颗")
     
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -957,7 +974,8 @@ class Scenario:
             'total_cost': self.production_line.calculate_total_cost(),
             'unit_cost': self.production_line.calculate_unit_cost(),
             'balance_rate': self.production_line.calculate_line_balance_rate(),
-            'upph': self.production_line.calculate_upph()
+            'upph': self.production_line.calculate_upph(),
+            'unit': self.production_line.get_unit(),
         }
         
         return kpis
@@ -1020,6 +1038,7 @@ class SimulationResult:
     quality_results: List[Dict[str, Any]] = field(default_factory=list)
     cleaning_events: List[Dict[str, Any]] = field(default_factory=list)
     labor_summary: Dict[str, int] = field(default_factory=dict)
+    unit: str = "颗"
 
 
 # ==================== V1.3 模板产线工厂函数 ====================

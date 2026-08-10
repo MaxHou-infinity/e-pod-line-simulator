@@ -432,9 +432,10 @@ class CanvasView(tk.Canvas):
 
         # 产能（第三行）
         capacity = station.get_capacity()
+        unit = self.production_line.get_unit() if self.production_line else "颗"
         text_id3 = self.create_text(
             x, y + 15,
-            text=f"⚡ {capacity:.0f} 颗/h",
+            text=f"⚡ {capacity:.0f} {unit}/h",
             font=(family, 10),
             tags=(f"station_{station.id}", "station")
         )
@@ -617,7 +618,7 @@ class CanvasView(tk.Canvas):
         
         wip_id = self.create_text(
             wip_x, wip_y,
-            text="WIP: 0",
+            text=f"WIP: 0 {self.production_line.get_unit() if self.production_line else '颗'}",
             font=('Arial', 9),
             fill='blue',
             tags=(f"wip_{from_station_id}_{to_station_id}", "wip")
@@ -672,7 +673,8 @@ class CanvasView(tk.Canvas):
             key = f"{from_station.id}_{to_station.id}"
             if key in self.wip_labels:
                 wip = state.station_states.get(to_station.id, {}).get('wip', 0)
-                self.itemconfig(self.wip_labels[key], text=f"WIP: {wip}")
+                unit = self.production_line.get_unit() if self.production_line else "颗"
+                self.itemconfig(self.wip_labels[key], text=f"WIP: {wip} {unit}")
 
         # 刷新批次状态（烟油）
         if self.production_line.production_type and self.production_line.production_type.value == "liquid_filling":

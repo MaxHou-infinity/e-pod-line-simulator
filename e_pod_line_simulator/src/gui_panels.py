@@ -267,6 +267,11 @@ class ConfigPanel(ttk.Frame):
             self.production_type_label.config(
                 text=label_map.get(production_type, "类型：烟弹组装")
             )
+
+    def set_unit(self, unit: str) -> None:
+        """按生产类型更新工序列表产能单位"""
+        if hasattr(self, 'tree'):
+            self.tree.heading('capacity', text=f'产能({unit}/h)')
     
     def _on_select(self, event: tk.Event) -> None:
         """工序选择事件"""
@@ -318,6 +323,8 @@ class KPIDashboard(ttk.LabelFrame):
         
         # KPI标签
         self.kpi_labels: Dict[str, ttk.Label] = {}
+        self.kpi_name_labels: Dict[str, tk.Label] = {}
+        self.kpi_unit_labels: Dict[str, tk.Label] = {}
         
         # 创建界面
         self._create_widgets()
@@ -378,13 +385,15 @@ class KPIDashboard(ttk.LabelFrame):
             kpi_frame.grid_columnconfigure(i, weight=1)
 
             # KPI 名称
-            tk.Label(
+            name_label = tk.Label(
                 cell,
                 text=label,
                 bg=COLORS['surface'],
                 fg=COLORS['text_secondary'],
                 font=(family, 9),
-            ).pack()
+            )
+            name_label.pack()
+            self.kpi_name_labels[key] = name_label
 
             # KPI 数值
             value_label = tk.Label(
@@ -399,13 +408,15 @@ class KPIDashboard(ttk.LabelFrame):
                 ToolTip(value_label, "日成本 = 总人数 × 时薪 × 班次时长（元/天）")
 
             # 单位
-            tk.Label(
+            unit_label = tk.Label(
                 cell,
                 text=unit,
                 bg=COLORS['surface'],
                 fg=COLORS['text_secondary'],
                 font=(family, 8),
-            ).pack()
+            )
+            unit_label.pack()
+            self.kpi_unit_labels[key] = unit_label
 
             self.kpi_labels[key] = value_label
 
@@ -503,6 +514,24 @@ class KPIDashboard(ttk.LabelFrame):
             if key in kpis and kpis[key]:
                 parts.append(f"{label}: {fmt.format(kpis[key])}")
         self.v13_label.config(text="  |  ".join(parts))
+
+    def set_unit(self, unit: str) -> None:
+        """按生产类型更新 KPI 计量单位（颗/升/袋）"""
+        if not hasattr(self, 'kpi_name_labels'):
+            return
+        label_map = {
+            'bottleneck_capacity': ('瓶颈产能', f'{unit}/h'),
+            'daily_output': ('预计日产量', unit),
+            'total_cost': ('日成本', '元'),
+            'unit_cost': ('单位成本', f'元/{unit}'),
+            'balance_rate': ('产线平衡率', '%'),
+            'upph': ('UPPH', f'{unit}/人·h'),
+        }
+        for key, (name, unit_text) in label_map.items():
+            if key in self.kpi_name_labels:
+                self.kpi_name_labels[key].config(text=name)
+            if key in self.kpi_unit_labels:
+                self.kpi_unit_labels[key].config(text=unit_text)
 
 
 class AlertPanel(ttk.LabelFrame):
@@ -662,7 +691,7 @@ class StationDialog:
         name_entry.grid(row=0, column=1, pady=5)
         
         # 单颗耗时
-        ttk.Label(main_frame, text="单颗耗时(秒):").grid(row=1, column=0, sticky=tk.W, pady=5)
+        ttk.Label(main_frame, text="单件耗时(秒):").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.time_var = tk.StringVar(value=str(station.process_time) if station else "30")
         time_entry = ttk.Entry(main_frame, textvariable=self.time_var, width=30)
         time_entry.grid(row=1, column=1, pady=5)
@@ -1158,6 +1187,9 @@ class ScenarioCompareDialog:
             messagebox.showerror("错误", f"对比方案失败：{str(e)}")
             self.dialog.destroy()
             return
+
+        first = self.scenario_manager.get_scenario(scenario_names[0])
+        self.unit = first.production_line.get_unit() if first else "颗"
         
         # 创建界面（先创建界面，再计算位置）
         self._create_widgets()
@@ -1264,14 +1296,15 @@ class ScenarioCompareDialog:
     def _populate_table(self) -> None:
         """填充对比表格数据"""
         # KPI指标配置（指标键名, 显示名称, 单位, 格式化函数）
+        unit = self.unit
         kpi_configs = [
             ('total_workers', '总人数', '人', lambda x: f"{int(x)}人"),
-            ('bottleneck_capacity', '瓶颈产能', '颗/h', lambda x: f"{x:.0f}"),
-            ('daily_output', '日产量', '颗', lambda x: f"{x:.0f}"),
+            ('bottleneck_capacity', '瓶颈产能', f'{unit}/h', lambda x: f"{x:.0f}"),
+            ('daily_output', '日产量', unit, lambda x: f"{x:.0f}"),
             ('total_cost', '日成本', '元', lambda x: f"{x:.0f}"),
-            ('unit_cost', '单颗成本', '元/颗', lambda x: f"{x:.2f}"),
+            ('unit_cost', '单位成本', f'元/{unit}', lambda x: f"{x:.2f}"),
             ('balance_rate', '产线平衡率', '%', lambda x: f"{x*100:.1f}%"),
-            ('upph', 'UPPH', '颗/人·h', lambda x: f"{x:.1f}")
+            ('upph', 'UPPH', f'{unit}/人·h', lambda x: f"{x:.1f}")
         ]
         
         # 遍历每个KPI指标

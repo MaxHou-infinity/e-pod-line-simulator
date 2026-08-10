@@ -366,6 +366,11 @@ class MainWindow:
         
         # 更新配置面板（传递产线引用，用于查找Station对象）
         self.config_panel.update_stations(self.production_line.stations, self.production_line)
+
+        # V1.3：计量单位随生产类型变化（颗/升/袋）
+        unit = self.production_line.get_unit()
+        self.config_panel.set_unit(unit)
+        self.kpi_dashboard.set_unit(unit)
         
         # 更新画布
         self.canvas_view.update_production_line(self.production_line)

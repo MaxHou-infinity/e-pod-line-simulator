@@ -63,16 +63,17 @@ def _kpi_rows(result: SimulationResult) -> List[List[str]]:
     """构造 KPI 表格行（中文标签 + 值）"""
     k = result.kpis
     duration_minutes = result.duration_seconds / 60.0
+    unit = result.unit
     return [
         ["产线名称", result.line_name],
         ["仿真时长(分钟)", f"{duration_minutes:.1f}"],
-        ["总产出(颗)", f"{result.total_output}"],
-        ["瓶颈产能(颗/h)", f"{k.get('bottleneck_capacity', 0):.1f}"],
-        ["预计日产量(颗)", f"{k.get('daily_output', 0):.0f}"],
+        [f"总产出({unit})", f"{result.total_output}"],
+        [f"瓶颈产能({unit}/h)", f"{k.get('bottleneck_capacity', 0):.1f}"],
+        [f"预计日产量({unit})", f"{k.get('daily_output', 0):.0f}"],
         ["日成本(元)", f"{k.get('total_cost', 0):.0f}"],
-        ["单颗成本(元/颗)", f"{k.get('unit_cost', 0):.3f}"],
+        [f"单位成本(元/{unit})", f"{k.get('unit_cost', 0):.3f}"],
         ["产线平衡率", f"{k.get('balance_rate', 0) * 100:.1f}%"],
-        ["UPPH(颗/人·h)", f"{k.get('upph', 0):.1f}"],
+        [f"UPPH({unit}/人·h)", f"{k.get('upph', 0):.1f}"],
     ]
 
 
@@ -96,8 +97,8 @@ def export_excel(result: SimulationResult, file_path: str) -> bool:
         for station in result.station_outputs:
             station_rows.append({
                 "工序ID": station,
-                "产出(颗)": result.station_outputs.get(station, 0),
-                "WIP(颗)": result.station_wips.get(station, 0),
+                f"产出({result.unit})": result.station_outputs.get(station, 0),
+                f"WIP({result.unit})": result.station_wips.get(station, 0),
             })
         station_df = pd.DataFrame(station_rows)
 
@@ -204,7 +205,7 @@ def export_pdf(result: SimulationResult, file_path: str) -> bool:
             Spacer(1, 8 * mm),
             Paragraph(
                 f"仿真时长：{result.duration_seconds / 60:.1f} 分钟　"
-                f"总产出：{result.total_output} 颗",
+                f"总产出：{result.total_output} {result.unit}",
                 body_style,
             ),
             Spacer(1, 6 * mm),

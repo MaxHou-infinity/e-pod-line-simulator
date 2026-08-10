@@ -546,7 +546,10 @@ class SimulationEngine:
                     alert_type="bottleneck",
                     severity="critical",
                     station_id=bottleneck.id,
-                    message=f"瓶颈工序：{bottleneck.name}，产能：{bottleneck.get_capacity():.0f}颗/h",
+                    message=(
+                        f"瓶颈工序：{bottleneck.name}，"
+                        f"产能：{bottleneck.get_capacity():.0f}{self.line.get_unit()}/h"
+                    ),
                     suggestion=f"建议增加{bottleneck.name}的工人数量或提升OEE",
                     timestamp_minutes=timestamp_minutes
                 )
@@ -898,6 +901,7 @@ class SimulationEngine:
             quality_results=list(self.quality_results),
             cleaning_events=list(self.cleaning_events),
             labor_summary=dict(self.line.labor_config),
+            unit=self.line.get_unit(),
         )
 
 

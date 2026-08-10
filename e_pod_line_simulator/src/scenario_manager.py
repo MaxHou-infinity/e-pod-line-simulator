@@ -285,16 +285,17 @@ class ScenarioManager:
         differences = []
         if len(scenario_kpis) > 1:
             base_kpis = scenario_kpis[0]['kpis']
+            unit = base_kpis.get('unit', '颗')
             
             # KPI指标列表（用于对比）
             kpi_metrics = [
                 ('total_workers', '总人数', '人'),
-                ('bottleneck_capacity', '瓶颈产能', '颗/h'),
-                ('daily_output', '日产量', '颗'),
+                ('bottleneck_capacity', '瓶颈产能', f'{unit}/h'),
+                ('daily_output', '日产量', unit),
                 ('total_cost', '日成本', '元'),
-                ('unit_cost', '单颗成本', '元/颗'),
+                ('unit_cost', '单位成本', f'元/{unit}'),
                 ('balance_rate', '产线平衡率', '%'),
-                ('upph', 'UPPH', '颗/人·h')
+                ('upph', 'UPPH', f'{unit}/人·h')
             ]
             
             for metric_key, metric_name, unit in kpi_metrics:
@@ -332,7 +333,7 @@ class ScenarioManager:
                     'values': diff_values
                 })
         
-        # 推荐最佳方案（单颗成本最低）
+        # 推荐最佳方案（单位成本最低）
         best_scenario = None
         best_unit_cost = float('inf')
         recommendation_reason = ""
@@ -362,9 +363,9 @@ class ScenarioManager:
                     advantages.append("UPPH最高")
             
             if advantages:
-                recommendation_reason = f"{best_scenario}（单颗成本最低，{', '.join(advantages)}）"
+                recommendation_reason = f"{best_scenario}（单位成本最低，{', '.join(advantages)}）"
             else:
-                recommendation_reason = f"{best_scenario}（单颗成本最低）"
+                recommendation_reason = f"{best_scenario}（单位成本最低）"
         
         return {
             'scenarios': scenario_kpis,

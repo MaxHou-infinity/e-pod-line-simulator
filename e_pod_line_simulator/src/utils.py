@@ -502,10 +502,10 @@ def validate_station(name: str, process_time: float, worker_count: int) -> Tuple
     
     # 校验耗时
     if process_time <= 0:
-        return False, "单颗耗时必须大于0"
+        return False, "单件耗时必须大于0"
     
     if process_time > 3600:
-        return False, "单颗耗时不能超过3600秒（1小时）"
+        return False, "单件耗时不能超过3600秒（1小时）"
     
     # 校验人数
     if worker_count < 1:

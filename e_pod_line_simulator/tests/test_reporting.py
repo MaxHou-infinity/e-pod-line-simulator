@@ -58,3 +58,7 @@ def test_liquid_report_contains_batch_sheets(tmp_path):
     wb = load_workbook(path)
     assert "批次结果" in wb.sheetnames
     assert "质量门" in wb.sheetnames
+    kpi_values = [
+        str(c.value) for row in wb["KPI"].iter_rows() for c in row if c.value
+    ]
+    assert any("升" in v for v in kpi_values)
