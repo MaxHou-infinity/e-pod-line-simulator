@@ -793,6 +793,23 @@ y = max(0, min(y, screen_height - dialog_height))
 - 已推送：main 分支 + v1.1.0 / v1.2.0 标签
 - 本地压缩包：`E-Pod-Line-Simulator-v1.2.0.zip`（含 README 与双平台启动器）
 
+## 2026-08-10 - V1.3.0 立项：烟油 / 尼古丁袋产品形态扩展
+
+### 决策
+- V1.3.0 定义为产品形态扩展：烟油（液体/批量/化工）与
+  尼古丁袋（高速自动化/食品医药 GMP）
+- 引入"生产类型模板"（assembly / liquid_filling / pouch_packaging）
+- AI 优化顺延至 V1.4；Web 化仍属 V2.0
+- 版本号登记：`src/version.py` → `1.3.0`
+
+### 产出
+- `docs/v1.3/需求与开发路线图.md`：需求规格、合规输入、验收标准、路线图
+- `docs/v1.3/开发日志.md`：L0 立项记录
+
+### 输入依据
+- Nowledge：Delta 化工/GMP 人力逻辑、印尼 HPTL 多机构监管
+  （BPOM 认证、SNI 9070 ≤16.6mg/袋、GMP 洁净、RPTKA 用工）
+
 ## 2026-08-07 - V1.2.0 U6 快捷键与脏状态
 
 ### 完成内容
