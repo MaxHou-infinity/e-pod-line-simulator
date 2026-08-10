@@ -25,6 +25,7 @@ SimPy是一个离散事件仿真库，用于模拟系统中的事件流。
 5. 收集结果并返回
 """
 
+import random
 import simpy
 from typing import List, Dict, Callable, Optional, Any
 from queue import Queue, Empty
@@ -33,6 +34,7 @@ import time
 
 from src.models import (
     BatchStatus,
+    JobRole,
     ProductionLine,
     ProductionType,
     Station,
@@ -103,6 +105,7 @@ class SimulationEngine:
         self.quality_results: List[Dict[str, Any]] = []
         self.cleaning_events: List[Dict[str, Any]] = []
         self._last_batch_recipe: Optional[str] = None
+        self.random_seed: Optional[int] = None
     
     def set_callback(self, callback: Callable[[SimulationState], None]) -> None:
         """
@@ -238,7 +241,27 @@ class SimulationEngine:
         yield self.env.timeout(recipe.qc_time_min * 60)
 
         yielded_l = recipe.batch_volume_l * recipe.yield_rate
-        pass_rate = 1.0  # 质量门在 L6 细化
+
+        # 质量门：QC 化验按抽检比例与缺陷率判定
+        pass_rate = 1.0
+        qc_station = next(
+            (s for s in self.line.stations if s.job_role == JobRole.QC_TECHNICIAN),
+            None,
+        )
+        if qc_station and qc_station.sampling_rate > 0 and qc_station.defect_rate > 0:
+            if self._rng.random() < qc_station.sampling_rate:
+                if self._rng.random() < qc_station.defect_rate:
+                    batch.status = BatchStatus.REWORK
+                    batch.rework_count += 1
+                    yield self.env.timeout(qc_station.rework_minutes * 60)
+                    pass_rate = max(0.0, 1.0 - qc_station.defect_rate)
+        self.quality_results.append({
+            'time': self.env.now,
+            'batch_id': batch.id,
+            'pass_rate': round(pass_rate, 4),
+            'rework_count': batch.rework_count,
+        })
+
         batch.status = BatchStatus.RELEASED
         end_time = self.env.now
         batch.end_time = end_time
@@ -290,6 +313,7 @@ class SimulationEngine:
         self.batch_results = []
         self.quality_results = []
         self.cleaning_events = []
+        self._rng = random.Random(self.random_seed)
 
         # 步骤1：创建SimPy环境
         # Environment是SimPy的核心，管理仿真时钟和事件队列
@@ -465,6 +489,22 @@ class SimulationEngine:
                     else:
                         # 最后一个工序，物料完成，直接计入产出
                         pass
+
+                    # 步骤6.5：质量门（在线检测）
+                    if station.sampling_rate > 0 and station.defect_rate > 0:
+                        if self._rng.random() < station.sampling_rate:
+                            if self._rng.random() < station.defect_rate:
+                                station.current_status = "waiting"
+                                yield self.env.timeout(station.rework_minutes * 60)
+                                self.quality_results.append({
+                                    'time': self.env.now,
+                                    'station_id': station.id,
+                                    'station_name': station.name,
+                                    'defect': True,
+                                    'rework_min': station.rework_minutes,
+                                })
+                                station.current_status = "idle"
+                                continue
                     
                     # 步骤7：更新统计数据
                     self.station_outputs[station.id] += 1
@@ -790,6 +830,7 @@ class SimulationEngine:
         self.batch_results = []
         self.quality_results = []
         self.cleaning_events = []
+        self._rng = random.Random(self.random_seed)
 
         self.env = simpy.Environment()
         self._init_resources()

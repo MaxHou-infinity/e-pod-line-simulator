@@ -238,3 +238,39 @@ def test_pouch_machine_takt_throughput():
     result = SimulationEngine(line).run_sync(duration_hours=1.0)
     # 理论：3600 秒 / 1.0 秒 × 2 机台 = 7200 袋
     assert 7100 <= result.total_output <= 7300
+
+
+def test_liquid_quality_gate_rework():
+    line = create_liquid_line()
+    qc = line.get_station("s03")
+    qc.sampling_rate = 1.0
+    qc.defect_rate = 1.0
+    qc.rework_minutes = 15.0
+
+    engine = SimulationEngine(line)
+    engine.random_seed = 42
+    result = engine.run_sync(duration_hours=24.0)
+
+    assert len(result.quality_results) == 1
+    assert result.quality_results[0]["rework_count"] >= 1
+    assert result.quality_results[0]["pass_rate"] < 1.0
+    assert result.batch_results[0]["pass_rate"] < 1.0
+
+
+def test_pouch_quality_gate_reduces_output():
+    line = ProductionLine("袋装质检测试", production_type=ProductionType.POUCH_PACKAGING)
+    line.add_station(Station(
+        "p01", "在线检测", 1.0, 1,
+        machine_takt=1.0, oee=1.0, efficiency=1.0,
+        changeover_time=0, clean_time_minutes=0,
+        sampling_rate=1.0, defect_rate=1.0, rework_minutes=5.0,
+    ))
+    engine = SimulationEngine(line)
+    engine.random_seed = 42
+    result = engine.run_sync(duration_hours=0.5)
+
+    assert len(result.quality_results) > 0
+    assert all(q["defect"] for q in result.quality_results)
+    # 缺陷率 100% 时合格产出为 0（缺陷件返工隔离，不计产出）
+    assert result.total_output == 0
+    assert len(result.quality_results) >= 3

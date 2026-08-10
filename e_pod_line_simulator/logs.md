@@ -892,6 +892,16 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：75 passed
 
+## 2026-08-10 - V1.3 L6 质量门
+
+### 完成内容
+- 机台在线检测：抽检/缺陷触发返工，缺陷件不计合格产出
+- 烟油批次 QC：不合格进入 REWORK，记录质量结果
+- quality_results 输出；random_seed 可复现
+
+### 验证
+- pytest：77 passed
+
 ## 2026-08-07 - V1.2.0 U6 快捷键与脏状态
 
 ### 完成内容
