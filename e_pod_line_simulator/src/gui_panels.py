@@ -58,6 +58,23 @@ def build_template_line(key: str) -> ProductionLine:
     return line
 
 
+def station_edit_fields(production_type: ProductionType) -> set:
+    """
+    工序编辑字段与生产类型的映射（V1.3）
+
+    - assembly：不显示任何 V1.3 字段
+    - liquid_filling：清洗时间（CIP/SIP）+ 质量门（抽检/缺陷/返工）
+    - pouch_packaging：机台节拍 + 质量门（抽检/缺陷/返工），
+      清洗时间对高速包装无排程意义，不显示
+    """
+    quality = {'sampling_rate', 'defect_rate', 'rework_minutes'}
+    if production_type == ProductionType.LIQUID_FILLING:
+        return {'clean_time_minutes'} | quality
+    if production_type == ProductionType.POUCH_PACKAGING:
+        return {'machine_takt'} | quality
+    return set()
+
+
 class ConfigPanel(ttk.Frame):
     """
     配置面板 - 显示和管理工序列表
@@ -733,31 +750,36 @@ class StationDialog:
             value=str(station.rework_minutes) if station else "0"
         )
 
-        ttk.Label(main_frame, text="机台节拍(秒):").grid(row=5, column=0, sticky=tk.W, pady=5)
+        self.machine_takt_label = ttk.Label(main_frame, text="机台节拍(秒):")
+        self.machine_takt_label.grid(row=5, column=0, sticky=tk.W, pady=5)
         self.machine_takt_entry = ttk.Entry(
             main_frame, textvariable=self.machine_takt_var, width=30
         )
         self.machine_takt_entry.grid(row=5, column=1, pady=5)
 
-        ttk.Label(main_frame, text="清洗时间(分钟):").grid(row=6, column=0, sticky=tk.W, pady=5)
+        self.clean_time_label = ttk.Label(main_frame, text="清洗时间(分钟):")
+        self.clean_time_label.grid(row=6, column=0, sticky=tk.W, pady=5)
         self.clean_time_entry = ttk.Entry(
             main_frame, textvariable=self.clean_time_var, width=30
         )
         self.clean_time_entry.grid(row=6, column=1, pady=5)
 
-        ttk.Label(main_frame, text="抽检比例(0-1):").grid(row=7, column=0, sticky=tk.W, pady=5)
+        self.sampling_label = ttk.Label(main_frame, text="抽检比例(0-1):")
+        self.sampling_label.grid(row=7, column=0, sticky=tk.W, pady=5)
         self.sampling_entry = ttk.Entry(
             main_frame, textvariable=self.sampling_var, width=30
         )
         self.sampling_entry.grid(row=7, column=1, pady=5)
 
-        ttk.Label(main_frame, text="缺陷率(0-1):").grid(row=8, column=0, sticky=tk.W, pady=5)
+        self.defect_label = ttk.Label(main_frame, text="缺陷率(0-1):")
+        self.defect_label.grid(row=8, column=0, sticky=tk.W, pady=5)
         self.defect_entry = ttk.Entry(
             main_frame, textvariable=self.defect_var, width=30
         )
         self.defect_entry.grid(row=8, column=1, pady=5)
 
-        ttk.Label(main_frame, text="返工时长(分钟):").grid(row=9, column=0, sticky=tk.W, pady=5)
+        self.rework_label = ttk.Label(main_frame, text="返工时长(分钟):")
+        self.rework_label.grid(row=9, column=0, sticky=tk.W, pady=5)
         self.rework_entry = ttk.Entry(
             main_frame, textvariable=self.rework_var, width=30
         )
@@ -781,17 +803,27 @@ class StationDialog:
         name_entry.focus()
 
     def _apply_type_fields(self) -> None:
-        """按生产类型显示/隐藏 V1.3 字段"""
-        is_pouch = self.line_type == ProductionType.POUCH_PACKAGING
-        is_liquid = self.line_type == ProductionType.LIQUID_FILLING
+        """
+        按生产类型显示/隐藏 V1.3 字段（标签与输入框成对隐藏）
 
-        if not is_pouch:
-            self.machine_takt_entry.grid_remove()
-        if not (is_pouch or is_liquid):
-            self.clean_time_entry.grid_remove()
-            self.sampling_entry.grid_remove()
-            self.defect_entry.grid_remove()
-            self.rework_entry.grid_remove()
+        映射见 station_edit_fields()。
+        """
+        visible = station_edit_fields(self.line_type)
+        fields = {
+            'machine_takt': (self.machine_takt_label, self.machine_takt_entry),
+            'clean_time_minutes': (self.clean_time_label, self.clean_time_entry),
+            'sampling_rate': (self.sampling_label, self.sampling_entry),
+            'defect_rate': (self.defect_label, self.defect_entry),
+            'rework_minutes': (self.rework_label, self.rework_entry),
+        }
+        for key, (label, entry) in fields.items():
+            if key in visible:
+                label.grid()
+                entry.grid()
+                entry.config(state=tk.NORMAL)
+            else:
+                label.grid_remove()
+                entry.grid_remove()
     
     def _btn_ok(self) -> None:
         """确定按钮点击"""

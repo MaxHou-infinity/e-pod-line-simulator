@@ -1,7 +1,8 @@
 """GUI 交互逻辑单元测试（不依赖显示环境）"""
 
 from src.gui_canvas import compute_reorder_order
-from src.gui_panels import build_template_line
+from src.gui_panels import build_template_line, station_edit_fields
+from src.models import ProductionType
 
 
 def test_compute_reorder_order_move_to_middle():
@@ -46,3 +47,19 @@ def test_dialog_handler_methods_exist():
     assert hasattr(WizardDialog, "_cancel")
     assert hasattr(ScenarioManageDialog, "_delete_selected")
     assert hasattr(AlertPanel, "_copy_alerts")
+
+
+def test_station_edit_fields_mapping():
+    assert station_edit_fields(ProductionType.ASSEMBLY) == set()
+    assert station_edit_fields(ProductionType.LIQUID_FILLING) == {
+        "clean_time_minutes",
+        "sampling_rate",
+        "defect_rate",
+        "rework_minutes",
+    }
+    assert station_edit_fields(ProductionType.POUCH_PACKAGING) == {
+        "machine_takt",
+        "sampling_rate",
+        "defect_rate",
+        "rework_minutes",
+    }

@@ -906,7 +906,12 @@ class MainWindow:
             return
         
         # 打开编辑对话框
-        dialog = StationDialog(self.root, title="编辑工序", station=station)
+        dialog = StationDialog(
+            self.root,
+            title="编辑工序",
+            station=station,
+            production_line=self.production_line,
+        )
         if dialog.result:
             # 更新工序数据
             updated = dialog.result
@@ -915,6 +920,11 @@ class MainWindow:
             station.worker_count = updated.worker_count
             station.oee = updated.oee
             station.collaboration_type = updated.collaboration_type
+            station.machine_takt = updated.machine_takt
+            station.clean_time_minutes = updated.clean_time_minutes
+            station.sampling_rate = updated.sampling_rate
+            station.defect_rate = updated.defect_rate
+            station.rework_minutes = updated.rework_minutes
             
             self._mark_dirty()
             self._update_display()
