@@ -326,7 +326,11 @@ class SimulationEngine:
         
         # 步骤3：启动各工序的工作进程
         # 每个工序都有一个独立的工作进程，模拟物料加工
-        self._spawn_station_processes()
+        if self.line.production_type == ProductionType.LIQUID_FILLING:
+            for batch in self.line.batches:
+                self.env.process(self._batch_process(batch))
+        else:
+            self._spawn_station_processes()
         
         # 步骤4：启动监控进程
         # 监控瓶颈变化和WIP堆积

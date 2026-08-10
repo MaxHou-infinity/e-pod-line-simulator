@@ -144,6 +144,8 @@ class CanvasView(tk.Canvas):
         self.station_cards: Dict[str, int] = {}  # 节点卡片ID
         self.status_strips: Dict[str, int] = {}  # 顶部状态条ID
         self.bottleneck_badges: Dict[str, int] = {}  # 瓶颈徽标ID
+        self.type_badge_id: Optional[int] = None
+        self.batch_summary_ids: List[int] = []
 
         # 拖拽状态
         self._drag_station_id: Optional[str] = None
@@ -197,6 +199,8 @@ class CanvasView(tk.Canvas):
         self.station_cards.clear()
         self.status_strips.clear()
         self.bottleneck_badges.clear()
+        self.type_badge_id = None
+        self.batch_summary_ids = []
         
         if not production_line or not production_line.stations:
             # 空状态：显示引导提示，避免空白画布无反馈
@@ -294,6 +298,72 @@ class CanvasView(tk.Canvas):
             
             # 绘制连接线（从当前工序到下一个工序）
             self._draw_connection_curved(current_station.id, next_station.id, current_pos, next_pos)
+
+        self._draw_type_badge()
+        self._draw_batch_summary()
+
+    def _draw_type_badge(self) -> None:
+        """绘制生产类型徽标（V1.3 流程型布局提示）"""
+        if not self.production_line:
+            return
+        family = resolve_font_family()
+        label_map = {
+            "assembly": "类型：烟弹组装",
+            "liquid_filling": "类型：烟油灌装（罐→灌装→QC）",
+            "pouch_packaging": "类型：尼古丁袋高速包装",
+        }
+        text = label_map.get(self.production_line.production_type.value, "")
+        self.type_badge_id = self.create_text(
+            12, 12,
+            text=text,
+            anchor=tk.NW,
+            font=(family, 11, 'bold'),
+            fill=COLORS['text_secondary'],
+            tags=("type_badge",),
+        )
+
+    def _draw_batch_summary(self) -> None:
+        """绘制批次状态摘要（简化批次甘特信息）"""
+        if not self.production_line or not self.production_line.batches:
+            return
+        family = resolve_font_family()
+        canvas_width = self.winfo_width() if self.winfo_width() > 1 else CANVAS_WIDTH
+        lines = [f"{b.id}: {b.status.value}" for b in self.production_line.batches]
+        text = "\n".join(lines)
+        self.batch_summary_ids = [
+            self.create_text(
+                canvas_width - 12, 12,
+                text=text,
+                anchor=tk.NE,
+                font=(family, 10),
+                fill=COLORS['text'],
+                justify='right',
+                tags=("batch_summary",),
+            )
+        ]
+
+    def refresh_batch_summary(self) -> None:
+        """仿真后刷新批次状态摘要（清洗状态高亮一并体现）"""
+        if not self.production_line or not self.production_line.batches:
+            return
+        family = resolve_font_family()
+        canvas_width = self.winfo_width() if self.winfo_width() > 1 else CANVAS_WIDTH
+        lines = [f"{b.id}: {b.status.value}" for b in self.production_line.batches]
+        text = "\n".join(lines)
+        if self.batch_summary_ids:
+            self.itemconfig(self.batch_summary_ids[0], text=text)
+        else:
+            self.batch_summary_ids = [
+                self.create_text(
+                    canvas_width - 12, 12,
+                    text=text,
+                    anchor=tk.NE,
+                    font=(family, 10),
+                    fill=COLORS['text'],
+                    justify='right',
+                    tags=("batch_summary",),
+                )
+            ]
     
     def _draw_station(self, station: Station, x: int, y: int) -> None:
         """
@@ -603,6 +673,10 @@ class CanvasView(tk.Canvas):
             if key in self.wip_labels:
                 wip = state.station_states.get(to_station.id, {}).get('wip', 0)
                 self.itemconfig(self.wip_labels[key], text=f"WIP: {wip}")
+
+        # 刷新批次状态（烟油）
+        if self.production_line.production_type and self.production_line.production_type.value == "liquid_filling":
+            self.refresh_batch_summary()
     
     def highlight_station(self, station_id: str) -> None:
         """
