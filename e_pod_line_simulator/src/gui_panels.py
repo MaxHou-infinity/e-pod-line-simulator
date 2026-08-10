@@ -14,7 +14,7 @@ GUI面板组件 - 各种功能面板
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 from typing import List, Optional, Callable, Dict, Any
 
 from src.models import Station, Alert, CollaborationType, ProductionLine
@@ -1129,6 +1129,15 @@ class SaveScenarioDialog:
         ttk.Label(main_frame, text="方案描述:").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.description_text = tk.Text(main_frame, width=30, height=4)
         self.description_text.grid(row=1, column=1, pady=5, padx=10)
+
+        # 自定义保存路径（可选）
+        ttk.Label(main_frame, text="保存位置(可选):").grid(row=2, column=0, sticky=tk.W, pady=5)
+        path_frame = ttk.Frame(main_frame)
+        path_frame.grid(row=2, column=1, pady=5, padx=10, sticky=tk.W)
+        self.path_var = tk.StringVar(value="")
+        self.path_entry = ttk.Entry(path_frame, textvariable=self.path_var, width=22)
+        self.path_entry.pack(side=tk.LEFT)
+        ttk.Button(path_frame, text="浏览...", command=self._browse_path).pack(side=tk.LEFT, padx=5)
         
         # 提示信息
         info_label = ttk.Label(
@@ -1137,14 +1146,24 @@ class SaveScenarioDialog:
             font=('Arial', 9),
             foreground='gray'
         )
-        info_label.grid(row=2, column=0, columnspan=2, pady=10)
+        info_label.grid(row=3, column=0, columnspan=2, pady=10)
         
         # 按钮框架
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=3, column=0, columnspan=2, pady=10)
+        button_frame.grid(row=4, column=0, columnspan=2, pady=10)
         
         ttk.Button(button_frame, text="确定", command=self._on_confirm).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="取消", command=self._on_cancel).pack(side=tk.LEFT, padx=5)
+
+    def _browse_path(self) -> None:
+        """选择自定义保存路径（JSON）"""
+        path = filedialog.asksaveasfilename(
+            title="选择方案保存位置",
+            defaultextension=".json",
+            filetypes=[("JSON 文件", "*.json"), ("所有文件", "*.*")],
+        )
+        if path:
+            self.path_var.set(path)
     
     def _on_confirm(self) -> None:
         """确认保存方案"""
@@ -1164,7 +1183,15 @@ class SaveScenarioDialog:
         
         if success:
             # 保存成功
-            self.result = {'name': name, 'description': description}
+            export_path = self.path_var.get().strip()
+            if export_path:
+                if not self.scenario_manager.export_scenario(name, export_path):
+                    messagebox.showwarning("警告", "方案已保存到内部，但导出到自定义路径失败")
+            self.result = {
+                'name': name,
+                'description': description,
+                'path': export_path or None,
+            }
             self.dialog.destroy()
         else:
             # 保存失败，显示错误信息

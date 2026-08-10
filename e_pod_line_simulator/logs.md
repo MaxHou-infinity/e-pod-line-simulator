@@ -963,6 +963,21 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：80 passed；GUI 冒烟通过（右侧纵列 470x762）
 
+## 2026-08-10 - V1.3 保存方案支持自定义路径
+
+### 完成内容
+- 保存方案对话框新增"保存位置(可选)"与浏览按钮
+- 新增 export_scenario：单方案导出为 JSON（可重新加载）
+- 未选路径时仍自动保存到 configs/scenarios.json
+- 状态栏提示导出路径
+
+### 格式说明
+- 保存方案 = JSON（.json）
+- Excel 报告 = "分析 → 导出报告"
+
+### 验证
+- pytest：81 passed
+
 ## 2026-08-10 - V1.3 术语表更新
 
 ### 完成内容

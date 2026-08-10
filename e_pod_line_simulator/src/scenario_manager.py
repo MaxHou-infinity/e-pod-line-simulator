@@ -158,6 +158,37 @@ class ScenarioManager:
             json.dump(data, f, ensure_ascii=False, indent=2)
         return True
 
+    def export_scenario(self, name: str, path: str) -> bool:
+        """
+        将单个方案导出为 JSON 文件（自定义路径）
+
+        导出格式与 save_to_file 一致（{方案名: 方案数据}），
+        可被 load_from_file 重新加载。
+
+        Args:
+            name: 方案名称
+            path: 目标文件路径（.json）
+
+        Returns:
+            bool: 是否成功
+        """
+        scenario = self.scenarios.get(name)
+        if scenario is None:
+            return False
+        data = {
+            name: {
+                'created_at': scenario.created_at,
+                'description': scenario.description,
+                'production_line': scenario.production_line.to_dict(),
+            }
+        }
+        directory = os.path.dirname(path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+
     def load_from_file(self, path: str) -> bool:
         """
         从 JSON 文件加载方案

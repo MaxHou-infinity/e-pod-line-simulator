@@ -591,7 +591,12 @@ class MainWindow:
         # 检查保存结果
         if dialog.result:
             messagebox.showinfo("成功", f"方案'{dialog.result['name']}'已保存")
-            self.status_bar.config(text=f"已保存方案：{dialog.result['name']}")
+            if dialog.result.get('path'):
+                self.status_bar.config(
+                    text=f"已保存方案：{dialog.result['name']}（已导出：{dialog.result['path']}）"
+                )
+            else:
+                self.status_bar.config(text=f"已保存方案：{dialog.result['name']}")
     
     def _menu_export_report(self) -> None:
         """分析菜单 - 导出报告"""

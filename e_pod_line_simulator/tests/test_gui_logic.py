@@ -47,6 +47,7 @@ def test_dialog_handler_methods_exist():
     assert hasattr(WizardDialog, "_cancel")
     assert hasattr(ScenarioManageDialog, "_delete_selected")
     assert hasattr(AlertPanel, "_copy_alerts")
+    assert hasattr(SaveScenarioDialog, "_browse_path")
 
 
 def test_station_edit_fields_mapping():

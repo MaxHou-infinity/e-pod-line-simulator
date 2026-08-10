@@ -135,3 +135,18 @@ def test_persist_failure_does_not_block_save(tmp_path):
     ok, err = manager.save_scenario("方案A", make_line())
     assert ok is True and err is None
     assert manager.get_scenario("方案A") is not None
+
+
+def test_export_scenario_custom_path(tmp_path):
+    path = str(tmp_path / "custom.json")
+    manager = ScenarioManager()
+    manager.save_scenario("方案A", make_line(), "自定义导出")
+
+    assert manager.export_scenario("方案A", path) is True
+    loaded = ScenarioManager()
+    assert loaded.load_from_file(path) is True
+    assert loaded.get_scenario_count() == 1
+    assert loaded.get_scenario("方案A").description == "自定义导出"
+
+    # 不存在的方案导出失败
+    assert manager.export_scenario("不存在", path) is False
