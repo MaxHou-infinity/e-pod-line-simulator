@@ -102,6 +102,7 @@ class SimulationEngine:
         self.batch_results: List[Dict[str, Any]] = []
         self.quality_results: List[Dict[str, Any]] = []
         self.cleaning_events: List[Dict[str, Any]] = []
+        self._last_batch_recipe: Optional[str] = None
     
     def set_callback(self, callback: Callable[[SimulationState], None]) -> None:
         """
@@ -205,6 +206,22 @@ class SimulationEngine:
             })
             return
 
+        # CIP/SIP 清洗切换：换配方时按配方清洗时长停机
+        if (
+            self._last_batch_recipe is not None
+            and self._last_batch_recipe != recipe.name
+            and recipe.clean_time_min > 0
+        ):
+            clean_start = self.env.now
+            yield self.env.timeout(recipe.clean_time_min * 60)
+            self.cleaning_events.append({
+                'time': clean_start,
+                'recipe_from': self._last_batch_recipe,
+                'recipe_to': recipe.name,
+                'clean_min': recipe.clean_time_min,
+            })
+        self._last_batch_recipe = recipe.name
+
         batch.status = BatchStatus.MIXING
         start_time = self.env.now
         yield self.env.timeout(recipe.mixing_time_min * 60)
@@ -285,8 +302,7 @@ class SimulationEngine:
         
         # 步骤3：启动各工序的工作进程
         # 每个工序都有一个独立的工作进程，模拟物料加工
-        for station in self.line.stations:
-            self.env.process(self._station_process(station))
+        self._spawn_station_processes()
         
         # 步骤4：启动监控进程
         # 监控瓶颈变化和WIP堆积
@@ -332,6 +348,21 @@ class SimulationEngine:
             # 创建WIP缓冲区
             # Store用于存储物料，容量为buffer_capacity
             self.buffers[station.id] = simpy.Store(self.env, capacity=station.buffer_capacity)
+
+    def _spawn_station_processes(self) -> None:
+        """
+        按协作模式启动工序进程
+
+        - 并联：每名工人一个进程，产能 = 节拍 × 工位数（匹配 get_capacity）
+        - 协同：单进程，多人共享（资源容量 1，自动排队）
+        """
+        for station in self.line.stations:
+            if station.collaboration_type == CollaborationType.PARALLEL:
+                count = max(1, station.worker_count)
+            else:
+                count = 1
+            for _ in range(count):
+                self.env.process(self._station_process(station))
     
     def _station_process(self, station: Station) -> simpy.events.Process:
         """
@@ -409,7 +440,9 @@ class SimulationEngine:
                     # timeout是SimPy的核心，用于模拟时间流逝
                     # process_time是实际加工时间，但需要考虑效率
                     # 实际时间 = 理论时间 / (OEE × efficiency)
-                    actual_process_time = station.process_time / (station.oee * station.efficiency)
+                    # 机台节拍模式（尼古丁袋）使用 machine_takt，否则使用单颗耗时
+                    effective_time = station.machine_takt if station.machine_takt else station.process_time
+                    actual_process_time = effective_time / (station.oee * station.efficiency)
                     yield self.env.timeout(actual_process_time)
                     
                     # 步骤5：加工完成，释放资源（自动释放，with语句结束）
@@ -766,8 +799,7 @@ class SimulationEngine:
                 self.env.process(self._batch_process(batch))
         else:
             # 组装 / 尼古丁袋：工序进程驱动（袋装使用机台节拍）
-            for station in self.line.stations:
-                self.env.process(self._station_process(station))
+            self._spawn_station_processes()
         self.env.process(self._monitor_bottleneck())
         self.env.process(self._monitor_wip())
         self.env.process(self._update_state_periodically())

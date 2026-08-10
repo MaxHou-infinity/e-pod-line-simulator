@@ -872,6 +872,16 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：72 passed
 
+## 2026-08-10 - V1.3 L4 CIP/SIP 与机台节拍
+
+### 完成内容
+- 换配方触发 CIP/SIP 清洗停机并记录事件
+- 并联工序按人数并发进程（修复产能低估，匹配节拍 × 工位模型）
+- 尼古丁袋机台节拍使用 machine_takt 作为单件时间
+
+### 验证
+- pytest：74 passed
+
 ## 2026-08-07 - V1.2.0 U6 快捷键与脏状态
 
 ### 完成内容

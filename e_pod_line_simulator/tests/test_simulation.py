@@ -6,8 +6,12 @@ import pytest
 
 from src.models import (
     CollaborationType,
+    ProductionType,
     ProductionLine,
+    Recipe,
     Station,
+    Tank,
+    Batch,
     create_liquid_line,
 )
 from src.simulation import SimulationEngine, detect_waste
@@ -189,3 +193,46 @@ def test_liquid_batch_simulation_matches_manual():
 
     # 罐液位 = 批次量 × 收率
     assert line.tanks[0].current_level_l == pytest.approx(500 * 0.95, rel=1e-6)
+
+
+def test_cleaning_between_recipes():
+    line = ProductionLine("换配方测试", production_type=ProductionType.LIQUID_FILLING)
+    line.recipes.append(Recipe(
+        name="配方A", batch_volume_l=100, yield_rate=0.95,
+        mixing_time_min=10, aging_time_min=0,
+        filling_rate_l_per_h=600, qc_time_min=5, clean_time_min=0,
+    ))
+    line.recipes.append(Recipe(
+        name="配方B", batch_volume_l=100, yield_rate=0.95,
+        mixing_time_min=10, aging_time_min=0,
+        filling_rate_l_per_h=600, qc_time_min=5, clean_time_min=30,
+    ))
+    line.tanks.append(Tank("T01", "调配罐", 1000, 0))
+    line.batches.append(Batch("B001", "配方A", 100))
+    line.batches.append(Batch("B002", "配方B", 100))
+
+    result = SimulationEngine(line).run_sync(duration_hours=24.0)
+
+    assert len(result.cleaning_events) == 1
+    assert result.cleaning_events[0]["recipe_from"] == "配方A"
+    assert result.cleaning_events[0]["recipe_to"] == "配方B"
+    assert result.cleaning_events[0]["clean_min"] == 30
+
+    batch_b = result.batch_results[1]
+    fill_min = 100 / 600 * 60
+    expected_b = 10 + fill_min + 5  # 调配+灌装+QC（清洗在批次间单独计时）
+    assert abs(batch_b["cycle_min"] - expected_b) < 0.03 * expected_b
+    # 清洗发生在 B 开始前
+    assert result.cleaning_events[0]["time"] < batch_b["start_time"]
+
+
+def test_pouch_machine_takt_throughput():
+    line = ProductionLine("袋装节拍测试", production_type=ProductionType.POUCH_PACKAGING)
+    line.add_station(Station(
+        "p01", "填充机", 1.0, 2,
+        machine_takt=1.0, oee=1.0, efficiency=1.0,
+        changeover_time=0, clean_time_minutes=0,
+    ))
+    result = SimulationEngine(line).run_sync(duration_hours=1.0)
+    # 理论：3600 秒 / 1.0 秒 × 2 机台 = 7200 袋
+    assert 7100 <= result.total_output <= 7300
