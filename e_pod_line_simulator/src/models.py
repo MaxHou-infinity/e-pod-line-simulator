@@ -35,6 +35,38 @@ class CollaborationType(Enum):
     COLLABORATIVE = "collaborative"  # 协同模式
 
 
+class ProductionType(Enum):
+    """
+    生产类型模板（V1.3）
+
+    - ASSEMBLY: 烟弹离散组装（现状默认）
+    - LIQUID_FILLING: 烟油液体/批量灌装
+    - POUCH_PACKAGING: 尼古丁袋高速包装
+    """
+    ASSEMBLY = "assembly"
+    LIQUID_FILLING = "liquid_filling"
+    POUCH_PACKAGING = "pouch_packaging"
+
+
+class JobRole(Enum):
+    """
+    工种（V1.3 人力模型）
+
+    - MIXER: 调香师/调配工
+    - FILLING_OPERATOR: 灌装线操作员
+    - QC_TECHNICIAN: QC 化验员
+    - PACKAGING_OPERATOR: 包装机手
+    - CLEANER: 清洗工
+    - GENERAL: 通用装配工（assembly 默认）
+    """
+    MIXER = "mixer"
+    FILLING_OPERATOR = "filling_operator"
+    QC_TECHNICIAN = "qc_technician"
+    PACKAGING_OPERATOR = "packaging_operator"
+    CLEANER = "cleaner"
+    GENERAL = "general"
+
+
 @dataclass
 class Station:
     """
@@ -83,6 +115,21 @@ class Station:
     # 缓冲区参数
     buffer_capacity: int = 100  # WIP缓冲区容量，工序间可以暂存的最大物料数
                                 # 默认100，防止物料堆积过多
+
+    # V1.3 扩展：机台节拍（尼古丁袋高速包装，秒/单位）
+    machine_takt: Optional[float] = None
+
+    # V1.3 扩展：人力与洁净区
+    job_role: JobRole = JobRole.GENERAL
+    cleanroom_zone: str = ""  # A/B/C/D，空表示不限制
+
+    # V1.3 扩展：质量门（在线检测）
+    sampling_rate: float = 0.0   # 抽检比例 0-1
+    defect_rate: float = 0.0     # 检出缺陷率 0-1
+    rework_minutes: float = 0.0  # 单次返工/隔离时长（分钟）
+
+    # V1.3 扩展：清洗切换（CIP/SIP，分钟）
+    clean_time_minutes: float = 0.0
     
     # 运行时状态（这些字段在仿真过程中会动态更新）
     current_status: str = "idle"  # 当前状态：idle(空闲)、running(运行)、blocked(堵塞)、waiting(等待)
@@ -120,6 +167,19 @@ class Station:
         """
         # 步骤1：计算理论产能（不考虑人数和效率）
         # 3600秒 = 1小时，除以单颗耗时得到理论产能
+        # 机台节拍模式（尼古丁袋）：按"机台节拍 × 机台数"计算
+        if self.machine_takt and self.machine_takt > 0:
+            theoretical_capacity = 3600.0 / self.machine_takt
+            adjusted_capacity = theoretical_capacity * self.worker_count
+            # 应用效率系数
+            efficiency_adjusted_capacity = adjusted_capacity * self.oee * self.efficiency
+            # 切换/清洗时间占比
+            shift_hours = 8.0
+            total_shift_minutes = shift_hours * 60
+            downtime = (self.changeover_time or 0) + (self.clean_time_minutes or 0)
+            ratio = min(downtime / total_shift_minutes, 1.0) if total_shift_minutes > 0 else 0.0
+            return efficiency_adjusted_capacity * (1 - ratio)
+
         theoretical_capacity = 3600.0 / self.process_time
         
         # 步骤2：根据协作模式调整产能
@@ -201,6 +261,7 @@ class Station:
         data = asdict(self)
         # 将枚举类型转为字符串值
         data['collaboration_type'] = self.collaboration_type.value
+        data['job_role'] = self.job_role.value
         return data
     
     @classmethod
@@ -219,6 +280,8 @@ class Station:
         # 将字符串转换回枚举类型
         if isinstance(data['collaboration_type'], str):
             data['collaboration_type'] = CollaborationType(data['collaboration_type'])
+        if isinstance(data.get('job_role'), str):
+            data['job_role'] = JobRole(data['job_role'])
         # 使用字典解包创建对象
         return cls(**data)
 
@@ -253,6 +316,9 @@ class ProductionLine:
     shift_hours: int = 8  # 班次时长（小时），默认8小时
     break_minutes: int = 60  # 休息时间（分钟），默认60分钟（包含午餐和休息）
     worker_hourly_wage: float = 20.0  # 工人时薪（元/小时），用于计算成本
+
+    # V1.3：生产类型模板
+    production_type: ProductionType = ProductionType.ASSEMBLY
     
     def add_station(self, station: Station) -> None:
         """
@@ -575,6 +641,7 @@ class ProductionLine:
             'shift_hours': self.shift_hours,
             'break_minutes': self.break_minutes,
             'worker_hourly_wage': self.worker_hourly_wage,
+            'production_type': self.production_type.value,
             'stations': [station.to_dict() for station in self.stations]
         }
     
@@ -594,7 +661,8 @@ class ProductionLine:
             name=data['name'],
             shift_hours=data.get('shift_hours', 8),
             break_minutes=data.get('break_minutes', 60),
-            worker_hourly_wage=data.get('worker_hourly_wage', 20.0)
+            worker_hourly_wage=data.get('worker_hourly_wage', 20.0),
+            production_type=ProductionType(data.get('production_type', 'assembly'))
         )
         
         # 添加所有工序

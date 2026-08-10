@@ -827,6 +827,18 @@ y = max(0, min(y, screen_height - dialog_height))
 - 提示词已固化 V1.3 范围：P0/P1、合规约束不影响排程、L0→L8、
   验收标准与停止条件
 
+## 2026-08-10 - V1.3 L0 生产类型模板基础
+
+### 完成内容
+- 新增 ProductionType（assembly/liquid_filling/pouch_packaging）
+- 新增 JobRole（调香师/灌装操作员/QC/包装机手/清洗工/通用）
+- Station 扩展：machine_takt、洁净区、质量门、清洗字段
+- ProductionLine.production_type，JSON 序列化向后兼容
+- 机台节拍产能公式：3600/节拍 × 机台数 × OEE
+
+### 验证
+- pytest：67 passed；GUI 冒烟通过（v1.3.0 + 旧配置兼容）
+
 ## 2026-08-07 - V1.2.0 U6 快捷键与脏状态
 
 ### 完成内容

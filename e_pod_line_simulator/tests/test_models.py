@@ -4,7 +4,9 @@ import pytest
 
 from src.models import (
     CollaborationType,
+    JobRole,
     ProductionLine,
+    ProductionType,
     Scenario,
     Station,
 )
@@ -123,3 +125,54 @@ def test_alert_and_simulation_state_serialization():
 
     state = SimulationState(current_time=60, station_states={"s01": {}}, total_output=10)
     assert state.to_dict()["total_output"] == 10
+
+
+def test_production_type_default_and_serialization():
+    line = ProductionLine("默认产线")
+    assert line.production_type == ProductionType.ASSEMBLY
+    line.add_station(make_station())
+
+    data = line.to_dict()
+    assert data["production_type"] == "assembly"
+    restored = ProductionLine.from_dict(data)
+    assert restored.production_type == ProductionType.ASSEMBLY
+
+    line.production_type = ProductionType.LIQUID_FILLING
+    restored = ProductionLine.from_dict(line.to_dict())
+    assert restored.production_type == ProductionType.LIQUID_FILLING
+
+
+def test_pouch_station_machine_takt_capacity():
+    station = Station(
+        id="p01",
+        name="填充机",
+        process_time=1.0,  # 机台节拍模式下不使用
+        worker_count=3,     # 机台数
+        machine_takt=6.0,   # 6 秒/袋
+        oee=0.9,
+        efficiency=1.0,
+        changeover_time=0,
+    )
+    # 理论产能 = 3600/6 * 3 = 1800 袋/h；×OEE 0.9 = 1620
+    assert station.get_capacity() == pytest.approx(1620.0, rel=1e-6)
+
+
+def test_job_role_and_quality_fields_serialization():
+    station = Station(
+        id="q01",
+        name="QC",
+        process_time=30,
+        worker_count=1,
+        job_role=JobRole.QC_TECHNICIAN,
+        cleanroom_zone="C",
+        sampling_rate=0.2,
+        defect_rate=0.01,
+        rework_minutes=10,
+        clean_time_minutes=30,
+    )
+    restored = Station.from_dict(station.to_dict())
+    assert restored.job_role == JobRole.QC_TECHNICIAN
+    assert restored.cleanroom_zone == "C"
+    assert restored.sampling_rate == 0.2
+    assert restored.rework_minutes == 10
+    assert restored.clean_time_minutes == 30
