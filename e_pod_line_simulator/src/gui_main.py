@@ -177,10 +177,11 @@ class MainWindow:
         """
         创建主布局
         
-        主布局分为三个区域：
+        主布局分为四个区域：
         1. 左侧：配置面板（工序列表、编辑功能）
         2. 中间：画布视图（2D产线可视化）
-        3. 底部：KPI仪表盘和控制按钮
+        3. 中间底部：KPI仪表盘和控制按钮
+        4. 最右侧：报警栏（纵列显示）
         """
         # 创建主容器（使用PanedWindow实现可调整大小的分割）
         main_paned = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
@@ -199,9 +200,13 @@ class MainWindow:
         )
         self.config_panel.pack(fill=tk.BOTH, expand=True)
         
-        # 右侧：画布和KPI
+        # 中间：画布和KPI
         right_frame = ttk.Frame(main_paned)
         main_paned.add(right_frame, weight=3)
+
+        # 最右侧：报警栏（纵列显示，纵向充分利用窗口高度）
+        alert_frame = ttk.Frame(main_paned, width=320)
+        main_paned.add(alert_frame, weight=1)
         
         # 画布视图（2D可视化）
         canvas_frame = ttk.Frame(right_frame)
@@ -293,12 +298,9 @@ class MainWindow:
         ToolTip(self.btn_save_scenario, "保存当前产线配置为方案")
         ToolTip(self.speed_combo, "仿真速度倍数（1x-64x）")
         
-        # 报警面板
-        alert_frame = ttk.Frame(right_frame)
-        alert_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
+        # 报警面板（右侧纵列）
         self.alert_panel = AlertPanel(alert_frame)
-        self.alert_panel.pack(fill=tk.BOTH, expand=True)
+        self.alert_panel.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
     
     def _create_status_bar(self) -> None:
         """
