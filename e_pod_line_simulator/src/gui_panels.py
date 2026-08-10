@@ -22,6 +22,11 @@ from src.utils import validate_station, get_alert_color
 from src.scenario_manager import ScenarioManager
 from src.theme import ALERT_ICONS, COLORS, ToolTip, resolve_font_family
 from src.glossary import GLOSSARY
+from src.models import (
+    ProductionType,
+    create_liquid_line,
+    create_pouch_line,
+)
 
 
 def build_template_line(key: str) -> ProductionLine:
@@ -106,6 +111,13 @@ class ConfigPanel(ttk.Frame):
         title_frame = ttk.Frame(self)
         title_frame.pack(fill=tk.X, pady=5)
         ttk.Label(title_frame, text="工序配置", font=('Arial', 12, 'bold')).pack(side=tk.LEFT, padx=5)
+        self.production_type_label = ttk.Label(
+            title_frame,
+            text="类型：烟弹组装",
+            foreground=COLORS['text_secondary'],
+            font=('Arial', 9),
+        )
+        self.production_type_label.pack(side=tk.LEFT, padx=8)
         self.btn_glossary = ttk.Button(
             title_frame,
             text="术语?",
@@ -176,6 +188,7 @@ class ConfigPanel(ttk.Frame):
         # 保存产线引用
         if production_line is not None:
             self.production_line = production_line
+            self.set_production_type(production_line.production_type)
         
         # 清空现有数据
         for item in self.tree.get_children():
@@ -242,6 +255,18 @@ class ConfigPanel(ttk.Frame):
     def _open_glossary(self) -> None:
         """打开术语说明对话框"""
         GlossaryDialog(self.winfo_toplevel())
+
+    def set_production_type(self, production_type: ProductionType) -> None:
+        """更新生产类型标签"""
+        label_map = {
+            ProductionType.ASSEMBLY: "类型：烟弹组装",
+            ProductionType.LIQUID_FILLING: "类型：烟油灌装",
+            ProductionType.POUCH_PACKAGING: "类型：尼古丁袋包装",
+        }
+        if hasattr(self, 'production_type_label'):
+            self.production_type_label.config(
+                text=label_map.get(production_type, "类型：烟弹组装")
+            )
     
     def _on_select(self, event: tk.Event) -> None:
         """工序选择事件"""
@@ -573,11 +598,16 @@ class StationDialog:
         self.result: Optional[Station] = None  # 对话框结果
         self.production_line = production_line  # 保存产线引用
         self.station = station  # 保存原始station引用（如果是编辑模式）
+        self.line_type = (
+            production_line.production_type
+            if production_line is not None
+            else ProductionType.ASSEMBLY
+        )
         
         # 创建对话框窗口
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
-        self.dialog.geometry("400x350")
+        self.dialog.geometry("460x500")
         self.dialog.transient(parent)  # 设置为父窗口的子窗口
         self.dialog.grab_set()  # 模态对话框
         
@@ -630,10 +660,59 @@ class StationDialog:
         self.oee_var = tk.StringVar(value=str(station.oee) if station else "0.85")
         oee_entry = ttk.Entry(main_frame, textvariable=self.oee_var, width=30)
         oee_entry.grid(row=4, column=1, pady=5)
+
+        # V1.3：生产类型相关字段
+        self.machine_takt_var = tk.StringVar(
+            value=str(station.machine_takt) if station and station.machine_takt else ""
+        )
+        self.clean_time_var = tk.StringVar(
+            value=str(station.clean_time_minutes) if station else "0"
+        )
+        self.sampling_var = tk.StringVar(
+            value=str(station.sampling_rate) if station else "0"
+        )
+        self.defect_var = tk.StringVar(
+            value=str(station.defect_rate) if station else "0"
+        )
+        self.rework_var = tk.StringVar(
+            value=str(station.rework_minutes) if station else "0"
+        )
+
+        ttk.Label(main_frame, text="机台节拍(秒):").grid(row=5, column=0, sticky=tk.W, pady=5)
+        self.machine_takt_entry = ttk.Entry(
+            main_frame, textvariable=self.machine_takt_var, width=30
+        )
+        self.machine_takt_entry.grid(row=5, column=1, pady=5)
+
+        ttk.Label(main_frame, text="清洗时间(分钟):").grid(row=6, column=0, sticky=tk.W, pady=5)
+        self.clean_time_entry = ttk.Entry(
+            main_frame, textvariable=self.clean_time_var, width=30
+        )
+        self.clean_time_entry.grid(row=6, column=1, pady=5)
+
+        ttk.Label(main_frame, text="抽检比例(0-1):").grid(row=7, column=0, sticky=tk.W, pady=5)
+        self.sampling_entry = ttk.Entry(
+            main_frame, textvariable=self.sampling_var, width=30
+        )
+        self.sampling_entry.grid(row=7, column=1, pady=5)
+
+        ttk.Label(main_frame, text="缺陷率(0-1):").grid(row=8, column=0, sticky=tk.W, pady=5)
+        self.defect_entry = ttk.Entry(
+            main_frame, textvariable=self.defect_var, width=30
+        )
+        self.defect_entry.grid(row=8, column=1, pady=5)
+
+        ttk.Label(main_frame, text="返工时长(分钟):").grid(row=9, column=0, sticky=tk.W, pady=5)
+        self.rework_entry = ttk.Entry(
+            main_frame, textvariable=self.rework_var, width=30
+        )
+        self.rework_entry.grid(row=9, column=1, pady=5)
+
+        self._apply_type_fields()
         
         # 按钮框架
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=5, column=0, columnspan=2, pady=20)
+        button_frame.grid(row=10, column=0, columnspan=2, pady=20)
         
         # 确定按钮
         btn_ok = ttk.Button(button_frame, text="确定", command=self._btn_ok)
@@ -645,6 +724,19 @@ class StationDialog:
         
         # 聚焦到名称输入框
         name_entry.focus()
+
+    def _apply_type_fields(self) -> None:
+        """按生产类型显示/隐藏 V1.3 字段"""
+        is_pouch = self.line_type == ProductionType.POUCH_PACKAGING
+        is_liquid = self.line_type == ProductionType.LIQUID_FILLING
+
+        if not is_pouch:
+            self.machine_takt_entry.grid_remove()
+        if not (is_pouch or is_liquid):
+            self.clean_time_entry.grid_remove()
+            self.sampling_entry.grid_remove()
+            self.defect_entry.grid_remove()
+            self.rework_entry.grid_remove()
     
     def _btn_ok(self) -> None:
         """确定按钮点击"""
@@ -655,6 +747,21 @@ class StationDialog:
             worker_count = int(self.workers_var.get())
             oee = float(self.oee_var.get())
             mode = CollaborationType(self.mode_var.get())
+
+            # V1.3 可选字段
+            machine_takt_text = self.machine_takt_var.get().strip()
+            machine_takt = float(machine_takt_text) if machine_takt_text else None
+            clean_time = float(self.clean_time_var.get() or 0)
+            sampling = float(self.sampling_var.get() or 0)
+            defect = float(self.defect_var.get() or 0)
+            rework = float(self.rework_var.get() or 0)
+
+            if machine_takt is not None and machine_takt <= 0:
+                messagebox.showerror("错误", "机台节拍必须大于0")
+                return
+            if not 0 <= sampling <= 1 or not 0 <= defect <= 1:
+                messagebox.showerror("错误", "抽检比例与缺陷率必须在0-1之间")
+                return
             
             # 校验参数
             valid, error = validate_station(name, process_time, worker_count)
@@ -686,7 +793,12 @@ class StationDialog:
                 process_time=process_time,
                 worker_count=worker_count,
                 collaboration_type=mode,
-                oee=oee
+                oee=oee,
+                machine_takt=machine_takt,
+                clean_time_minutes=clean_time,
+                sampling_rate=sampling,
+                defect_rate=defect,
+                rework_minutes=rework,
             )
             
             # 关闭对话框
@@ -1419,6 +1531,23 @@ class WizardDialog:
 
     def _build_page_template(self) -> None:
         """步骤 1：模板选择"""
+        ttk.Label(self.page_template, text="选择生产类型：", font=('Arial', 10)).pack(
+            anchor=tk.W, pady=(0, 5)
+        )
+        self.production_type_var = tk.StringVar(value="assembly")
+        for key, label in [
+            ("assembly", "烟弹组装（离散装配）"),
+            ("liquid_filling", "烟油灌装（液体/批量）"),
+            ("pouch_packaging", "尼古丁袋包装（高速机台）"),
+        ]:
+            ttk.Radiobutton(
+                self.page_template,
+                text=label,
+                variable=self.production_type_var,
+                value=key,
+            ).pack(anchor=tk.W, pady=2)
+        ttk.Separator(self.page_template, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=8)
+
         ttk.Label(self.page_template, text="选择产线模板：", font=('Arial', 10)).pack(anchor=tk.W, pady=5)
         for key, label in [
             ("simple", "简单产线（3 工序）"),
@@ -1499,6 +1628,11 @@ class WizardDialog:
 
     def _make_template_line(self) -> ProductionLine:
         """根据所选模板创建产线"""
+        production_type = self.production_type_var.get()
+        if production_type == "liquid_filling":
+            return create_liquid_line()
+        if production_type == "pouch_packaging":
+            return create_pouch_line()
         return build_template_line(self.template_var.get())
 
     def _show_step(self, index: int) -> None:
