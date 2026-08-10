@@ -19,7 +19,14 @@ from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
 import logging
 
-from src.models import ProductionLine, Station
+from src.models import (
+    Batch,
+    ProductionLine,
+    ProductionType,
+    Recipe,
+    Station,
+    Tank,
+)
 from src.theme import ALERT_COLORS, STATUS_COLORS
 
 
@@ -196,6 +203,57 @@ def import_from_excel(file_path: str) -> Tuple[Optional[ProductionLine], Optiona
         
         # 创建产线对象
         line = ProductionLine(name="从Excel导入")
+
+        # V1.3：读取生产类型
+        try:
+            pt_df = pd.read_excel(file_path, sheet_name='生产类型', header=None, engine='openpyxl')
+            pt_value = str(pt_df.iloc[0, 1]).strip().lower()
+            if pt_value in ('assembly', 'liquid_filling', 'pouch_packaging'):
+                line.production_type = ProductionType(pt_value)
+        except Exception:
+            pass
+
+        # V1.3：读取配方/罐/批次
+        try:
+            recipe_df = pd.read_excel(file_path, sheet_name='配方', engine='openpyxl')
+            for _, row in recipe_df.iterrows():
+                line.recipes.append(Recipe(
+                    name=str(row['配方名']).strip(),
+                    batch_volume_l=float(row.get('批次量L', 100)),
+                    yield_rate=float(row.get('收率', 0.95)),
+                    nicotine_concentration=float(row.get('尼古丁浓度', 0)),
+                    flavor=str(row.get('口味', '')),
+                    mixing_time_min=float(row.get('调配min', 60)),
+                    aging_time_min=float(row.get('陈化min', 120)),
+                    filling_rate_l_per_h=float(row.get('灌装速率L/h', 500)),
+                    qc_time_min=float(row.get('QCmin', 30)),
+                    clean_time_min=float(row.get('清洗min', 45)),
+                ))
+        except Exception:
+            pass
+
+        try:
+            tank_df = pd.read_excel(file_path, sheet_name='罐', engine='openpyxl')
+            for _, row in tank_df.iterrows():
+                line.tanks.append(Tank(
+                    id=str(row['罐ID']).strip(),
+                    name=str(row['罐名']).strip(),
+                    capacity_l=float(row.get('容量L', 1000)),
+                    current_level_l=float(row.get('当前液位L', 0)),
+                ))
+        except Exception:
+            pass
+
+        try:
+            batch_df = pd.read_excel(file_path, sheet_name='批次', engine='openpyxl')
+            for _, row in batch_df.iterrows():
+                line.batches.append(Batch(
+                    id=str(row['批次ID']).strip(),
+                    recipe_name=str(row['配方名']).strip(),
+                    quantity_l=float(row.get('批次量L', 100)),
+                ))
+        except Exception:
+            pass
         
         # 错误收集列表
         errors = []
@@ -334,14 +392,18 @@ def import_from_excel(file_path: str) -> Tuple[Optional[ProductionLine], Optiona
         return None, f"导入Excel失败：{str(e)}"
 
 
-def create_excel_template(file_path: str) -> bool:
+def create_excel_template(file_path: str, production_type: str = "assembly") -> bool:
     """
     创建Excel导入模板文件
     
     创建一个标准的Excel模板文件，用户可以参考这个模板来填写自己的产线配置
+
+    V1.3：支持 production_type 参数（assembly / liquid_filling / pouch_packaging），
+    液体/袋装类型额外生成 配方、罐、批次 三个 Sheet。
     
     Args:
         file_path: 模板文件保存路径
+        production_type: 生产类型（assembly / liquid_filling / pouch_packaging）
         
     Returns:
         bool: 是否创建成功
@@ -376,8 +438,32 @@ def create_excel_template(file_path: str) -> bool:
             columns=['工序名', '耗时(秒)', '人数', '模式', 'OEE', '人员效率', '切换时间(分钟)', '缓冲区容量']
         )
         
-        # 保存为Excel文件
-        df.to_excel(file_path, index=False, engine='openpyxl')
+        # 保存为Excel文件（多 Sheet）
+        with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='工序', index=False)
+            pd.DataFrame([['production_type', production_type]]).to_excel(
+                writer, sheet_name='生产类型', index=False, header=False,
+            )
+
+            if production_type in ('liquid_filling', 'pouch_packaging'):
+                recipe_df = pd.DataFrame([
+                    ['经典烟草', 500, 0.95, 20.0, '经典', 60, 240, 800, 30, 60],
+                ], columns=[
+                    '配方名', '批次量L', '收率', '尼古丁浓度', '口味',
+                    '调配min', '陈化min', '灌装速率L/h', 'QCmin', '清洗min',
+                ])
+                recipe_df.to_excel(writer, sheet_name='配方', index=False)
+
+                tank_df = pd.DataFrame([
+                    ['T01', '调配罐', 2000, 0],
+                    ['T02', '成品罐', 3000, 0],
+                ], columns=['罐ID', '罐名', '容量L', '当前液位L'])
+                tank_df.to_excel(writer, sheet_name='罐', index=False)
+
+                batch_df = pd.DataFrame([
+                    ['B001', '经典烟草', 500, 'queued'],
+                ], columns=['批次ID', '配方名', '批次量L', '状态'])
+                batch_df.to_excel(writer, sheet_name='批次', index=False)
         
         return True
         

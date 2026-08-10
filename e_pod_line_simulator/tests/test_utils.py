@@ -4,7 +4,7 @@ import logging
 
 import pandas as pd
 
-from src.models import CollaborationType, ProductionLine, Station
+from src.models import CollaborationType, ProductionLine, ProductionType, Station
 from src.utils import (
     calculate_roi,
     create_excel_template,
@@ -79,6 +79,18 @@ def test_create_and_import_excel_template(tmp_path):
     assert line is not None and error is None
     assert len(line.stations) == 4
     assert line.stations[0].name == "注油"
+
+
+def test_create_and_import_liquid_template(tmp_path):
+    path = str(tmp_path / "liquid.xlsx")
+    assert create_excel_template(path, production_type="liquid_filling") is True
+    line, error = import_from_excel(path)
+    assert line is not None and error is None
+    assert line.production_type == ProductionType.LIQUID_FILLING
+    assert len(line.recipes) == 1
+    assert line.recipes[0].name == "经典烟草"
+    assert len(line.tanks) == 2
+    assert len(line.batches) == 1
 
 
 def test_import_excel_missing_file(tmp_path):

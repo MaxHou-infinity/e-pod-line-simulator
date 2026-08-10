@@ -67,6 +67,19 @@ class JobRole(Enum):
     GENERAL = "general"
 
 
+class BatchStatus(Enum):
+    """
+    批次状态（V1.3 烟油/尼古丁袋）
+    """
+    QUEUED = "queued"
+    MIXING = "mixing"
+    AGING = "aging"
+    FILLING = "filling"
+    QC = "qc"
+    REWORK = "rework"
+    RELEASED = "released"
+
+
 @dataclass
 class Station:
     """
@@ -319,6 +332,16 @@ class ProductionLine:
 
     # V1.3：生产类型模板
     production_type: ProductionType = ProductionType.ASSEMBLY
+
+    # V1.3：配方/批次/罐
+    recipes: List["Recipe"] = field(default_factory=list)
+    batches: List["Batch"] = field(default_factory=list)
+    tanks: List["Tank"] = field(default_factory=list)
+
+    # V1.3：人力模型
+    labor_config: Dict[str, int] = field(default_factory=dict)  # {job_role: 人数}
+    cleanroom_limits: Dict[str, int] = field(default_factory=dict)  # {zone: 上限}
+    skill_matrix: Dict[str, List[str]] = field(default_factory=dict)  # {role: [可互换]}
     
     def add_station(self, station: Station) -> None:
         """
@@ -642,6 +665,12 @@ class ProductionLine:
             'break_minutes': self.break_minutes,
             'worker_hourly_wage': self.worker_hourly_wage,
             'production_type': self.production_type.value,
+            'recipes': [r.to_dict() for r in self.recipes],
+            'batches': [b.to_dict() for b in self.batches],
+            'tanks': [t.to_dict() for t in self.tanks],
+            'labor_config': dict(self.labor_config),
+            'cleanroom_limits': dict(self.cleanroom_limits),
+            'skill_matrix': {k: list(v) for k, v in self.skill_matrix.items()},
             'stations': [station.to_dict() for station in self.stations]
         }
     
@@ -662,7 +691,13 @@ class ProductionLine:
             shift_hours=data.get('shift_hours', 8),
             break_minutes=data.get('break_minutes', 60),
             worker_hourly_wage=data.get('worker_hourly_wage', 20.0),
-            production_type=ProductionType(data.get('production_type', 'assembly'))
+            production_type=ProductionType(data.get('production_type', 'assembly')),
+            recipes=[Recipe.from_dict(r) for r in data.get('recipes', [])],
+            batches=[Batch.from_dict(b) for b in data.get('batches', [])],
+            tanks=[Tank.from_dict(t) for t in data.get('tanks', [])],
+            labor_config=dict(data.get('labor_config', {})),
+            cleanroom_limits=dict(data.get('cleanroom_limits', {})),
+            skill_matrix={k: list(v) for k, v in data.get('skill_matrix', {}).items()},
         )
         
         # 添加所有工序
@@ -671,6 +706,82 @@ class ProductionLine:
             line.add_station(station)
         
         return line
+
+
+@dataclass
+class Recipe:
+    """
+    配方模型（V1.3 烟油 / 尼古丁袋）
+
+    描述一个口味/浓度变体的配方与工艺参数：
+    - 批次量、收率、尼古丁浓度
+    - 调配/陈化/灌装/QC 时长
+    - CIP/SIP 清洗时长
+    """
+    name: str
+    batch_volume_l: float = 100.0
+    yield_rate: float = 0.95
+    nicotine_concentration: float = 0.0  # mg/ml（烟油）或 mg/袋（袋装）
+    flavor: str = ""
+    ingredients: Dict[str, float] = field(default_factory=dict)
+    mixing_time_min: float = 60.0
+    aging_time_min: float = 120.0
+    filling_rate_l_per_h: float = 500.0
+    qc_time_min: float = 30.0
+    clean_time_min: float = 45.0  # CIP/SIP 清洗时长
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Recipe":
+        return cls(**data)
+
+
+@dataclass
+class Tank:
+    """
+    储罐模型（V1.3 烟油）
+    """
+    id: str
+    name: str
+    capacity_l: float = 1000.0
+    current_level_l: float = 0.0
+    cleaning_status: str = "clean"  # clean / in_use / cip / sip
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Tank":
+        return cls(**data)
+
+
+@dataclass
+class Batch:
+    """
+    批次模型（V1.3 烟油 / 尼古丁袋）
+    """
+    id: str
+    recipe_name: str
+    quantity_l: float = 100.0
+    status: BatchStatus = BatchStatus.QUEUED
+    start_time: float = 0.0
+    end_time: float = 0.0
+    trace_id: str = ""
+    pass_rate: float = 1.0
+    rework_count: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        data = asdict(self)
+        data['status'] = self.status.value
+        return data
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Batch":
+        if isinstance(data.get('status'), str):
+            data['status'] = BatchStatus(data['status'])
+        return cls(**data)
 
 
 @dataclass
@@ -836,3 +947,111 @@ class SimulationResult:
     alerts: List[Alert] = field(default_factory=list)
     wip_samples: List[Dict[str, Any]] = field(default_factory=list)
     changeover_events: List[Dict[str, Any]] = field(default_factory=list)
+
+
+# ==================== V1.3 模板产线工厂函数 ====================
+
+
+def create_liquid_line(name: str = "烟油灌装线") -> ProductionLine:
+    """创建烟油灌装型模板产线（V1.3）"""
+    line = ProductionLine(name, production_type=ProductionType.LIQUID_FILLING, worker_hourly_wage=25.0)
+    line.recipes.append(Recipe(
+        name="经典烟草",
+        batch_volume_l=500.0,
+        yield_rate=0.95,
+        nicotine_concentration=20.0,
+        flavor="经典",
+        ingredients={"尼古丁": 20.0, "丙二醇": 400.0, "香料": 80.0},
+        mixing_time_min=60.0,
+        aging_time_min=240.0,
+        filling_rate_l_per_h=800.0,
+        qc_time_min=30.0,
+        clean_time_min=60.0,
+    ))
+    line.tanks.append(Tank("T01", "调配罐", 2000.0, 0.0))
+    line.tanks.append(Tank("T02", "成品罐", 3000.0, 0.0))
+    line.batches.append(Batch("B001", "经典烟草", 500.0))
+    line.add_station(Station(
+        "s01", "灌装", 1.5, 2,
+        job_role=JobRole.FILLING_OPERATOR,
+        cleanroom_zone="C",
+    ))
+    line.add_station(Station(
+        "s02", "封口", 1.0, 2,
+        job_role=JobRole.FILLING_OPERATOR,
+        cleanroom_zone="C",
+    ))
+    line.add_station(Station(
+        "s03", "QC化验", 30.0, 1,
+        job_role=JobRole.QC_TECHNICIAN,
+        cleanroom_zone="C",
+        sampling_rate=0.2,
+        defect_rate=0.01,
+        rework_minutes=15.0,
+    ))
+    line.labor_config = {
+        JobRole.MIXER.value: 1,
+        JobRole.FILLING_OPERATOR.value: 4,
+        JobRole.QC_TECHNICIAN.value: 1,
+        JobRole.CLEANER.value: 1,
+    }
+    line.cleanroom_limits = {"C": 6}
+    line.skill_matrix = {
+        JobRole.FILLING_OPERATOR.value: [JobRole.CLEANER.value],
+    }
+    return line
+
+
+def create_pouch_line(name: str = "尼古丁袋包装线") -> ProductionLine:
+    """创建尼古丁袋高速包装模板产线（V1.3）"""
+    line = ProductionLine(name, production_type=ProductionType.POUCH_PACKAGING)
+    line.recipes.append(Recipe(
+        name="薄荷袋",
+        batch_volume_l=50.0,
+        yield_rate=0.98,
+        nicotine_concentration=8.0,
+        flavor="薄荷",
+        mixing_time_min=30.0,
+        aging_time_min=0.0,
+        filling_rate_l_per_h=600.0,
+        qc_time_min=20.0,
+        clean_time_min=30.0,
+    ))
+    line.batches.append(Batch("P001", "薄荷袋", 50.0))
+    line.tanks.append(Tank("T01", "混合罐", 200.0, 0.0))
+    line.add_station(Station(
+        "p01", "填充机", 1.0, 2,
+        machine_takt=1.5,
+        oee=0.90,
+        clean_time_minutes=30.0,
+        job_role=JobRole.PACKAGING_OPERATOR,
+        cleanroom_zone="C",
+        sampling_rate=0.05,
+        defect_rate=0.005,
+        rework_minutes=2.0,
+    ))
+    line.add_station(Station(
+        "p02", "密封机", 1.0, 2,
+        machine_takt=1.2,
+        oee=0.92,
+        job_role=JobRole.PACKAGING_OPERATOR,
+        cleanroom_zone="C",
+    ))
+    line.add_station(Station(
+        "p03", "在线检测", 1.0, 1,
+        machine_takt=1.0,
+        oee=0.95,
+        job_role=JobRole.QC_TECHNICIAN,
+        cleanroom_zone="C",
+        sampling_rate=0.1,
+        defect_rate=0.01,
+        rework_minutes=3.0,
+    ))
+    line.labor_config = {
+        JobRole.MIXER.value: 1,
+        JobRole.PACKAGING_OPERATOR.value: 5,
+        JobRole.QC_TECHNICIAN.value: 1,
+        JobRole.CLEANER.value: 1,
+    }
+    line.cleanroom_limits = {"C": 8}
+    return line

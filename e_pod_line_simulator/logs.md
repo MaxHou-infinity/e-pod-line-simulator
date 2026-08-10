@@ -839,6 +839,17 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：67 passed；GUI 冒烟通过（v1.3.0 + 旧配置兼容）
 
+## 2026-08-10 - V1.3 L1 批量与配方数据模型
+
+### 完成内容
+- Recipe / Tank / Batch 数据模型（含序列化与状态枚举）
+- ProductionLine 支持 recipes/batches/tanks/labor_config/cleanroom_limits/skill_matrix
+- create_liquid_line / create_pouch_line 模板工厂
+- Excel 模板支持生产类型/配方/罐/批次 Sheet 与导入
+
+### 验证
+- pytest：71 passed
+
 ## 2026-08-07 - V1.2.0 U6 快捷键与脏状态
 
 ### 完成内容

@@ -3,12 +3,18 @@
 import pytest
 
 from src.models import (
+    Batch,
+    BatchStatus,
     CollaborationType,
     JobRole,
     ProductionLine,
     ProductionType,
+    Recipe,
     Scenario,
     Station,
+    Tank,
+    create_liquid_line,
+    create_pouch_line,
 )
 
 
@@ -176,3 +182,46 @@ def test_job_role_and_quality_fields_serialization():
     assert restored.sampling_rate == 0.2
     assert restored.rework_minutes == 10
     assert restored.clean_time_minutes == 30
+
+
+def test_recipe_tank_batch_roundtrip():
+    recipe = Recipe(
+        "经典烟草", batch_volume_l=500, yield_rate=0.95,
+        nicotine_concentration=20.0, flavor="经典",
+        ingredients={"尼古丁": 20.0}, mixing_time_min=60,
+        aging_time_min=240, filling_rate_l_per_h=800,
+        qc_time_min=30, clean_time_min=60,
+    )
+    tank = Tank("T01", "调配罐", 2000.0, 0.0)
+    batch = Batch("B001", "经典烟草", 500.0, BatchStatus.QUEUED)
+
+    assert Recipe.from_dict(recipe.to_dict()) == recipe
+    assert Tank.from_dict(tank.to_dict()) == tank
+    restored = Batch.from_dict(batch.to_dict())
+    assert restored.status == BatchStatus.QUEUED
+
+
+def test_liquid_template_line():
+    line = create_liquid_line()
+    assert line.production_type == ProductionType.LIQUID_FILLING
+    assert len(line.recipes) == 1
+    assert len(line.tanks) == 2
+    assert len(line.batches) == 1
+    assert line.cleanroom_limits["C"] == 6
+    assert line.labor_config[JobRole.QC_TECHNICIAN.value] == 1
+
+    restored = ProductionLine.from_dict(line.to_dict())
+    assert restored.production_type == ProductionType.LIQUID_FILLING
+    assert restored.recipes[0].name == "经典烟草"
+    assert restored.tanks[0].id == "T01"
+    assert restored.batches[0].recipe_name == "经典烟草"
+    assert restored.cleanroom_limits["C"] == 6
+
+
+def test_pouch_template_line_machine_takt():
+    line = create_pouch_line()
+    assert line.production_type == ProductionType.POUCH_PACKAGING
+    filling = line.get_station("p01")
+    assert filling.machine_takt == 1.5
+    # 填充机产能 = 3600/1.5 × 2 × 0.90 × 0.95 × (1 - 75/480) = 3462.75 袋/h
+    assert filling.get_capacity() == pytest.approx(3462.75, rel=1e-6)
