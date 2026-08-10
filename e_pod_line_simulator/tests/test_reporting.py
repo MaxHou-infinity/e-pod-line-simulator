@@ -2,7 +2,7 @@
 
 import os
 
-from src.models import ProductionLine, Station
+from src.models import ProductionLine, Station, create_liquid_line
 from src.reporting import export_excel, export_pdf, export_report
 from src.simulation import SimulationEngine
 
@@ -45,3 +45,16 @@ def test_export_report_dispatch(tmp_path):
     assert export_report(result, xlsx_path) is True
     assert export_report(result, pdf_path) is True
     assert export_report(result, bad_path) is False
+
+
+def test_liquid_report_contains_batch_sheets(tmp_path):
+    line = create_liquid_line()
+    result = SimulationEngine(line).run_sync(duration_hours=24.0)
+    path = str(tmp_path / "liquid_report.xlsx")
+    assert export_excel(result, path) is True
+
+    from openpyxl import load_workbook
+
+    wb = load_workbook(path)
+    assert "批次结果" in wb.sheetnames
+    assert "质量门" in wb.sheetnames

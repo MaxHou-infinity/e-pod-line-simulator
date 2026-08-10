@@ -693,6 +693,33 @@ class ProductionLine:
                 return False, f"洁净区 {zone} 人数 {actual} 超过上限 {limit}"
 
         return True, ""
+
+    def calculate_batch_cycle_min(self) -> float:
+        """平均批次周期（分钟），未完成批次不计入"""
+        finished = [b for b in self.batches if b.end_time > 0]
+        if not finished:
+            return 0.0
+        total = sum((b.end_time - b.start_time) for b in finished)
+        return total / len(finished) / 60.0
+
+    def calculate_batch_pass_rate(self) -> float:
+        """平均批次合格率"""
+        if not self.batches:
+            return 0.0
+        return sum(b.pass_rate for b in self.batches) / len(self.batches)
+
+    def calculate_avg_yield_rate(self) -> float:
+        """平均配方收率"""
+        if not self.recipes:
+            return 0.0
+        return sum(r.yield_rate for r in self.recipes) / len(self.recipes)
+
+    def calculate_avg_machine_oee(self) -> float:
+        """平均机台 OEE（尼古丁袋）"""
+        machines = [s for s in self.stations if s.machine_takt]
+        if not machines:
+            return 0.0
+        return sum(s.oee for s in machines) / len(machines)
     
     def to_dict(self) -> Dict[str, Any]:
         """

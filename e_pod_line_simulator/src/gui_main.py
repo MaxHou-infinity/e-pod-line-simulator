@@ -397,6 +397,12 @@ class MainWindow:
             'balance_rate': balance_rate,
             'upph': upph
         })
+        self.kpi_dashboard.update_v13_kpis({
+            'batch_cycle_min': self.production_line.calculate_batch_cycle_min(),
+            'batch_pass_rate': self.production_line.calculate_batch_pass_rate(),
+            'yield_rate': self.production_line.calculate_avg_yield_rate(),
+            'machine_oee': self.production_line.calculate_avg_machine_oee(),
+        })
     
     # ==================== 菜单事件处理 ====================
     

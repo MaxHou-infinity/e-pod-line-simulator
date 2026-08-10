@@ -408,6 +408,15 @@ class KPIDashboard(ttk.LabelFrame):
             ).pack()
 
             self.kpi_labels[key] = value_label
+
+        # V1.3 扩展 KPI 摘要行
+        self.v13_label = ttk.Label(
+            self,
+            text="",
+            font=(family, 9),
+            foreground=COLORS['text_secondary'],
+        )
+        self.v13_label.pack(fill=tk.X, pady=(4, 0))
     
     def update_timestamp(self, minutes: float) -> None:
         """
@@ -477,6 +486,23 @@ class KPIDashboard(ttk.LabelFrame):
         if 'upph' in kpis:
             value = kpis['upph']
             self.kpi_labels['upph'].config(text=f"{value:.1f}")
+
+    def update_v13_kpis(self, kpis: Dict[str, float]) -> None:
+        """更新 V1.3 扩展 KPI 摘要（批次/收率/机台 OEE/单位成本）"""
+        if not hasattr(self, 'v13_label'):
+            return
+        parts = []
+        for key, label, fmt in [
+            ('batch_cycle_min', '批次周期', '{:.1f} min'),
+            ('batch_pass_rate', '批次合格率', '{:.1%}'),
+            ('yield_rate', '收率', '{:.1%}'),
+            ('machine_oee', '机台OEE', '{:.1%}'),
+            ('cost_per_liter', '元/升', '{:.2f}'),
+            ('cost_per_pouch', '元/袋', '{:.2f}'),
+        ]:
+            if key in kpis and kpis[key]:
+                parts.append(f"{label}: {fmt.format(kpis[key])}")
+        self.v13_label.config(text="  |  ".join(parts))
 
 
 class AlertPanel(ttk.LabelFrame):

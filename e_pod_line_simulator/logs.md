@@ -902,6 +902,16 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：77 passed
 
+## 2026-08-10 - V1.3 L7 KPI 与报告扩展
+
+### 完成内容
+- 新增 KPI：批次周期/合格率/收率/机台OEE/清洗占比/元每升/元每袋
+- Excel 报告新增批次结果/质量门 Sheet；PDF 新增批次结果表
+- KPI 仪表盘新增 V1.3 摘要行
+
+### 验证
+- pytest：78 passed
+
 ## 2026-08-07 - V1.2.0 U6 快捷键与脏状态
 
 ### 完成内容

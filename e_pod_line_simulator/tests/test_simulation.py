@@ -195,6 +195,11 @@ def test_liquid_batch_simulation_matches_manual():
     assert line.tanks[0].current_level_l == pytest.approx(500 * 0.95, rel=1e-6)
     # 人力汇总
     assert result.labor_summary["qc_technician"] == 1
+    # V1.3 扩展 KPI
+    assert result.kpis["batch_cycle_min"] > 0
+    assert result.kpis["batch_pass_rate"] == pytest.approx(1.0)
+    assert result.kpis["yield_rate"] == pytest.approx(0.95)
+    assert result.kpis["cost_per_liter"] > 0
 
 
 def test_cleaning_between_recipes():
@@ -238,6 +243,8 @@ def test_pouch_machine_takt_throughput():
     result = SimulationEngine(line).run_sync(duration_hours=1.0)
     # 理论：3600 秒 / 1.0 秒 × 2 机台 = 7200 袋
     assert 7100 <= result.total_output <= 7300
+    assert result.kpis["machine_oee"] == pytest.approx(1.0)
+    assert result.kpis["cost_per_pouch"] > 0
 
 
 def test_liquid_quality_gate_rework():

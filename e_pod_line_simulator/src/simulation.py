@@ -852,20 +852,41 @@ class SimulationEngine:
 
     def build_result(self) -> SimulationResult:
         """构建仿真结果聚合对象（用于报告导出与测试）"""
+        kpis = {
+            'bottleneck_capacity': self.line.get_bottleneck_capacity(),
+            'daily_output': self.line.calculate_daily_output(),
+            'total_cost': self.line.calculate_total_cost(),
+            'unit_cost': self.line.calculate_unit_cost(),
+            'balance_rate': self.line.calculate_line_balance_rate(),
+            'upph': self.line.calculate_upph(),
+        }
+
+        # V1.3 扩展 KPI
+        cleaning_seconds = sum(
+            e.get('clean_min', 0) for e in self.cleaning_events
+        ) * 60.0
+        kpis['batch_cycle_min'] = self.line.calculate_batch_cycle_min()
+        kpis['batch_pass_rate'] = self.line.calculate_batch_pass_rate()
+        kpis['yield_rate'] = self.line.calculate_avg_yield_rate()
+        kpis['machine_oee'] = self.line.calculate_avg_machine_oee()
+        kpis['cleaning_time_ratio'] = (
+            cleaning_seconds / self.duration_seconds if self.duration_seconds else 0.0
+        )
+
+        total_cost = self.line.calculate_total_cost()
+        total_yield_l = sum(b.get('yield_l', 0) for b in self.batch_results)
+        if total_yield_l > 0:
+            kpis['cost_per_liter'] = total_cost / total_yield_l
+        if self.total_output > 0:
+            kpis['cost_per_pouch'] = total_cost / self.total_output
+
         return SimulationResult(
             line_name=self.line.name,
             duration_seconds=self.duration_seconds,
             total_output=self.total_output,
             station_outputs=self.station_outputs.copy(),
             station_wips=self.station_wips.copy(),
-            kpis={
-                'bottleneck_capacity': self.line.get_bottleneck_capacity(),
-                'daily_output': self.line.calculate_daily_output(),
-                'total_cost': self.line.calculate_total_cost(),
-                'unit_cost': self.line.calculate_unit_cost(),
-                'balance_rate': self.line.calculate_line_balance_rate(),
-                'upph': self.line.calculate_upph(),
-            },
+            kpis=kpis,
             alerts=list(self.alert_log),
             wip_samples=list(self.wip_samples),
             changeover_events=list(self.changeover_events),

@@ -114,6 +114,8 @@ def export_excel(result: SimulationResult, file_path: str) -> bool:
 
         wip_df = pd.DataFrame(result.wip_samples)
         changeover_df = pd.DataFrame(result.changeover_events)
+        batch_df = pd.DataFrame(result.batch_results)
+        quality_df = pd.DataFrame(result.quality_results)
 
         directory = os.path.dirname(file_path)
         if directory and not os.path.exists(directory):
@@ -125,6 +127,10 @@ def export_excel(result: SimulationResult, file_path: str) -> bool:
             alert_df.to_excel(writer, sheet_name="报警记录", index=False)
             wip_df.to_excel(writer, sheet_name="WIP采样", index=False)
             changeover_df.to_excel(writer, sheet_name="切换事件", index=False)
+            if not batch_df.empty:
+                batch_df.to_excel(writer, sheet_name="批次结果", index=False)
+            if not quality_df.empty:
+                quality_df.to_excel(writer, sheet_name="质量门", index=False)
 
         return True
     except Exception:
@@ -238,6 +244,29 @@ def export_pdf(result: SimulationResult, file_path: str) -> bool:
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ]))
             story.append(alert_table)
+
+        if result.batch_results:
+            story.append(Spacer(1, 6 * mm))
+            story.append(Paragraph("三、批次结果", header_style))
+            story.append(Spacer(1, 3 * mm))
+            batch_rows = [["批次ID", "配方", "周期(分钟)", "合格率", "产出(L)"]]
+            for b in result.batch_results:
+                batch_rows.append([
+                    str(b.get("batch_id", "")),
+                    str(b.get("recipe_name", "")),
+                    f"{b.get('cycle_min', 0):.1f}",
+                    f"{b.get('pass_rate', 0) * 100:.1f}%",
+                    f"{b.get('yield_l', 0):.1f}",
+                ])
+            batch_table = Table(batch_rows, colWidths=[30 * mm, 35 * mm, 35 * mm, 30 * mm, 40 * mm])
+            batch_table.setStyle(TableStyle([
+                ("FONTNAME", (0, 0), (-1, -1), font_name),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]))
+            story.append(batch_table)
 
         story.append(Spacer(1, 6 * mm))
         story.append(Paragraph(
