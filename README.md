@@ -1,4 +1,4 @@
-# E-Pod Line Simulator · 电子烟产线仿真优化工具
+# PuffLine Planner · 电子烟产线仿真与人力规划工具
 
 > **Simulate. Optimize. Staff.** —— 离散事件产线仿真与人力配置决策工具，
 > 覆盖 **烟弹组装 / 烟油灌装 / 尼古丁袋高速包装** 三种生产形态。
@@ -9,10 +9,10 @@
 ![version](https://img.shields.io/badge/version-3.3.2-1F2329)
 ![python](https://img.shields.io/badge/Python-3.8%2B-2F6FED)
 ![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-1F6FEB)
-![CI](https://github.com/MaxHou-infinity/e-pod-line-simulator/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/MaxHou-infinity/puffline-planner/actions/workflows/ci.yml/badge.svg)
 ![tests](https://img.shields.io/badge/tests-133%20passed-green)
 ![license](https://img.shields.io/badge/license-Attribution%20Authorization-blue)
-![release](https://img.shields.io/github/v/release/MaxHou-infinity/e-pod-line-simulator?label=latest%20release&color=2F6FED)
+![release](https://img.shields.io/github/v/release/MaxHou-infinity/puffline-planner?label=latest%20release&color=2F6FED)
 
 ![主界面](docs/images/screenshot_main.png)
 
@@ -79,7 +79,7 @@
 
 ### 方式一：macOS / Windows 安装包（零依赖）
 
-从 [GitHub Releases](https://github.com/MaxHou-infinity/e-pod-line-simulator/releases/latest)
+从 [GitHub Releases](https://github.com/MaxHou-infinity/puffline-planner/releases/latest)
 下载对应平台包：
 - macOS：`E-Pod-Line-Simulator-v3.3.2-macOS.zip`，解压后双击 App
 - Windows：`E-Pod-Line-Simulator-v3.3.2-Windows.zip`，解压后双击 EXE
@@ -138,7 +138,7 @@ e_pod_line_simulator/
 
 ## 💬 支持与反馈
 
-- 🐛 Bug / 建议：[GitHub Issues](https://github.com/MaxHou-infinity/e-pod-line-simulator/issues)
+- 🐛 Bug / 建议：[GitHub Issues](https://github.com/MaxHou-infinity/puffline-planner/issues)
 - ⭐ 觉得有用？欢迎 Star、Fork 与贡献
 - ☕ 资助作者：扫描 `e_pod_line_simulator/assets/wechat_qr.png`（微信赞赏码）
 
@@ -149,10 +149,20 @@ e_pod_line_simulator/
 
 仿真结果为产线设计与人力规划的参考，不构成产能或成本承诺；实际投产前请以现场验证为准，作者不对据此做出的决策损失承担责任。
 
-## 🔍 关键词
+## 🔍 找到本项目（关键词导览）
 
-电子烟、烟弹、烟油、尼古丁袋、产线仿真、离散事件仿真、数字孪生、产线优化、
-人力配置、人效、UPPH、OEE、瓶颈分析、WIP、快速换型、CIP/SIP、SimPy、Tkinter、
-Production Line Simulation, Discrete Event Simulation, Digital Twin, E-liquid Filling,
-Nicotine Pouch, Manufacturing Optimization, Bottleneck Analysis, Line Balancing,
-Manpower Planning, HR Planning, Python。
+**面向 HR / 人力规划**
+人力需求预估、人力成本、排班、招聘缺口、爬坡达产、UPPH、人效、
+HR Planning、Manpower Planning、Headcount、Staffing、Labor Cost
+
+**面向供应链 / IE / 产线管理**
+产线仿真、离散事件仿真、数字孪生、瓶颈分析、产线平衡、WIP、OEE、
+快速换型、CIP/SIP、Line Balancing、Bottleneck Analysis、
+Discrete Event Simulation、Production Line Simulation
+
+**行业关键词**
+电子烟、烟弹、烟油、尼古丁袋、雾化、E-cigarette、E-liquid、
+Nicotine Pouch、Vape、Pod
+
+**技术栈**
+SimPy、Tkinter、Python、pandas、openpyxl、reportlab、PyInstaller

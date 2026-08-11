@@ -3,6 +3,15 @@
 本项目采用 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)
 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Changed
+
+- 仓库更名为 **PuffLine Planner**（`puffline-planner`），
+  简介与 topics 优化（新增 manpower-planning / hr-planning /
+  supply-chain / nicotine-pouch / bottleneck-analysis 等），
+  提升 HR 与供应链从业者的搜索命中率
+
 ## [3.3.2] - 2026-08-11
 
 ### Added
