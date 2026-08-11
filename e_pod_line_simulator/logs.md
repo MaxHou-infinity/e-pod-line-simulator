@@ -1239,6 +1239,16 @@ y = max(0, min(y, screen_height - dialog_height))
 - Windows EXE 构建（CI 后续扩展 windows-latest）
 - V2.0：Web 化
 
+## 2026-08-11 - README 可见度增强
+
+### 完成内容
+- 重写根 README：亮点速览（2 周→2 小时 / 3 业态 / HR 人力规划 /
+  智能评估）、目标用户矩阵、三业态能力表、快速开始新增 macOS App
+- 修正目录结构与测试用例数为 126
+
+### 验证
+- Markdown 结构完整；badge 链接有效
+
 ## 2026-08-11 - V3.0 L5 画布视觉升级
 
 ### 完成内容

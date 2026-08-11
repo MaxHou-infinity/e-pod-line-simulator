@@ -3,6 +3,13 @@
 本项目采用 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)
 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Changed
+
+- README 全面重写：亮点速览、目标用户、三业态能力矩阵、人力规划
+  与智能评估亮点、macOS App 快速开始，增强 GitHub 可见度
+
 ## [3.2.0] - 2026-08-11
 
 ### Added
