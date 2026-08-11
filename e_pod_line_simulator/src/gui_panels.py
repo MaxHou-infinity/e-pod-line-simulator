@@ -14,6 +14,7 @@ GUI面板组件 - 各种功能面板
 """
 
 import tkinter as tk
+import webbrowser
 from tkinter import ttk, messagebox, filedialog
 from typing import List, Optional, Callable, Dict, Any
 
@@ -22,6 +23,7 @@ from src.utils import validate_station, get_alert_color
 from src.scenario_manager import ScenarioManager
 from src.theme import ALERT_ICONS, COLORS, ToolTip, resolve_font_family
 from src.glossary import GLOSSARY
+from src.version import BUG_REPORT_URL, SUPPORT_URL, __version__
 from src.models import (
     ProductionType,
     create_liquid_line,
@@ -1680,6 +1682,76 @@ class CommandPalette:
                 self.dialog.destroy()
                 callback()
                 return
+
+
+class AboutDialog:
+    """
+    关于对话框（V3.1）
+
+    包含：版本/署名、隐私声明、免责声明、Bug 反馈与资助入口。
+    """
+
+    def __init__(self, parent):
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("关于")
+        self.dialog.geometry("560x460")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        family = resolve_font_family()
+        main = ttk.Frame(self.dialog, padding=16)
+        main.pack(fill=tk.BOTH, expand=True)
+
+        title = ttk.Label(
+            main,
+            text=f"电子烟产线仿真优化工具 v{__version__}",
+            font=(family, 15, 'bold'),
+        )
+        title.pack(anchor=tk.W, pady=(0, 4))
+
+        ttk.Label(main, text="开发者：Max Hou", font=(family, 11)).pack(anchor=tk.W, pady=(0, 8))
+        ttk.Label(
+            main,
+            text="基于 SimPy 的离散事件仿真引擎，用于产线设计与人力优化。",
+            font=(family, 10),
+            foreground=COLORS['text_secondary'],
+        ).pack(anchor=tk.W, pady=(0, 10))
+
+        text = tk.Text(main, height=12, wrap=tk.WORD, font=(family, 10))
+        text.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        text.insert('1.0', (
+            "【隐私声明】\n"
+            "本工具完全本地运行，不上传任何数据；产线配置、方案、UI 设置与日志均保存在您的设备上。\n\n"
+            "【免责声明】\n"
+            "仿真结果仅供产线设计与人力规划参考，不构成产能或成本承诺；实际投产前请以现场验证为准。"
+            "作者不对因参考仿真结果做出的决策损失承担责任。本工具按“现状”提供。\n\n"
+            "【Bug 反馈】\n"
+            f"GitHub Issues：{BUG_REPORT_URL}\n\n"
+            "【资助作者】\n"
+            f"推荐入口（爱发电）：{SUPPORT_URL}\n"
+            "爱发电国内可访问、支持微信/支付宝，可单次或按月支持；"
+            "如需使用个人主页/赞赏码，请修改 src/version.py 中的 SUPPORT_URL。"
+        ))
+        text.config(state=tk.DISABLED)
+        self.about_text = text
+
+        button_frame = ttk.Frame(main)
+        button_frame.pack(fill=tk.X)
+        ttk.Button(button_frame, text="报告 Bug", command=self._open_bug).pack(side=tk.LEFT, padx=2)
+        ttk.Button(button_frame, text="资助作者", command=self._open_support).pack(side=tk.LEFT, padx=2)
+        ttk.Button(button_frame, text="关闭", command=self.dialog.destroy).pack(side=tk.RIGHT, padx=2)
+
+        self.dialog.bind('<Escape>', lambda e: self.dialog.destroy())
+        self.dialog.update_idletasks()
+        x = (self.dialog.winfo_screenwidth() - self.dialog.winfo_width()) // 2
+        y = (self.dialog.winfo_screenheight() - self.dialog.winfo_height()) // 2
+        self.dialog.geometry(f"+{x}+{y}")
+
+    def _open_bug(self) -> None:
+        webbrowser.open(BUG_REPORT_URL)
+
+    def _open_support(self) -> None:
+        webbrowser.open(SUPPORT_URL)
 
 
 class WizardDialog:

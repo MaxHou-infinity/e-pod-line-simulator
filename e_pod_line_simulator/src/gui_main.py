@@ -42,6 +42,7 @@ from src.gui_panels import (
     ScenarioManageDialog,
     GlossaryDialog,
     CommandPalette,
+    AboutDialog,
     WizardDialog,
 )
 from src.utils import (
@@ -715,30 +716,25 @@ class MainWindow:
     def _menu_help(self) -> None:
         """帮助菜单 - 使用说明"""
         help_text = """
-电子烟产线仿真优化工具 v{__version__}
+【操作步骤】
+1. 新建/打开/导入产线配置，或用「快速配置向导」一键生成
+2. 添加/编辑工序（参数随生产类型自动适配）
+3. 点击「开始仿真」，观察画布、KPI 与报警
+4. 保存方案、方案对比、导出报告、敏感性试算
+5. 快捷键：Ctrl+N/O/S/E、Ctrl+K 命令面板、空格 开始/暂停
 
-使用步骤：
-1. 创建或加载产线配置
-2. 添加/编辑工序参数
-3. 点击"开始仿真"运行仿真
-4. 观察瓶颈和KPI指标
-5. 调整参数优化产线
-
-更多信息请查看文档。
+【亮点与价值】
+• 把产线设计从"2 周试错"压缩到"2 小时仿真"
+• 支持烟弹组装 / 烟油灌装 / 尼古丁袋三种生产类型
+• 智能报警：瓶颈、WIP、饥饿/堵塞、预测预警、根因建议
+• 亮/暗双主题、2026 桌面级交互体验
+• 完整本地运行，数据不出设备
         """
         messagebox.showinfo("使用说明", help_text)
     
     def _menu_about(self) -> None:
         """帮助菜单 - 关于"""
-        about_text = """
-电子烟产线仿真优化工具 v{__version__}
-
-基于SimPy的离散事件仿真引擎
-用于产线设计和人力优化
-
-开发：Max主人
-        """
-        messagebox.showinfo("关于", about_text)
+        AboutDialog(self.root)
 
     def _menu_glossary(self) -> None:
         """帮助菜单 - 术语说明"""

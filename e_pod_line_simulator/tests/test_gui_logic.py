@@ -72,3 +72,12 @@ def test_station_edit_fields_mapping():
 def test_command_palette_class_available():
     from src.gui_panels import CommandPalette
     assert callable(CommandPalette)
+
+
+def test_about_dialog_class_and_urls():
+    from src.gui_panels import AboutDialog
+    from src.version import BUG_REPORT_URL, SUPPORT_URL
+
+    assert callable(AboutDialog)
+    assert BUG_REPORT_URL.startswith("https://")
+    assert SUPPORT_URL.startswith("https://")

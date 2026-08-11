@@ -7,3 +7,7 @@
 
 __version__ = "3.0.0"
 VERSION_STRING = f"v{__version__}"
+
+# Bug 反馈与资助入口（可在发布前替换为个人链接）
+BUG_REPORT_URL = "https://github.com/MaxHou-infinity/e-pod-line-simulator/issues"
+SUPPORT_URL = "https://afdian.com"  # 推荐「爱发电」；可替换为个人主页/赞赏码
