@@ -83,7 +83,8 @@ class BatchStatus(Enum):
 
 UNIT_LABELS = {
     ProductionType.ASSEMBLY: "颗",
-    ProductionType.LIQUID_FILLING: "升",
+    # 烟油灌装按质量计量（千克）；内部 *_l 字段名保留兼容，实际按千克解释
+    ProductionType.LIQUID_FILLING: "千克",
     ProductionType.POUCH_PACKAGING: "袋",
 }
 
@@ -749,7 +750,7 @@ class ProductionLine:
         获取当前生产类型的计量单位
 
         - 烟弹组装：颗
-        - 烟油灌装：升
+        - 烟油灌装：千克
         - 尼古丁袋：袋
         """
         return UNIT_LABELS.get(self.production_type, "颗")
@@ -872,7 +873,7 @@ class Tank:
     cleaning_status: str = "clean"  # clean / in_use / cip / sip
 
     def available_capacity(self) -> float:
-        """剩余可用容量（升）"""
+        """剩余可用容量（千克）"""
         return max(0.0, self.capacity_l - self.current_level_l)
 
     def add_liquid(self, volume: float) -> bool:

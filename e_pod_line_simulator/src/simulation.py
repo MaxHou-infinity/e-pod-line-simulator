@@ -247,7 +247,7 @@ class SimulationEngine:
         return f"建议提升{station.name}产能或扩大缓冲区"
 
     def _tank_total_available(self) -> float:
-        """全部储罐的剩余可用容量（升）"""
+        """全部储罐的剩余可用容量（千克）"""
         return sum(t.available_capacity() for t in self.line.tanks)
 
     def _distribute_to_tanks(self, volume: float) -> float:
@@ -277,7 +277,7 @@ class SimulationEngine:
         """
         下游灌装线持续消耗储罐液位（V3.2）
 
-        以首工序（灌装）理论产能作为消耗速率（升/小时），每 60 仿真秒
+        以首工序（灌装）理论产能作为消耗速率（千克/小时），每 60 仿真秒
         从储罐取液，模拟成品罐 → 灌装线的连续出料。
         """
         drain_rate_per_h = 0.0
@@ -585,8 +585,8 @@ class SimulationEngine:
                         severity="WARNING",
                         station_id="",
                         message=(
-                            f"批次 {batch.id} 等待储罐容量：需求 {remaining:.1f} 升，"
-                            f"可用 0 升"
+                            f"批次 {batch.id} 等待储罐容量：需求 {remaining:.1f} 千克，"
+                            f"可用 0 千克"
                         ),
                         suggestion="检查成品罐液位与灌装消耗，或增加储罐容量",
                         timestamp_minutes=round(self.env.now / 60.0, 1),
@@ -603,7 +603,7 @@ class SimulationEngine:
                         severity="WARNING",
                         station_id="",
                         message=(
-                            f"批次 {batch.id} 分批注入储罐：剩余 {remaining:.1f} 升"
+                            f"批次 {batch.id} 分批注入储罐：剩余 {remaining:.1f} 千克"
                         ),
                         suggestion="检查成品罐液位与灌装消耗，或增加储罐容量",
                         timestamp_minutes=round(self.env.now / 60.0, 1),

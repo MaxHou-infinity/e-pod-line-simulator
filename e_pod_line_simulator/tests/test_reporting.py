@@ -69,7 +69,7 @@ def test_liquid_report_contains_batch_sheets(tmp_path):
     kpi_values = [
         str(c.value) for row in wb["KPI"].iter_rows() for c in row if c.value
     ]
-    assert any("升" in v for v in kpi_values)
+    assert any("千克" in v for v in kpi_values)
 
 
 def test_export_hr_report_excel_and_pdf(tmp_path):

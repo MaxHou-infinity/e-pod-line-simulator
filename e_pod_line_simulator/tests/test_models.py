@@ -146,13 +146,13 @@ def test_production_type_default_and_serialization():
     line.production_type = ProductionType.LIQUID_FILLING
     restored = ProductionLine.from_dict(line.to_dict())
     assert restored.production_type == ProductionType.LIQUID_FILLING
-    assert line.get_unit() == "升"
-    assert restored.get_unit() == "升"
+    assert line.get_unit() == "千克"
+    assert restored.get_unit() == "千克"
 
 
 def test_unit_follows_production_type():
     assert ProductionLine("A").get_unit() == "颗"
-    assert create_liquid_line().get_unit() == "升"
+    assert create_liquid_line().get_unit() == "千克"
     assert create_pouch_line().get_unit() == "袋"
 
 

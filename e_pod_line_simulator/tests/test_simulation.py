@@ -357,7 +357,7 @@ def test_liquid_batch_simulation_matches_manual():
     assert 0.0 <= line.tanks[0].current_level_l < 500 * 0.95
     # 人力汇总
     assert result.labor_summary["qc_technician"] == 1
-    assert result.unit == "升"
+    assert result.unit == "千克"
     # V1.3 扩展 KPI
     assert result.kpis["batch_cycle_min"] > 0
     assert result.kpis["batch_pass_rate"] == pytest.approx(1.0)

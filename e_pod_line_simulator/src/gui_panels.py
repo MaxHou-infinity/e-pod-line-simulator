@@ -578,7 +578,7 @@ class KPIDashboard(ttk.LabelFrame):
             ('batch_pass_rate', '批次合格率', '{:.1%}'),
             ('yield_rate', '收率', '{:.1%}'),
             ('machine_oee', '机台OEE', '{:.1%}'),
-            ('cost_per_liter', '元/升', '{:.2f}'),
+            ('cost_per_liter', '元/千克', '{:.2f}'),
             ('cost_per_pouch', '元/袋', '{:.2f}'),
         ]:
             if key in kpis and kpis[key]:
@@ -586,7 +586,7 @@ class KPIDashboard(ttk.LabelFrame):
         self.v13_label.config(text="  |  ".join(parts))
 
     def set_unit(self, unit: str) -> None:
-        """按生产类型更新 KPI 计量单位（颗/升/袋）"""
+        """按生产类型更新 KPI 计量单位（颗/千克/袋）"""
         if not hasattr(self, 'kpi_name_labels'):
             return
         label_map = {
@@ -2099,7 +2099,7 @@ class HrPlanningDialog:
         self.ramp_var = tk.StringVar(value="90")
 
         _row(0, 0, "目标日产量:", self.target_var,
-             hint="产线每天需要达到的产出数量（单位随生产类型：颗/升/袋）")
+             hint="产线每天需要达到的产出数量（单位随生产类型：颗/千克/袋）")
         _row(0, 2, "班次数:", self.shifts_var, padx=(16, 0),
              hint="每天开几个班次，如 1/2/3 班")
         _row(1, 0, "班次时长(小时):", self.shift_hours_var,

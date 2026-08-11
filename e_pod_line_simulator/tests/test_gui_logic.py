@@ -118,7 +118,7 @@ def test_canvas_capacity_text_uses_dynamic_unit():
     from src.gui_canvas import format_capacity_text
 
     assert format_capacity_text(100, "袋") == "⚡ 100 袋/h"
-    assert format_capacity_text(100, "升") == "⚡ 100 升/h"
+    assert format_capacity_text(100, "千克") == "⚡ 100 千克/h"
     assert format_capacity_text(100, "颗") == "⚡ 100 颗/h"
 
 
