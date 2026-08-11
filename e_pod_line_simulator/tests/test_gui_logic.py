@@ -76,8 +76,9 @@ def test_command_palette_class_available():
 
 def test_about_dialog_class_and_urls():
     from src.gui_panels import AboutDialog
-    from src.version import BUG_REPORT_URL, SUPPORT_URL
+    from src.version import ALIPAY_QR_PATH, BUG_REPORT_URL, KO_FI_URL
 
     assert callable(AboutDialog)
     assert BUG_REPORT_URL.startswith("https://")
-    assert SUPPORT_URL.startswith("https://")
+    assert KO_FI_URL.startswith("https://")
+    assert isinstance(ALIPAY_QR_PATH, str)

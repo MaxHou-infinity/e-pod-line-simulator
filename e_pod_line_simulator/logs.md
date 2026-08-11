@@ -1119,6 +1119,15 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：95 passed；关于对话框冒烟通过
 
+## 2026-08-11 - V3.1 P2.5 资助双入口（Ko-fi + 支付宝赞赏码）
+
+### 完成内容
+- 关于对话框同时提供 Ko-fi 与支付宝赞赏码入口
+- KO_FI_URL / ALIPAY_QR_PATH 可配置
+
+### 验证
+- pytest：95 passed；冒烟通过
+
 ## 2026-08-11 - V3.1 P2.3 预测预警文案修正
 
 ### 完成内容

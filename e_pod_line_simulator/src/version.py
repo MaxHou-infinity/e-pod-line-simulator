@@ -10,4 +10,6 @@ VERSION_STRING = f"v{__version__}"
 
 # Bug 反馈与资助入口（可在发布前替换为个人链接）
 BUG_REPORT_URL = "https://github.com/MaxHou-infinity/e-pod-line-simulator/issues"
-SUPPORT_URL = "https://afdian.com"  # 推荐「爱发电」；可替换为个人主页/赞赏码
+KO_FI_URL = "https://ko-fi.com/"  # Ko-fi 主页（可同时与支付宝赞赏码并存）
+ALIPAY_QR_PATH = ""  # 支付宝赞赏码图片路径（PNG/GIF），如 "assets/alipay_qr.png"
+SUPPORT_URL = KO_FI_URL  # 兼容旧引用
