@@ -110,6 +110,12 @@ class SimulationEngine:
         self._blockage_state: Dict[str, str] = {}   # station_id -> warning/critical
         self._blockage_since: Dict[str, float] = {}
         self._predict_alerted: set = set()
+        # P1 工序级时间统计
+        self.station_running_seconds: Dict[str, float] = {}
+        self.station_starved_seconds: Dict[str, float] = {}
+        self.station_blocked_seconds: Dict[str, float] = {}
+        self._starvation_alerted: set = set()
+        self._blocked_alerted: set = set()
     
     def set_callback(self, callback: Callable[[SimulationState], None]) -> None:
         """
@@ -350,6 +356,11 @@ class SimulationEngine:
         self._blockage_state = {}
         self._blockage_since = {}
         self._predict_alerted = set()
+        self.station_running_seconds = {}
+        self.station_starved_seconds = {}
+        self.station_blocked_seconds = {}
+        self._starvation_alerted = set()
+        self._blocked_alerted = set()
 
         # 步骤1：创建SimPy环境
         # Environment是SimPy的核心，管理仿真时钟和事件队列
@@ -372,6 +383,7 @@ class SimulationEngine:
         # 监控瓶颈变化和WIP堆积
         self.env.process(self._monitor_bottleneck())
         self.env.process(self._monitor_wip())
+        self.env.process(self._monitor_starvation())
         self.env.process(self._update_state_periodically())
         
         # 步骤5：运行仿真
@@ -483,7 +495,12 @@ class SimulationEngine:
                 if station_index > 0:
                     # 有上游，需要等待物料
                     # get()会阻塞直到有物料可用
+                    wait_start = self.env.now
                     yield input_buffer.get()
+                    self.station_starved_seconds[station.id] = (
+                        self.station_starved_seconds.get(station.id, 0.0)
+                        + (self.env.now - wait_start)
+                    )
                     # 更新WIP统计（取走一个物料，WIP-1）
                     self.station_wips[station.id] = len(input_buffer.items)
                 else:
@@ -507,7 +524,12 @@ class SimulationEngine:
                     # 机台节拍模式（尼古丁袋）使用 machine_takt，否则使用单颗耗时
                     effective_time = station.machine_takt if station.machine_takt else station.process_time
                     actual_process_time = effective_time / (station.oee * station.efficiency)
+                    run_start = self.env.now
                     yield self.env.timeout(actual_process_time)
+                    self.station_running_seconds[station.id] = (
+                        self.station_running_seconds.get(station.id, 0.0)
+                        + (self.env.now - run_start)
+                    )
                     
                     # 步骤5：加工完成，释放资源（自动释放，with语句结束）
                     station.current_status = "idle"
@@ -516,13 +538,22 @@ class SimulationEngine:
                     if downstream_buffer is not None:
                         # 如果不是最后一个工序，放入下游缓冲区
                         # put()会阻塞如果缓冲区满了（模拟堵塞）
+                        block_start = self.env.now
                         try:
                             yield downstream_buffer.put("material")  # "material"是物料标识
+                            self.station_blocked_seconds[station.id] = (
+                                self.station_blocked_seconds.get(station.id, 0.0)
+                                + (self.env.now - block_start)
+                            )
                             # 更新下游WIP统计
                             if station_index < len(self.line.stations) - 1:
                                 downstream_station = self.line.stations[station_index + 1]
                                 self.station_wips[downstream_station.id] = len(downstream_buffer.items)
                         except simpy.Interrupt:
+                            self.station_blocked_seconds[station.id] = (
+                                self.station_blocked_seconds.get(station.id, 0.0)
+                                + (self.env.now - block_start)
+                            )
                             # 如果缓冲区满了，工序进入堵塞状态
                             station.current_status = "blocked"
                             continue
@@ -677,6 +708,47 @@ class SimulationEngine:
                                 suggestion=self._wip_suggestion(station, station_index),
                                 timestamp_minutes=timestamp_minutes,
                             ))
+
+    def _monitor_starvation(self) -> simpy.events.Process:
+        """
+        饥饿/堵塞监控（P1）
+
+        - 下游工序累计等待物料 ≥5 分钟 → 饥饿报警
+        - 上游工序被下游堵塞累计 ≥5 分钟 → 堵塞报警
+        """
+        while True:
+            yield self.env.timeout(60)
+            timestamp_minutes = self.env.now / 60.0
+
+            for idx, station in enumerate(self.line.stations):
+                if idx == 0:
+                    continue
+                starved = self.station_starved_seconds.get(station.id, 0.0)
+                if starved >= 300 and station.id not in self._starvation_alerted:
+                    self._starvation_alerted.add(station.id)
+                    self._emit_alert(Alert(
+                        alert_type="starvation",
+                        severity="warning",
+                        station_id=station.id,
+                        message=f"{station.name}累计等待物料 {starved / 60.0:.1f} 分钟",
+                        suggestion="上游供料不足或被堵塞，建议平衡上游节拍或增加缓存",
+                        timestamp_minutes=timestamp_minutes,
+                    ))
+
+            for idx, station in enumerate(self.line.stations):
+                if idx >= len(self.line.stations) - 1:
+                    continue
+                blocked = self.station_blocked_seconds.get(station.id, 0.0)
+                if blocked >= 300 and station.id not in self._blocked_alerted:
+                    self._blocked_alerted.add(station.id)
+                    self._emit_alert(Alert(
+                        alert_type="blockage",
+                        severity="warning",
+                        station_id=station.id,
+                        message=f"{station.name}被下游堵塞累计 {blocked / 60.0:.1f} 分钟",
+                        suggestion="下游消化不足，建议提升下游产能或增加缓存",
+                        timestamp_minutes=timestamp_minutes,
+                    ))
     
     def _update_state_periodically(self) -> simpy.events.Process:
         """
@@ -894,7 +966,7 @@ class SimulationEngine:
             'bottleneck': self.line.find_bottleneck()
         }
 
-    def run_sync(self, duration_hours: float = 8.0) -> SimulationResult:
+    def run_sync(self, duration_hours: float = 8.0, warmup_minutes: float = 0.0) -> SimulationResult:
         """
         同步（headless）运行仿真
 
@@ -921,6 +993,11 @@ class SimulationEngine:
         self._blockage_state = {}
         self._blockage_since = {}
         self._predict_alerted = set()
+        self.station_running_seconds = {}
+        self.station_starved_seconds = {}
+        self.station_blocked_seconds = {}
+        self._starvation_alerted = set()
+        self._blocked_alerted = set()
 
         self.env = simpy.Environment()
         self._init_resources()
@@ -933,10 +1010,34 @@ class SimulationEngine:
             self._spawn_station_processes()
         self.env.process(self._monitor_bottleneck())
         self.env.process(self._monitor_wip())
+        self.env.process(self._monitor_starvation())
         self.env.process(self._update_state_periodically())
 
-        self.duration_seconds = duration_hours * 3600
-        self.env.run(until=self.duration_seconds)
+        full_seconds = duration_hours * 3600
+        self.duration_seconds = full_seconds
+
+        # 冷启动/稳态（P1）：预热后重置计数，保留在制品
+        if warmup_minutes > 0:
+            warmup_seconds = min(warmup_minutes * 60, full_seconds)
+            self.env.run(until=warmup_seconds)
+            self.total_output = 0
+            self.station_outputs = {sid: 0 for sid in self.station_outputs}
+            self.station_wips = {sid: 0 for sid in self.station_wips}
+            self.wip_samples = []
+            self.batch_results = []
+            self.quality_results = []
+            self.cleaning_events = []
+            self.station_running_seconds = {}
+            self.station_starved_seconds = {}
+            self.station_blocked_seconds = {}
+            self.alert_log = []
+            self._blockage_state = {}
+            self._blockage_since = {}
+            self._predict_alerted = set()
+            self._starvation_alerted = set()
+            self._blocked_alerted = set()
+
+        self.env.run(until=full_seconds)
         self.is_running = False
         return self.build_result()
 
@@ -970,6 +1071,20 @@ class SimulationEngine:
         if self.total_output > 0:
             kpis['cost_per_pouch'] = total_cost / self.total_output
 
+        # P1 工序级指标
+        station_metrics: Dict[str, Dict[str, float]] = {}
+        for station in self.line.stations:
+            running = self.station_running_seconds.get(station.id, 0.0)
+            waiting = self.station_starved_seconds.get(station.id, 0.0)
+            blocked = self.station_blocked_seconds.get(station.id, 0.0)
+            station_metrics[station.id] = {
+                'name': station.name,
+                'running_sec': round(running, 1),
+                'waiting_sec': round(waiting, 1),
+                'blocked_sec': round(blocked, 1),
+                'utilization': round(running / self.duration_seconds, 4) if self.duration_seconds else 0.0,
+            }
+
         return SimulationResult(
             line_name=self.line.name,
             duration_seconds=self.duration_seconds,
@@ -985,6 +1100,7 @@ class SimulationEngine:
             cleaning_events=list(self.cleaning_events),
             labor_summary=dict(self.line.labor_config),
             unit=self.line.get_unit(),
+            station_metrics=station_metrics,
         )
 
 

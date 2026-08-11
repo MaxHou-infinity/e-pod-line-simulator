@@ -117,6 +117,17 @@ def export_excel(result: SimulationResult, file_path: str) -> bool:
         changeover_df = pd.DataFrame(result.changeover_events)
         batch_df = pd.DataFrame(result.batch_results)
         quality_df = pd.DataFrame(result.quality_results)
+        metrics_df = pd.DataFrame([
+            {
+                '工序ID': sid,
+                '工序名': m.get('name', ''),
+                '运行秒': m.get('running_sec', 0),
+                '等待秒': m.get('waiting_sec', 0),
+                '堵塞秒': m.get('blocked_sec', 0),
+                '实际利用率': m.get('utilization', 0),
+            }
+            for sid, m in result.station_metrics.items()
+        ])
 
         directory = os.path.dirname(file_path)
         if directory and not os.path.exists(directory):
@@ -132,6 +143,8 @@ def export_excel(result: SimulationResult, file_path: str) -> bool:
                 batch_df.to_excel(writer, sheet_name="批次结果", index=False)
             if not quality_df.empty:
                 quality_df.to_excel(writer, sheet_name="质量门", index=False)
+            if not metrics_df.empty:
+                metrics_df.to_excel(writer, sheet_name="工序指标", index=False)
 
         return True
     except Exception:

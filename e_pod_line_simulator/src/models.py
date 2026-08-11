@@ -1039,6 +1039,7 @@ class SimulationResult:
     cleaning_events: List[Dict[str, Any]] = field(default_factory=list)
     labor_summary: Dict[str, int] = field(default_factory=dict)
     unit: str = "颗"
+    station_metrics: Dict[str, Dict[str, float]] = field(default_factory=dict)
 
 
 # ==================== V1.3 模板产线工厂函数 ====================

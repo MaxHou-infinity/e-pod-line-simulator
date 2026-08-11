@@ -313,8 +313,37 @@ def test_wip_suggestion_direction_and_dedup():
 
     blockage = [a for a in result.alerts if a.alert_type == "blockage"]
     # 去重后：warning（80%）+ critical（满缓冲持续升级），不应每 30 秒刷屏
-    assert len(blockage) <= 3, len(blockage)
-    for alert in blockage:
+    assert len(blockage) <= 4, len(blockage)
+    wip_alerts = [
+        a for a in blockage if ("WIP堆积" in a.message or "缓冲区已满" in a.message)
+    ]
+    blocked_alerts = [a for a in blockage if "被下游堵塞" in a.message]
+    assert wip_alerts and blocked_alerts
+    for alert in wip_alerts:
         assert "上游" in alert.suggestion
         assert "限制上游投料" in alert.suggestion
-    assert any(a.severity == "critical" for a in blockage)
+    assert any(a.severity == "critical" for a in wip_alerts)
+
+
+def test_starvation_alert():
+    line = ProductionLine("饥饿测试", shift_hours=1, break_minutes=0)
+    line.add_station(Station("s01", "慢上游", 100.0, 1, buffer_capacity=100))
+    line.add_station(Station("s02", "快下游", 1.0, 10, buffer_capacity=100))
+    result = SimulationEngine(line).run_sync(duration_hours=1.0)
+
+    starvation = [a for a in result.alerts if a.alert_type == "starvation"]
+    assert starvation
+    assert "上游供料不足" in starvation[0].suggestion
+
+
+def test_station_metrics_and_warmup():
+    line = make_line()
+    without = SimulationEngine(line).run_sync(duration_hours=1.0)
+    assert "s01" in without.station_metrics
+    assert without.station_metrics["s01"]["running_sec"] > 0
+    assert 0 <= without.station_metrics["s01"]["utilization"] <= 1
+
+    with_warmup = SimulationEngine(make_line()).run_sync(
+        duration_hours=1.0, warmup_minutes=30.0
+    )
+    assert 0 < with_warmup.total_output < without.total_output

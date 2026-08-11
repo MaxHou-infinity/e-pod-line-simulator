@@ -1067,6 +1067,17 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：89 passed
 
+## 2026-08-11 - V3.1 P1 饥饿/堵塞报警与工序指标
+
+### 完成内容
+- 下游饥饿报警、上游被堵报警（累计≥5分钟）
+- 工序级指标：运行/等待/堵塞秒、实际利用率
+- Excel 报告"工序指标"Sheet
+- run_sync 支持 warmup_minutes 稳态评估
+
+### 验证
+- pytest：91 passed
+
 ## 2026-08-11 - V3.0 L5 画布视觉升级
 
 ### 完成内容
