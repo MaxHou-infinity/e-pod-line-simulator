@@ -3,7 +3,7 @@
 > **Production Line Simulation & Optimization for E-cigarette Pods, E-liquid Filling and Nicotine Pouches.**
 > 基于 SimPy 的离散事件产线仿真与人力配置优化工具，支持烟弹组装 / 烟油灌装 / 尼古丁袋高速包装三种生产形态。
 
-![version](https://img.shields.io/badge/version-3.1.0-1F2329)
+![version](https://img.shields.io/badge/version-3.2.0-1F2329)
 ![python](https://img.shields.io/badge/Python-3.8%2B-2F6FED)
 ![CI](https://github.com/MaxHou-infinity/e-pod-line-simulator/actions/workflows/ci.yml/badge.svg)
 ![license](https://img.shields.io/badge/license-Attribution%20Authorization-blue)
@@ -65,7 +65,8 @@ python -m pytest tests -q
 - [V1.3 需求与开发路线图（烟油/尼古丁袋）](e_pod_line_simulator/docs/v1.3/需求与开发路线图.md)
 - [V3.0 体验与视觉升级规划](e_pod_line_simulator/docs/v3.0/体验视觉升级规划.md)
 - [V3.1 开发日志](e_pod_line_simulator/docs/v3.1/开发日志.md)
-- [V4.0 人力规划与多业态深化路线图](e_pod_line_simulator/docs/v4.0/需求与开发路线图.md)
+- [V3.2 人力规划与多业态深化路线图](e_pod_line_simulator/docs/v3.2/需求与开发路线图.md)
+- [V3.2 开发日志](e_pod_line_simulator/docs/v3.2/开发日志.md)
 - [项目成熟度分析](e_pod_line_simulator/docs/项目成熟度分析.md)
 
 ## 技术栈
@@ -94,7 +95,7 @@ e_pod_line_simulator/
 - ✅ **V1.0-V1.3**：MVP、交互/视觉、烟油与尼古丁袋产品形态扩展
 - ✅ **V3.0**：2026 桌面美学体验升级
 - ✅ **V3.1**：智能报警与评估能力（已定版 v3.1.0）
-- ⏳ **V4.0**：人力规划与多业态深化（HRBP/HR 受众，规划中）
+- 🔄 **V3.2**：人力规划与多业态深化（开发中）
 - ⏳ **V2.0**：Web 化
 
 ## 支持与反馈
