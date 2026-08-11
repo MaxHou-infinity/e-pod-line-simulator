@@ -1185,6 +1185,25 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：94 passed
 
+## 2026-08-11 - V3.1 定版与发布（v3.1.0）
+
+### 完成内容
+- 版本号统一升为 3.1.0（version.py / README 徽章 / 路线图）
+- 打 tag `v3.1.0` 并推送
+- CHANGELOG 生成 [3.1.0] 条目
+- V3.1 开发日志补定版 Loop；logs.md 同步
+- 重新生成 `E-Pod-Line-Simulator-v3.1.0.zip`
+  （含 LICENSE / CHANGELOG / 主界面截图，不入库）
+- 项目成熟度分析日期与用例数刷新
+
+### 验证
+- pytest：95 passed；工作区干净；远程 main 与 tag 同步
+
+### 遗留
+- V1.4：AI 自动优化
+- V2.0：Web 化
+- P2（V1.1 遗留）：KPI 历史趋势图、配置 Excel 导出、平台打包
+
 ## 2026-08-11 - V3.0 L5 画布视觉升级
 
 ### 完成内容
