@@ -1602,7 +1602,7 @@ class ScenarioManageDialog:
             for i in range(8):
                 pixels[8 + i][12 - i] = "#FFFFFF"
                 pixels[7 + i][12 - i] = "#FFFFFF"
-        data = "\n".join(" ".join(row) for row in pixels)
+        data = tuple(" ".join(row) for row in pixels)
         image = tk.PhotoImage(width=size, height=size)
         image.put(data)
         return image
