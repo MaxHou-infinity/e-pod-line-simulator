@@ -1305,6 +1305,14 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest 136 passed
 
+## 2026-08-11 - 人力规划 Excel/PDF 导出格式迭代
+
+### 完成内容
+- Excel 六 Sheet + 样式；PDF 六节报告；含计算明细与缺口双口径
+
+### 验证
+- pytest 136 passed；真实方案导出验证通过
+
 ## 2026-08-11 - 当前在岗留空按 0 计
 
 ### 完成内容

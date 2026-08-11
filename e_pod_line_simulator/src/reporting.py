@@ -340,22 +340,56 @@ def export_pdf(result: SimulationResult, file_path: str) -> bool:
 
 
 def export_hr_report(summary: dict, file_path: str) -> bool:
-    """导出人力规划 Excel 报告（V3.2）"""
+    """导出人力规划 Excel 报告（V3.3 迭代）"""
     try:
         import pandas as pd
-
-        station_df = pd.DataFrame([
-            {"工序ID": sid, "所需人数": n}
-            for sid, n in summary.get("headcount_by_station", {}).items()
-        ])
-        role_df = pd.DataFrame([
-            {"工种": role, "所需人数": n}
-            for role, n in summary.get("headcount_by_role", {}).items()
-        ])
         costs = summary.get("costs", {})
-        cost_df = pd.DataFrame([
+
+        overview_df = pd.DataFrame([
             ["目标日产量", summary.get("daily_target", 0)],
             ["每日有效工时(小时)", summary.get("effective_hours_per_day", 0)],
+            ["每小时需求", summary.get("required_hourly", 0)],
+            ["人力需求合计(最低人数)", summary.get("total_headcount", 0)],
+            ["当前在岗合计", summary.get("current_total", 0)],
+            ["富余人数(在岗−需求)", summary.get("excess_headcount", 0)],
+            ["一次性招聘建议", summary.get("one_time_hiring", 0)],
+            ["首周净缺口(需求−在岗−到岗)", summary.get("initial_gap", 0)],
+            ["达产天数", summary.get("days_to_full", 0)],
+        ], columns=["指标", "值"])
+
+        derivation_df = pd.DataFrame([
+            {
+                "工序": d.get("name", ""),
+                "是否瓶颈": "是" if d.get("is_bottleneck") else "",
+                "配置人数": d.get("configured", 0),
+                "单件耗时(秒)": d.get("process_time", 0),
+                "机台节拍(秒)": d.get("machine_takt") or "",
+                "OEE": d.get("oee", 0),
+                "效率": d.get("efficiency", 0),
+                "切换+清洗(分钟)": d.get("changeover_minutes", 0),
+                "协作模式": d.get("collaboration", ""),
+                "工序产能(/h)": d.get("capacity", 0),
+                "单人产能(/h)": d.get("per_head", 0),
+                "需求人数": d.get("needed", 0),
+            }
+            for d in summary.get("station_derivation", [])
+        ])
+
+        role_df = pd.DataFrame([
+            {"工种": role, "需求人数": n}
+            for role, n in summary.get("headcount_by_role", {}).items()
+        ] + [{
+            "工种": "合计", "需求人数": summary.get("total_headcount", 0),
+        }])
+
+        current_df = pd.DataFrame([
+            {"工种": role, "在岗人数": n}
+            for role, n in summary.get("current_headcount", {}).items()
+        ] + [{
+            "工种": "合计", "在岗人数": summary.get("current_total", 0),
+        }])
+
+        cost_df = pd.DataFrame([
             ["总人数", costs.get("headcount", 0)],
             ["在岗覆盖人数（含缺勤）", costs.get("covered_headcount", 0)],
             ["日人力成本(元)", costs.get("daily_labor_cost", 0)],
@@ -363,8 +397,8 @@ def export_hr_report(summary: dict, file_path: str) -> bool:
             ["月招聘/培训(元)", costs.get("monthly_recruit_training", 0)],
             ["月总成本(元)", costs.get("monthly_total", 0)],
             ["单位人力成本(元/单位)", costs.get("per_unit_labor_cost", 0)],
-            ["达产天数", summary.get("days_to_full", 0)],
         ], columns=["指标", "值"])
+
         gap_rows = []
         for row in summary.get("weekly_gap", []):
             gap_rows.append({
@@ -380,17 +414,42 @@ def export_hr_report(summary: dict, file_path: str) -> bool:
             os.makedirs(directory, exist_ok=True)
 
         with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
-            station_df.to_excel(writer, sheet_name="人力需求-工序", index=False)
-            role_df.to_excel(writer, sheet_name="人力需求-工种", index=False)
+            overview_df.to_excel(writer, sheet_name="概览", index=False)
+            derivation_df.to_excel(writer, sheet_name="计算明细", index=False)
+            role_df.to_excel(writer, sheet_name="人力需求", index=False)
+            current_df.to_excel(writer, sheet_name="当前在岗", index=False)
             cost_df.to_excel(writer, sheet_name="成本", index=False)
             gap_df.to_excel(writer, sheet_name="招聘缺口", index=False)
+
+        from openpyxl import load_workbook
+        from openpyxl.styles import Font
+
+        workbook = load_workbook(file_path)
+        header_font = Font(bold=True, color="FFFFFF")
+        for sheet_name, widths in (
+            ("概览", [36, 20]),
+            ("计算明细", [16, 9, 9, 12, 12, 8, 8, 13, 10, 12, 12, 9]),
+            ("人力需求", [24, 12]),
+            ("当前在岗", [24, 12]),
+            ("成本", [30, 18]),
+            ("招聘缺口", [10, 14, 14]),
+        ):
+            worksheet = workbook[sheet_name]
+            for cell in worksheet[1]:
+                cell.font = header_font
+            for idx, width in enumerate(widths, 1):
+                worksheet.column_dimensions[
+                    worksheet.cell(row=1, column=idx).column_letter
+                ].width = width
+            worksheet.freeze_panes = "A2"
+        workbook.save(file_path)
         return True
     except Exception:
         return False
 
 
 def export_hr_pdf(summary: dict, file_path: str) -> bool:
-    """导出人力规划 PDF 摘要（V3.2）"""
+    """导出人力规划 PDF 报告（V3.3 迭代）"""
     try:
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import A4
@@ -425,51 +484,97 @@ def export_hr_pdf(summary: dict, file_path: str) -> bool:
         )
 
         costs = summary.get("costs", {})
+
+        def _table(rows, widths, header=True):
+            table = Table(rows, colWidths=widths, repeatRows=1 if header else 0)
+            style = [
+                ("FONTNAME", (0, 0), (-1, -1), font_name),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]
+            if header:
+                style += [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F2329")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ]
+            table.setStyle(TableStyle(style))
+            return table
+
         story = [
             Paragraph("人力规划报告", title_style),
             Spacer(1, 6 * mm),
-            Paragraph(
-                f"目标日产量：{summary.get('daily_target', 0)}　"
-                f"每日有效工时：{summary.get('effective_hours_per_day', 0)} 小时",
-                body_style,
-            ),
-            Spacer(1, 4 * mm),
-            Paragraph("一、人力需求（按工种）", body_style),
+            Paragraph("一、概览", body_style),
+            Spacer(1, 2 * mm),
         ]
+        overview_rows = [
+            ["指标", "值"],
+            ["目标日产量", summary.get("daily_target", 0)],
+            ["每日有效工时(小时)", summary.get("effective_hours_per_day", 0)],
+            ["每小时需求", summary.get("required_hourly", 0)],
+            ["人力需求合计(最低人数)", summary.get("total_headcount", 0)],
+            ["当前在岗合计", summary.get("current_total", 0)],
+            ["富余人数(在岗−需求)", summary.get("excess_headcount", 0)],
+            ["一次性招聘建议", summary.get("one_time_hiring", 0)],
+            ["达产天数", summary.get("days_to_full", 0)],
+        ]
+        story.append(_table(overview_rows, [110 * mm, 50 * mm]))
+        story.append(Spacer(1, 4 * mm))
+        story.append(Paragraph("二、计算明细", body_style))
+        story.append(Spacer(1, 2 * mm))
+        derivation_rows = [["工序", "配置", "单人产能", "需求", "备注"]]
+        derivation_rows += [
+            [
+                d.get("name", ""),
+                str(d.get("configured", 0)),
+                f"{d.get('per_head', 0)}/h",
+                str(d.get("needed", 0)),
+                "瓶颈" if d.get("is_bottleneck") else "",
+            ]
+            for d in summary.get("station_derivation", [])
+        ]
+        story.append(_table(
+            derivation_rows, [60 * mm, 20 * mm, 45 * mm, 20 * mm, 30 * mm]
+        ))
+        story.append(Spacer(1, 4 * mm))
+        story.append(Paragraph("三、人力需求（按工种）", body_style))
+        story.append(Spacer(1, 2 * mm))
         role_rows = [["工种", "所需人数"]]
         role_rows += [
             [role, str(count)]
             for role, count in summary.get("headcount_by_role", {}).items()
         ]
-        role_table = Table(role_rows, colWidths=[80 * mm, 40 * mm])
-        role_table.setStyle(TableStyle([
-            ("FONTNAME", (0, 0), (-1, -1), font_name),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F2329")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("ALIGN", (1, 0), (1, -1), "CENTER"),
-        ]))
-        story.append(role_table)
+        role_rows.append(["合计", str(summary.get("total_headcount", 0))])
+        story.append(_table(role_rows, [80 * mm, 40 * mm]))
         story.append(Spacer(1, 4 * mm))
-        story.append(Paragraph("二、成本测算", body_style))
+        story.append(Paragraph("四、成本测算", body_style))
+        story.append(Spacer(1, 2 * mm))
         cost_rows = [
+            ["指标", "值"],
             ["总人数", costs.get("headcount", 0)],
             ["在岗覆盖人数（含缺勤）", costs.get("covered_headcount", 0)],
             ["日人力成本(元)", costs.get("daily_labor_cost", 0)],
             ["月总成本(元)", costs.get("monthly_total", 0)],
             ["单位人力成本(元/单位)", costs.get("per_unit_labor_cost", 0)],
         ]
-        cost_table = Table(cost_rows, colWidths=[80 * mm, 40 * mm])
-        cost_table.setStyle(TableStyle([
-            ("FONTNAME", (0, 0), (-1, -1), font_name),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ]))
-        story.append(cost_table)
+        story.append(_table(cost_rows, [80 * mm, 40 * mm]))
+        story.append(Spacer(1, 4 * mm))
+        story.append(Paragraph("五、招聘缺口（前 12 周）", body_style))
+        story.append(Spacer(1, 2 * mm))
+        gap_rows = [["周", "周底还缺(累计)", "本周新增需求"]]
+        gap_rows += [
+            [
+                str(row.get("week", 0)),
+                str(row.get("total_gap", 0)),
+                str(row.get("new_gap", 0)),
+            ]
+            for row in summary.get("weekly_gap", [])[:12]
+        ]
+        story.append(_table(gap_rows, [30 * mm, 70 * mm, 70 * mm]))
         story.append(Spacer(1, 4 * mm))
         story.append(Paragraph(
-            f"三、达产预测：预计 {summary.get('days_to_full', 0)} 天达产",
+            f"六、结论：一次性招聘建议 {summary.get('one_time_hiring', 0)} 人；"
+            f"预计 {summary.get('days_to_full', 0)} 天达产。",
             body_style,
         ))
         doc.build(story)

@@ -103,7 +103,13 @@ def test_export_hr_report_excel_and_pdf(tmp_path):
     from openpyxl import load_workbook
 
     wb = load_workbook(xlsx)
-    assert "人力需求-工序" in wb.sheetnames
-    assert "人力需求-工种" in wb.sheetnames
+    assert "概览" in wb.sheetnames
+    assert "计算明细" in wb.sheetnames
+    assert "人力需求" in wb.sheetnames
+    assert "当前在岗" in wb.sheetnames
     assert "成本" in wb.sheetnames
     assert "招聘缺口" in wb.sheetnames
+    overview_values = [
+        str(c.value) for row in wb["概览"].iter_rows() for c in row if c.value
+    ]
+    assert any("每小时需求" in v for v in overview_values)
