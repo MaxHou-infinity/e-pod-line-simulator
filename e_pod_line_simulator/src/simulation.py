@@ -1531,6 +1531,57 @@ class SimulationEngine:
                 'oee_total': round(oee, 4),
             }
 
+        line_config = {
+            'name': self.line.name,
+            'production_type': self.line.production_type.value,
+            'shift_hours': self.line.shift_hours,
+            'break_minutes': self.line.break_minutes,
+            'worker_hourly_wage': self.line.worker_hourly_wage,
+            'cip_interval_batches': self.line.cip_interval_batches,
+            'cip_interval_hours': self.line.cip_interval_hours,
+            'changeover_matrix': self.line.changeover_matrix,
+            'materials': [
+                {
+                    'name': m.name,
+                    'unit': m.unit,
+                    'initial_stock': m.initial_stock,
+                    'unit_cost': m.unit_cost,
+                }
+                for m in self.line.materials
+            ],
+            'inventory': dict(self.line.inventory),
+            'material_arrivals': [
+                {
+                    'time_minutes': a.time_minutes,
+                    'material': a.material,
+                    'quantity': a.quantity,
+                }
+                for a in self.line.material_arrivals
+            ],
+            'stations': [
+                {
+                    'id': s.id,
+                    'name': s.name,
+                    'process_time': s.process_time,
+                    'worker_count': s.worker_count,
+                    'collaboration_type': s.collaboration_type.value,
+                    'oee': s.oee,
+                    'efficiency': s.efficiency,
+                    'changeover_time': s.changeover_time,
+                    'buffer_capacity': s.buffer_capacity,
+                    'machine_takt': s.machine_takt,
+                    'clean_time_minutes': s.clean_time_minutes,
+                    'sampling_rate': s.sampling_rate,
+                    'defect_rate': s.defect_rate,
+                    'rework_minutes': s.rework_minutes,
+                    'job_role': s.job_role.value,
+                    'cleanroom_zone': s.cleanroom_zone,
+                    'bom': dict(s.bom),
+                }
+                for s in self.line.stations
+            ],
+        }
+
         return SimulationResult(
             line_name=self.line.name,
             duration_seconds=self.duration_seconds,
@@ -1549,6 +1600,7 @@ class SimulationEngine:
             labor_summary=dict(self.line.labor_config),
             unit=self.line.get_unit(),
             station_metrics=station_metrics,
+            line_config=line_config,
         )
 
 

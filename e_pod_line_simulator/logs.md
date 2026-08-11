@@ -1293,6 +1293,14 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest 137 passed
 
+## 2026-08-11 - 主报告 Excel 增强（P1）
+
+### 完成内容
+- 产线配置 Sheet + 扩展 KPI 行
+
+### 验证
+- pytest 137 passed
+
 ## 2026-08-11 - 智能优化界面与应用闭环
 
 ### 完成内容

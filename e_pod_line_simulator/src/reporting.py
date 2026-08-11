@@ -8,6 +8,7 @@
 """
 
 import os
+import json
 from typing import List, Optional
 
 from src.models import SimulationResult
@@ -64,7 +65,7 @@ def _kpi_rows(result: SimulationResult) -> List[List[str]]:
     k = result.kpis
     duration_minutes = result.duration_seconds / 60.0
     unit = result.unit
-    return [
+    rows = [
         ["产线名称", result.line_name],
         ["仿真时长(分钟)", f"{duration_minutes:.1f}"],
         [f"总产出({unit})", f"{result.total_output}"],
@@ -77,6 +78,23 @@ def _kpi_rows(result: SimulationResult) -> List[List[str]]:
         ["产线平衡率", f"{k.get('balance_rate', 0) * 100:.1f}%"],
         [f"UPPH({unit}/人·h)", f"{k.get('upph', 0):.1f}"],
     ]
+    if k.get("material_cost") is not None:
+        rows.append(["原料成本(元)", f"{k['material_cost']:.2f}"])
+    if k.get("batch_cycle_min") is not None:
+        rows.append(["批次周期(分钟)", f"{k['batch_cycle_min']:.1f}"])
+    if k.get("batch_pass_rate") is not None:
+        rows.append(["批次合格率", f"{k['batch_pass_rate']:.1%}"])
+    if k.get("yield_rate") is not None:
+        rows.append(["收率", f"{k['yield_rate']:.1%}"])
+    if k.get("machine_oee") is not None:
+        rows.append(["机台OEE", f"{k['machine_oee']:.1%}"])
+    if k.get("cleaning_time_ratio") is not None:
+        rows.append(["清洗时间占比", f"{k['cleaning_time_ratio']:.1%}"])
+    if k.get("cost_per_liter") is not None:
+        rows.append([f"元/{unit}（批次收率口径）", f"{k['cost_per_liter']:.3f}"])
+    if k.get("cost_per_pouch") is not None:
+        rows.append([f"元/{unit}（袋装口径）", f"{k['cost_per_pouch']:.3f}"])
+    return rows
 
 
 def export_excel(result: SimulationResult, file_path: str) -> bool:
@@ -169,6 +187,49 @@ def export_excel(result: SimulationResult, file_path: str) -> bool:
         # V3.2 原料事件
         material_df = pd.DataFrame(result.material_events)
 
+        # V3.3.1 产线配置
+        lc = result.line_config or {}
+        config_rows = [
+            ["产线名称", lc.get("name", "")],
+            ["生产类型", lc.get("production_type", "")],
+            ["班次时长(小时)", lc.get("shift_hours", "")],
+            ["休息(分钟)", lc.get("break_minutes", "")],
+            ["时薪(元/h)", lc.get("worker_hourly_wage", "")],
+            ["周期CIP(批次数)", lc.get("cip_interval_batches", 0)],
+            ["周期CIP(小时)", lc.get("cip_interval_hours", 0)],
+            [
+                "换型矩阵",
+                json.dumps(
+                    lc.get("changeover_matrix") or {},
+                    ensure_ascii=False,
+                ),
+            ],
+        ]
+        for material in lc.get("materials", []):
+            config_rows.append([
+                f"原料-{material.get('name', '')}",
+                (
+                    f"{material.get('initial_stock', 0)} {material.get('unit', '')}"
+                    f"（单价 {material.get('unit_cost', 0)}）"
+                ),
+            ])
+        for arrival in lc.get("material_arrivals", []):
+            config_rows.append([
+                f"到货-{arrival.get('material', '')}",
+                f"{arrival.get('time_minutes', 0)}min × {arrival.get('quantity', 0)}",
+            ])
+        for station in lc.get("stations", []):
+            config_rows.append([
+                f"工序-{station.get('name', '')}",
+                (
+                    f"人数{station.get('worker_count', 0)}/"
+                    f"缓冲{station.get('buffer_capacity', 0)}/"
+                    f"节拍{station.get('machine_takt') or '-'}/"
+                    f"工种{station.get('job_role', '')}"
+                ),
+            ])
+        config_df = pd.DataFrame(config_rows, columns=["配置项", "值"])
+
         directory = os.path.dirname(file_path)
         if directory and not os.path.exists(directory):
             os.makedirs(directory, exist_ok=True)
@@ -189,6 +250,8 @@ def export_excel(result: SimulationResult, file_path: str) -> bool:
                 imbalance_df.to_excel(writer, sheet_name="失衡分析", index=False)
             if not material_df.empty:
                 material_df.to_excel(writer, sheet_name="原料事件", index=False)
+            if not config_df.empty:
+                config_df.to_excel(writer, sheet_name="产线配置", index=False)
 
         return True
     except Exception:

@@ -1127,6 +1127,7 @@ class SimulationResult:
     labor_summary: Dict[str, int] = field(default_factory=dict)
     unit: str = "颗"
     station_metrics: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    line_config: Dict[str, Any] = field(default_factory=dict)
 
 
 # ==================== V1.3 模板产线工厂函数 ====================
