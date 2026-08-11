@@ -12,4 +12,3 @@ VERSION_STRING = f"v{__version__}"
 BUG_REPORT_URL = "https://github.com/MaxHou-infinity/e-pod-line-simulator/issues"
 WECHAT_QR_PATH = "assets/wechat_qr.png"  # 微信赞赏码（PNG/GIF）
 WECHAT_QR_SMALL_PATH = "assets/wechat_qr_small.png"  # 关于对话框内嵌小图
-ALIPAY_QR_PATH = ""  # 支付宝赞赏码图片路径（PNG/GIF），如 "assets/alipay_qr.png"

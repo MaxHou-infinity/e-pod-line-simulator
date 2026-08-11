@@ -25,7 +25,6 @@ from src.scenario_manager import ScenarioManager
 from src.theme import ALERT_ICONS, COLORS, ToolTip, resolve_font_family
 from src.glossary import GLOSSARY
 from src.version import (
-    ALIPAY_QR_PATH,
     BUG_REPORT_URL,
     WECHAT_QR_PATH,
     WECHAT_QR_SMALL_PATH,
@@ -1758,7 +1757,6 @@ class AboutDialog:
         button_frame.pack(fill=tk.X)
         ttk.Button(button_frame, text="报告 Bug", command=self._open_bug).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="微信赞赏码", command=self._show_wechat).pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="支付宝赞赏码", command=self._show_alipay).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="关闭", command=self.dialog.destroy).pack(side=tk.RIGHT, padx=2)
 
         self.dialog.bind('<Escape>', lambda e: self.dialog.destroy())
@@ -1779,19 +1777,6 @@ class AboutDialog:
             )
             return
         webbrowser.open("file://" + os.path.abspath(WECHAT_QR_PATH))
-
-    def _show_alipay(self) -> None:
-        """显示/打开支付宝赞赏码图片"""
-        if not ALIPAY_QR_PATH or not os.path.exists(ALIPAY_QR_PATH):
-            messagebox.showinfo(
-                "支付宝赞赏码",
-                "尚未配置赞赏码图片。\n\n"
-                "请把支付宝赞赏码保存为 PNG/GIF，并在 src/version.py 的 "
-                "ALIPAY_QR_PATH 中填写路径（例如 assets/alipay_qr.png）。",
-            )
-            return
-        webbrowser.open("file://" + os.path.abspath(ALIPAY_QR_PATH))
-
 
 class WizardDialog:
     """
