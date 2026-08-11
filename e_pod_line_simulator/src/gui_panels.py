@@ -2102,9 +2102,11 @@ class HrPlanningDialog:
             "使用说明",
             "目的：按目标产量估算产线需要的人数、排班与人力成本，"
             "供 HRBP/HR 做预算、招聘与爬坡规划。\n"
-            "口径：人力需求按各工序单人工位产能反推；协同工序加人不提升产能。\n"
-            "成本 = 在岗人数 ×（基本工资 + 加班 + 社保福利）；"
-            "招聘缺口 = 需求 − 在岗 − 已计划到岗（按周）。\n"
+            "口径：人力需求 = 达成目标产量的最低人数，按各工序单人工位产能反推；"
+            "协同工序加人不提升产能。\n"
+            "缺口 = 需求 − 当前在岗 − 已计划到岗；需求低于在岗时缺口为 0，"
+            "并显示富余人数。\n"
+            "成本 = 在岗人数 ×（基本工资 + 加班 + 社保福利）。\n"
             "术语：UPPH=每人每小时产出；缺勤率/离职率/爬坡天数见字段提示。\n"
             "结果仅供规划参考，不构成用工承诺。",
         ).grid(row=11, column=0, columnspan=4, sticky=tk.W, pady=(8, 0))
@@ -2207,10 +2209,31 @@ class HrPlanningDialog:
         s = self.summary
         c = s["costs"]
         rows = []
-        for role, count in s["headcount_by_role"].items():
-            rows.append({"category": "人力需求", "item": role, "value": f"{count} 人"})
         rows.append({
-            "category": "人力需求", "item": "总人数", "value": f"{s['total_headcount']} 人",
+            "category": "计算口径",
+            "item": f"目标日产量 {s['daily_target']:.0f} ÷ 有效工时 "
+                    f"{s['effective_hours_per_day']:.1f}h",
+            "value": f"每小时需求 {s['required_hourly']:.2f}",
+        })
+        for d in s["station_derivation"]:
+            rows.append({
+                "category": "计算明细",
+                "item": (
+                    f"{d['name']}{'（瓶颈）' if d['is_bottleneck'] else ''}："
+                    f"配置 {d['configured']} 人 / 单人产能 {d['per_head']}/h"
+                ),
+                "value": f"需求 {d['needed']} 人",
+            })
+        for role, count in s["headcount_by_role"].items():
+            rows.append({
+                "category": "人力需求（按目标反推）",
+                "item": role,
+                "value": f"{count} 人",
+            })
+        rows.append({
+            "category": "人力需求（按目标反推）",
+            "item": "总人数",
+            "value": f"{s['total_headcount']} 人",
         })
         for role, count in s["current_headcount"].items():
             rows.append({"category": "当前在岗", "item": role, "value": f"{count} 人"})
@@ -2219,8 +2242,12 @@ class HrPlanningDialog:
             "value": f"{s['current_total']} 人",
         })
         rows.append({
-            "category": "招聘缺口", "item": "首周净缺口",
+            "category": "招聘缺口", "item": "首周净缺口（需求−在岗−到岗）",
             "value": f"{s['initial_gap']} 人",
+        })
+        rows.append({
+            "category": "招聘缺口", "item": "富余人数（在岗−需求）",
+            "value": f"{s['excess_headcount']} 人",
         })
         rows += [
             {"category": "成本", "item": "在岗覆盖人数（含缺勤）",
@@ -2253,9 +2280,19 @@ class HrPlanningDialog:
         c = s["costs"]
         lines = [
             f"目标日产量：{s['daily_target']:.0f}　"
-            f"每日有效工时：{s['effective_hours_per_day']:.1f} 小时",
+            f"每日有效工时：{s['effective_hours_per_day']:.1f} 小时　"
+            f"每小时需求：{s['required_hourly']:.2f}",
             "",
-            "【人力需求（按工种）】",
+            "【计算明细（每工序需求=每小时需求÷单人产能，向上取整）】",
+        ]
+        lines += [
+            f"  {d['name']}{'（瓶颈）' if d['is_bottleneck'] else ''}："
+            f"配置 {d['configured']} 人，单人产能 {d['per_head']}/h → 需求 {d['needed']} 人"
+            for d in s["station_derivation"]
+        ]
+        lines += [
+            "",
+            "【人力需求（按目标反推，最低人数）】",
         ]
         lines += [f"  {role}: {n} 人" for role, n in s["headcount_by_role"].items()]
         lines.append(f"总人数：{s['total_headcount']} 人")
@@ -2266,7 +2303,11 @@ class HrPlanningDialog:
         lines += [
             f"  {role}: {n} 人" for role, n in s["current_headcount"].items()
         ]
-        lines.append(f"在岗合计：{s['current_total']} 人（首周净缺口 {s['initial_gap']} 人）")
+        lines.append(
+            f"在岗合计：{s['current_total']} 人　"
+            f"首周净缺口（需求−在岗−到岗）：{s['initial_gap']} 人　"
+            f"富余：{s['excess_headcount']} 人"
+        )
         lines += [
             "",
             "【成本测算】",

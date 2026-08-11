@@ -26,3 +26,4 @@ logs/
 run_history.json
 /*.xlsx
 /.~*.xlsx
+/*.pdf

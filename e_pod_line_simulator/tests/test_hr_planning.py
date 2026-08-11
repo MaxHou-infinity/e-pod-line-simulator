@@ -108,6 +108,9 @@ def test_build_hr_summary_shape():
     assert "current_headcount" in summary
     assert "current_total" in summary
     assert "initial_gap" in summary
+    assert "required_hourly" in summary
+    assert "station_derivation" in summary
+    assert "excess_headcount" in summary
 
 
 def test_current_headcount_by_role_sums_stations():
@@ -132,3 +135,5 @@ def test_gap_uses_station_headcount_when_current_empty():
     )
     assert summary["current_total"] == 14
     assert summary["initial_gap"] == max(0, summary["total_headcount"] - 14)
+    assert summary["excess_headcount"] == max(0, 14 - summary["total_headcount"])
+    assert len(summary["station_derivation"]) == 8

@@ -252,15 +252,33 @@ def build_hr_summary(
     days_to_full = ramp_days_to_full(
         line, daily_target, shift_plan, by_role, current, learning
     )
+    daily_hours = shift_plan.effective_hours_per_day()
+    required_hourly = daily_target / daily_hours if daily_hours > 0 else 0.0
+    station_derivation = []
+    for station in line.stations:
+        capacity = station.get_capacity()
+        per_head = _per_head_capacity(station)
+        station_derivation.append({
+            'name': station.name,
+            'configured': station.worker_count,
+            'capacity': round(capacity, 2),
+            'per_head': round(per_head, 2),
+            'needed': by_station.get(station.id, 1),
+            'is_bottleneck': station.id == (line.find_bottleneck().id if line.find_bottleneck() else None),
+        })
+
     return {
         'daily_target': daily_target,
         'effective_hours_per_day': shift_plan.effective_hours_per_day(),
+        'required_hourly': round(required_hourly, 3),
         'headcount_by_station': by_station,
         'headcount_by_role': by_role,
         'total_headcount': total,
         'current_headcount': dict(current),
         'current_total': sum(current.values()),
         'initial_gap': gap_rows[0]['total_gap'] if gap_rows else 0,
+        'excess_headcount': max(0, sum(current.values()) - total),
+        'station_derivation': station_derivation,
         'costs': costs,
         'weekly_gap': gap_rows,
         'days_to_full': days_to_full,
