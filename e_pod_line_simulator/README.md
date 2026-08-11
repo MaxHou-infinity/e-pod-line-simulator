@@ -53,7 +53,7 @@ pip install -r requirements.txt
 
 ### 0.1 从压缩包安装使用
 
-1. 解压 `产线仿真-v1.2.0.zip`；
+1. 解压 `E-Pod-Line-Simulator-v3.0.0.zip`；
 2. 进入 `e_pod_line_simulator` 目录；
 3. macOS 双击 `启动.command`，Windows 双击 `启动.bat`；
    首次运行会自动安装依赖并启动程序；

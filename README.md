@@ -5,8 +5,10 @@
 
 ![version](https://img.shields.io/badge/version-3.0.0-1F2329)
 ![python](https://img.shields.io/badge/Python-3.8%2B-2F6FED)
-![tests](https://img.shields.io/badge/tests-95%20passed-green)
-![license](https://img.shields.io/badge/license-学习研究-red)
+![CI](https://github.com/MaxHou-infinity/e-pod-line-simulator/actions/workflows/ci.yml/badge.svg)
+![license](https://img.shields.io/badge/license-MIT-green)
+
+![主界面](docs/images/screenshot_main.png)
 
 ---
 
@@ -54,6 +56,7 @@ python -m pytest tests -q
 ## 文档导航
 
 - [详细 README（安装/配置/FAQ）](e_pod_line_simulator/README.md)
+- [更新日志 CHANGELOG](CHANGELOG.md)
 - [产品需求文档 PRD](电子烟产线仿真优化.md)
 - [开发与贡献规范](AGENTS.md)
 - [V1.3 需求与开发路线图（烟油/尼古丁袋）](e_pod_line_simulator/docs/v1.3/需求与开发路线图.md)
@@ -96,7 +99,8 @@ e_pod_line_simulator/
 
 ## 许可与免责
 
-本项目**仅供学习与研究使用**。
+本项目基于 **MIT License** 开源（[LICENSE](LICENSE)），可自由使用、修改与分发。
+
 仿真结果为产线设计与人力规划的参考，不构成产能或成本承诺；实际投产前请以现场验证为准，作者不对据此做出的决策损失承担责任。
 
 ## 关键词
