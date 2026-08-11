@@ -349,6 +349,10 @@ class ProductionLine:
     labor_config: Dict[str, int] = field(default_factory=dict)  # {job_role: 人数}
     cleanroom_limits: Dict[str, int] = field(default_factory=dict)  # {zone: 上限}
     skill_matrix: Dict[str, List[str]] = field(default_factory=dict)  # {role: [可互换]}
+
+    # V3.2：周期性 CIP（0 = 禁用）
+    cip_interval_batches: int = 0   # 每 N 个批次清洗一次
+    cip_interval_hours: float = 0.0  # 每运行 N 小时清洗一次
     
     def add_station(self, station: Station) -> None:
         """
@@ -757,6 +761,8 @@ class ProductionLine:
             'labor_config': dict(self.labor_config),
             'cleanroom_limits': dict(self.cleanroom_limits),
             'skill_matrix': {k: list(v) for k, v in self.skill_matrix.items()},
+            'cip_interval_batches': self.cip_interval_batches,
+            'cip_interval_hours': self.cip_interval_hours,
             'stations': [station.to_dict() for station in self.stations]
         }
     
@@ -784,6 +790,8 @@ class ProductionLine:
             labor_config=dict(data.get('labor_config', {})),
             cleanroom_limits=dict(data.get('cleanroom_limits', {})),
             skill_matrix={k: list(v) for k, v in data.get('skill_matrix', {}).items()},
+            cip_interval_batches=int(data.get('cip_interval_batches', 0)),
+            cip_interval_hours=float(data.get('cip_interval_hours', 0.0)),
         )
         
         # 添加所有工序

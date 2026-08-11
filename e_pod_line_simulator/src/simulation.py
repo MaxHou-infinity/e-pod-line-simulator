@@ -119,6 +119,8 @@ class SimulationEngine:
         self._blocked_alerted: set = set()
         # V3.2：罐容约束（批次满罐等待去重）
         self._tank_full_alerted: set = set()
+        # V3.2：周期性 CIP 计时
+        self._last_clean_hour: float = 0.0
     
     def set_callback(self, callback: Callable[[SimulationState], None]) -> None:
         """
@@ -286,6 +288,57 @@ class SimulationEngine:
             yield self.env.timeout(60)
             self._withdraw_from_tanks(drain_rate_per_h / 60.0)
 
+    def _run_clean(self, reason: str, recipe_name: str) -> simpy.events.Process:
+        """
+        执行一次清洗（配方切换 / 周期性 CIP）
+
+        reason: recipe_change | periodic
+        """
+        recipe = next(
+            (r for r in self.line.recipes if r.name == recipe_name), None
+        )
+        duration = (
+            recipe.clean_time_min
+            if recipe and recipe.clean_time_min > 0
+            else 30.0
+        )
+        clean_start = self.env.now
+        yield self.env.timeout(duration * 60)
+        self.cleaning_events.append({
+            'time': clean_start,
+            'recipe_from': self._last_batch_recipe,
+            'recipe_to': recipe_name,
+            'clean_min': duration,
+            'reason': reason,
+        })
+        self._last_clean_hour = self.env.now / 3600.0
+        self._last_batch_recipe = recipe_name
+
+    def _batch_sequence_process(self) -> simpy.events.Process:
+        """
+        批次排产序列（V3.2）
+
+        批次按列表顺序执行（前一批放行后下一批开始），并按配置在
+        批间执行周期性 CIP。
+        """
+        for index, batch in enumerate(self.line.batches):
+            need_periodic = False
+            if (
+                index > 0
+                and self.line.cip_interval_batches > 0
+                and index % self.line.cip_interval_batches == 0
+            ):
+                need_periodic = True
+            if (
+                self.line.cip_interval_hours > 0
+                and self.env.now / 3600.0 - self._last_clean_hour
+                >= self.line.cip_interval_hours - 1e-9
+            ):
+                need_periodic = True
+            if need_periodic:
+                yield self.env.process(self._run_clean('periodic', batch.recipe_name))
+            yield self.env.process(self._batch_process(batch))
+
     def _batch_process(self, batch) -> simpy.events.Process:
         """
         批次过程（V1.3 烟油灌装）
@@ -321,7 +374,9 @@ class SimulationEngine:
                 'recipe_from': self._last_batch_recipe,
                 'recipe_to': recipe.name,
                 'clean_min': recipe.clean_time_min,
+                'reason': 'recipe_change',
             })
+            self._last_clean_hour = self.env.now / 3600.0
         self._last_batch_recipe = recipe.name
 
         batch.status = BatchStatus.MIXING
@@ -455,6 +510,7 @@ class SimulationEngine:
         self._starvation_alerted = set()
         self._blocked_alerted = set()
         self._tank_full_alerted = set()
+        self._last_clean_hour = 0.0
 
         # 步骤1：创建SimPy环境
         # Environment是SimPy的核心，管理仿真时钟和事件队列
@@ -468,8 +524,8 @@ class SimulationEngine:
         # 步骤3：启动各工序的工作进程
         # 每个工序都有一个独立的工作进程，模拟物料加工
         if self.line.production_type == ProductionType.LIQUID_FILLING:
-            for batch in self.line.batches:
-                self.env.process(self._batch_process(batch))
+            # 烟油：批次排产序列驱动（V3.2）
+            self.env.process(self._batch_sequence_process())
             self.env.process(self._tank_drain_process())
         else:
             self._spawn_station_processes()
@@ -1172,13 +1228,13 @@ class SimulationEngine:
         self._starvation_alerted = set()
         self._blocked_alerted = set()
         self._tank_full_alerted = set()
+        self._last_clean_hour = 0.0
 
         self.env = simpy.Environment()
         self._init_resources()
         if self.line.production_type == ProductionType.LIQUID_FILLING:
-            # 烟油：批量过程驱动
-            for batch in self.line.batches:
-                self.env.process(self._batch_process(batch))
+            # 烟油：批次排产序列驱动（V3.2）
+            self.env.process(self._batch_sequence_process())
             self.env.process(self._tank_drain_process())
         else:
             # 组装 / 尼古丁袋：工序进程驱动（袋装使用机台节拍）

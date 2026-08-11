@@ -57,6 +57,52 @@ def test_tank_full_waits_instead_of_silent_drop():
     assert all(t.current_level_l <= t.capacity_l + 1e-6 for t in line.tanks)
 
 
+def test_sequential_batches_with_periodic_cip_by_interval():
+    """V3.2 L3：批次按序执行，按批次数触发周期性 CIP"""
+    line = ProductionLine("周期CIP测试", production_type=ProductionType.LIQUID_FILLING)
+    line.recipes.append(Recipe(
+        name="配方A", batch_volume_l=100, yield_rate=0.95,
+        mixing_time_min=10, aging_time_min=0,
+        filling_rate_l_per_h=600, qc_time_min=5, clean_time_min=30,
+    ))
+    line.tanks.append(Tank("T01", "调配罐", 10000, 0))
+    line.batches.append(Batch("B001", "配方A", 100))
+    line.batches.append(Batch("B002", "配方A", 100))
+    line.batches.append(Batch("B003", "配方A", 100))
+    line.cip_interval_batches = 2
+
+    result = SimulationEngine(line).run_sync(duration_hours=24.0)
+
+    periodic = [e for e in result.cleaning_events if e.get("reason") == "periodic"]
+    assert len(periodic) == 1
+    assert periodic[0]["recipe_to"] == "配方A"
+    assert len(result.batch_results) == 3
+    # 顺序执行：后一批在前一批放行后开始
+    assert result.batch_results[1]["start_time"] >= result.batch_results[0]["end_time"]
+    assert result.batch_results[2]["start_time"] >= result.batch_results[1]["end_time"]
+
+
+def test_periodic_cip_by_hours():
+    """V3.2 L3：按运行小时数触发周期性 CIP"""
+    line = ProductionLine("周期CIP小时", production_type=ProductionType.LIQUID_FILLING)
+    line.recipes.append(Recipe(
+        name="配方A", batch_volume_l=100, yield_rate=0.95,
+        mixing_time_min=50, aging_time_min=0,
+        filling_rate_l_per_h=600, qc_time_min=5, clean_time_min=30,
+    ))
+    line.tanks.append(Tank("T01", "调配罐", 10000, 0))
+    line.batches.append(Batch("B001", "配方A", 100))
+    line.batches.append(Batch("B002", "配方A", 100))
+    line.cip_interval_hours = 1.0
+
+    result = SimulationEngine(line).run_sync(duration_hours=24.0)
+
+    periodic = [e for e in result.cleaning_events if e.get("reason") == "periodic"]
+    assert len(periodic) >= 1
+    assert periodic[0]["clean_min"] == 30
+    assert len(result.batch_results) == 2
+
+
 def test_liquid_tanks_drain_by_first_station_capacity():
     """V3.2 L2：成品罐按首工序（灌装）产能持续消耗"""
     line = create_liquid_line()
