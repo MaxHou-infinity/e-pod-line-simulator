@@ -2066,25 +2066,15 @@ class HrPlanningDialog:
              hint="新员工从入职到满效率所需天数（默认 90 天线性爬坡）")
 
         current_label = (
-            "当前在岗（人数；留空则按产线工序人数自动汇总）:"
+            "当前在岗（人数；留空按 0 计，可用「按当前产线填充」带入）:"
             if self._single_role
-            else "当前在岗（每行 工种:人数；留空则按产线自动汇总）:"
+            else "当前在岗（每行 工种:人数；留空按 0 计）:"
         )
         ttk.Label(main, text=current_label).grid(
             row=5, column=0, columnspan=4, sticky=tk.W, pady=(12, 2)
         )
         self.current_text = tk.Text(main, height=3, width=60)
         self.current_text.grid(row=6, column=0, columnspan=4, sticky=tk.W)
-        if line:
-            current = current_headcount_by_role(line)
-            if self._single_role:
-                self.current_text.insert("1.0", str(sum(current.values())))
-            else:
-                self.current_text.insert(
-                    "1.0",
-                    "\n".join(f"{role}:{count}" for role, count in current.items()),
-                )
-
         hiring_label = (
             "招聘计划（每行 周,人数，如 1,2；也可写 周,工种,人数）:"
             if self._single_role
@@ -2121,6 +2111,8 @@ class HrPlanningDialog:
             "需求口径：达成目标产量的最低人数；"
             "每工序需求 = 每小时目标 ÷ 单人产能（向上取整）。\n"
             "单人产能公式：3600÷单件耗时×OEE×效率×(1−切换占比)（并联时÷人数）。\n"
+            "当前在岗：留空按 0 人计（视为无在岗人员）；"
+            "点「按当前产线填充」可把产线现有配置带入。\n"
             "缺口口径：缺口 = 需求 − 当前在岗 − 已计划到岗，"
             "指“还缺多少人”（累计），不是每周都要招这么多人；"
             "本周新增 = 较上周的新增缺口。\n"
@@ -2195,9 +2187,7 @@ class HrPlanningDialog:
                 monthly_turnover_rate=turnover,
             )
             learning = LearningCurveConfig(ramp_days=ramp_days)
-            current = self._parse_current() or (
-                current_headcount_by_role(self.line) if self.line else {}
-            )
+            current = self._parse_current()
             self.summary = build_hr_summary(
                 self.line,
                 target,

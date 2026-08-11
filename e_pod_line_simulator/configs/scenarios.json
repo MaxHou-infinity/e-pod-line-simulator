@@ -199,5 +199,152 @@
         }
       ]
     }
+  },
+  "烟油方案": {
+    "created_at": "2026-08-11 14:36:21",
+    "description": "",
+    "production_line": {
+      "name": "烟油灌装线",
+      "shift_hours": 10,
+      "break_minutes": 90,
+      "worker_hourly_wage": 20.0,
+      "production_type": "liquid_filling",
+      "recipes": [
+        {
+          "name": "经典烟草",
+          "batch_volume_l": 500.0,
+          "yield_rate": 0.95,
+          "nicotine_concentration": 20.0,
+          "flavor": "经典",
+          "ingredients": {
+            "尼古丁": 20.0,
+            "丙二醇": 400.0,
+            "香料": 80.0
+          },
+          "mixing_time_min": 60.0,
+          "aging_time_min": 240.0,
+          "filling_rate_l_per_h": 800.0,
+          "qc_time_min": 30.0,
+          "clean_time_min": 60.0
+        }
+      ],
+      "batches": [
+        {
+          "id": "B001",
+          "recipe_name": "经典烟草",
+          "quantity_l": 500.0,
+          "status": "mixing",
+          "start_time": 0.0,
+          "end_time": 0.0,
+          "trace_id": "",
+          "pass_rate": 1.0,
+          "rework_count": 0
+        }
+      ],
+      "tanks": [
+        {
+          "id": "T01",
+          "name": "调配罐",
+          "capacity_l": 2000.0,
+          "current_level_l": 0.0,
+          "cleaning_status": "clean"
+        },
+        {
+          "id": "T02",
+          "name": "成品罐",
+          "capacity_l": 3000.0,
+          "current_level_l": 0.0,
+          "cleaning_status": "clean"
+        }
+      ],
+      "labor_config": {
+        "mixer": 1,
+        "filling_operator": 4,
+        "qc_technician": 1,
+        "cleaner": 1
+      },
+      "cleanroom_limits": {
+        "C": 6
+      },
+      "skill_matrix": {
+        "filling_operator": [
+          "cleaner"
+        ]
+      },
+      "cip_interval_batches": 0,
+      "cip_interval_hours": 0.0,
+      "materials": [],
+      "inventory": {},
+      "material_arrivals": [],
+      "changeover_matrix": {},
+      "stations": [
+        {
+          "id": "s01",
+          "name": "灌装",
+          "process_time": 1.5,
+          "worker_count": 2,
+          "collaboration_type": "parallel",
+          "oee": 0.85,
+          "efficiency": 0.95,
+          "changeover_time": 45,
+          "buffer_capacity": 100,
+          "machine_takt": null,
+          "job_role": "filling_operator",
+          "cleanroom_zone": "C",
+          "sampling_rate": 0.0,
+          "defect_rate": 0.0,
+          "rework_minutes": 0.0,
+          "clean_time_minutes": 0.0,
+          "bom": {},
+          "current_status": "idle",
+          "wip_count": 0,
+          "total_output": 0
+        },
+        {
+          "id": "s02",
+          "name": "封口",
+          "process_time": 1.0,
+          "worker_count": 2,
+          "collaboration_type": "parallel",
+          "oee": 0.85,
+          "efficiency": 0.95,
+          "changeover_time": 45,
+          "buffer_capacity": 100,
+          "machine_takt": null,
+          "job_role": "filling_operator",
+          "cleanroom_zone": "C",
+          "sampling_rate": 0.0,
+          "defect_rate": 0.0,
+          "rework_minutes": 0.0,
+          "clean_time_minutes": 0.0,
+          "bom": {},
+          "current_status": "idle",
+          "wip_count": 0,
+          "total_output": 0
+        },
+        {
+          "id": "s03",
+          "name": "QC化验",
+          "process_time": 30.0,
+          "worker_count": 1,
+          "collaboration_type": "parallel",
+          "oee": 0.85,
+          "efficiency": 0.95,
+          "changeover_time": 45,
+          "buffer_capacity": 100,
+          "machine_takt": null,
+          "job_role": "qc_technician",
+          "cleanroom_zone": "C",
+          "sampling_rate": 0.2,
+          "defect_rate": 0.01,
+          "rework_minutes": 15.0,
+          "clean_time_minutes": 0.0,
+          "bom": {},
+          "current_status": "idle",
+          "wip_count": 0,
+          "total_output": 0
+        }
+      ]
+    }
   }
 }

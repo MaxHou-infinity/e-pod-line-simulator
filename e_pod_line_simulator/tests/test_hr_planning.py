@@ -131,8 +131,8 @@ def test_current_headcount_by_role_sums_stations():
     assert current == {"general": 8}
 
 
-def test_gap_uses_station_headcount_when_current_empty():
-    """回归：当前在岗为空时按产线工序人数汇总，缺口不再虚高"""
+def test_empty_current_means_zero_staff():
+    """回归：当前在岗为空按 0 计，缺口=需求，达产需要招聘"""
     line = ProductionLine("方案-1", shift_hours=8, break_minutes=60)
     for i, workers in enumerate([5, 1, 1, 1, 1, 1, 2, 2]):
         line.add_station(Station(f"s{i:02d}", f"工序{i}", 60.0, workers))
@@ -141,7 +141,11 @@ def test_gap_uses_station_headcount_when_current_empty():
         line, 100, shift, LaborCostConfig(), LearningCurveConfig(),
         current={}, hiring_plan=[],
     )
-    assert summary["current_total"] == 14
-    assert summary["initial_gap"] == max(0, summary["total_headcount"] - 14)
-    assert summary["excess_headcount"] == max(0, 14 - summary["total_headcount"])
+    assert summary["current_total"] == 0
+    assert summary["initial_gap"] == summary["total_headcount"]
+    assert summary["one_time_hiring"] == summary["total_headcount"]
+    assert summary["days_to_full"] > 0
+    assert summary["weekly_gap"][0]["new_gap"] == summary["total_headcount"]
+    assert summary["weekly_gap"][1]["new_gap"] == 0
+    assert summary["excess_headcount"] == 0
     assert len(summary["station_derivation"]) == 8

@@ -251,9 +251,6 @@ def build_hr_summary(
     weeks: int = 12,
 ) -> Dict:
     """汇总 HR 人力规划结果（供报告与 GUI 使用）"""
-    # 当前在岗为空时，按产线工序配置自动汇总（V3.3 修复）
-    if not current:
-        current = current_headcount_by_role(line)
     by_station = required_headcount_by_station(line, daily_target, shift_plan)
     by_role = required_headcount_by_role(line, daily_target, shift_plan)
     total = sum(by_station.values())
