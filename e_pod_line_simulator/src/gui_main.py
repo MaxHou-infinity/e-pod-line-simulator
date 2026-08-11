@@ -51,9 +51,6 @@ from src.gui_panels import (
     AnalysisGuideDialog,
 )
 from src.utils import (
-    load_config,
-    save_config,
-    import_from_excel,
     validate_production_line,
     setup_logger,
 )
@@ -145,53 +142,45 @@ class MainWindow:
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
         
-        # 文件菜单
+        # 文件菜单（V3.3.1 精简：向导 + 保存方案）
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="文件", menu=file_menu)
-        file_menu.add_command(label="新建产线", command=self._menu_new_line)
-        file_menu.add_command(label="打开配置", command=self._menu_open_config)
-        file_menu.add_command(label="保存配置", command=self._menu_save_config)
-        file_menu.add_separator()
-        file_menu.add_command(label="导入Excel", command=self._menu_import_excel)
-        file_menu.add_separator()
         file_menu.add_command(label="快速配置向导...", command=self._menu_wizard)
         file_menu.add_separator()
+        file_menu.add_command(label="保存方案...", command=self._btn_save_scenario)
+        file_menu.add_separator()
         file_menu.add_command(label="退出", command=self._menu_exit)
-        
-        # 编辑菜单
-        edit_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="编辑", menu=edit_menu)
-        edit_menu.add_command(label="添加工序", command=self._menu_add_station)
-        edit_menu.add_command(label="编辑工序", command=self._menu_edit_station)
-        edit_menu.add_command(label="删除工序", command=self._menu_delete_station)
 
-        
-        # 仿真菜单
+        # 仿真菜单（V3.3.1 精简：仅保留触发切换）
         sim_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="仿真", menu=sim_menu)
-        sim_menu.add_command(label="开始仿真", command=self._menu_start_simulation)
-        sim_menu.add_command(label="暂停仿真", command=self._menu_pause_simulation)
-        sim_menu.add_command(label="停止仿真", command=self._menu_stop_simulation)
-        sim_menu.add_separator()
         sim_menu.add_command(label="触发切换...", command=self._menu_trigger_changeover)
-        
-        # 分析菜单
+
+        # 分析菜单（试算与优化）
         analysis_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="分析", menu=analysis_menu)
-        analysis_menu.add_command(label="分析指南...", command=self._menu_analysis_guide)
-        analysis_menu.add_command(label="方案管理 / 对比...", command=self._menu_manage_scenarios)
         analysis_menu.add_command(label="敏感性试算...", command=self._menu_sensitivity)
-        analysis_menu.add_command(label="人力规划...", command=self._menu_hr_planning)
-        analysis_menu.add_command(label="KPI 历史趋势...", command=self._menu_history)
         analysis_menu.add_command(label="批量试算...", command=self._menu_sweep)
         analysis_menu.add_command(label="智能优化...", command=self._menu_optimize)
-        analysis_menu.add_command(label="导出报告", command=self._menu_export_report)
-        
+        analysis_menu.add_command(label="人力规划...", command=self._menu_hr_planning)
+
+        # 方案菜单（管理与历史）
+        scenario_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="方案", menu=scenario_menu)
+        scenario_menu.add_command(label="方案管理 / 对比...", command=self._menu_manage_scenarios)
+        scenario_menu.add_command(label="KPI 历史趋势...", command=self._menu_history)
+
+        # 报告菜单
+        report_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="报告", menu=report_menu)
+        report_menu.add_command(label="导出报告", command=self._menu_export_report)
+
         # 帮助菜单
         help_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="帮助", menu=help_menu)
         help_menu.add_command(label="使用说明", command=self._menu_help)
         help_menu.add_command(label="术语说明", command=self._menu_glossary)
+        help_menu.add_command(label="分析指南...", command=self._menu_analysis_guide)
         help_menu.add_command(label="关于", command=self._menu_about)
     
     def _create_main_layout(self) -> None:
@@ -457,95 +446,17 @@ class MainWindow:
         })
     
     # ==================== 菜单事件处理 ====================
-    
-    def _menu_new_line(self) -> None:
-        """文件菜单 - 新建产线"""
-        if not self._confirm_discard():
-            return
-        if messagebox.askyesno("确认", "创建新产线将清空当前配置，是否继续？"):
-            self.production_line = ProductionLine("新产线")
-            self._dirty = False
-            self._update_display()
-            self.status_bar.config(text="已创建新产线")
-    
-    def _menu_open_config(self) -> None:
-        """文件菜单 - 打开配置"""
-        if not self._confirm_discard():
-            return
-        file_path = filedialog.askopenfilename(
-            title="打开配置",
-            filetypes=[("JSON文件", "*.json"), ("所有文件", "*.*")]
-        )
-        
-        if file_path:
-            line = load_config(file_path)
-            if line:
-                self.production_line = line
-                self._dirty = False
-                self._update_display()
-                self.status_bar.config(text=f"已加载：{line.name}")
-            else:
-                messagebox.showerror("错误", "加载配置失败")
-    
-    def _menu_save_config(self) -> None:
-        """文件菜单 - 保存配置"""
-        if self.production_line is None:
-            messagebox.showwarning("警告", "没有可保存的产线配置")
-            return False
-        
-        file_path = filedialog.asksaveasfilename(
-            title="保存配置",
-            defaultextension=".json",
-            filetypes=[("JSON文件", "*.json"), ("所有文件", "*.*")]
-        )
-        
-        if file_path:
-            if save_config(self.production_line, file_path):
-                self._dirty = False
-                self.status_bar.config(text=f"已保存：{file_path}")
-                return True
-            else:
-                messagebox.showerror("错误", "保存配置失败")
-        return False
-    
-    def _menu_import_excel(self) -> None:
-        """文件菜单 - 导入Excel配置"""
-        file_path = filedialog.askopenfilename(
-            title="导入Excel配置",
-            filetypes=[("Excel文件", "*.xlsx *.xls"), ("所有文件", "*.*")]
-        )
-        
-        if not file_path:
-            return
-        
-        # 导入Excel文件
-        line, error_msg = import_from_excel(file_path)
-        
-        if line:
-            # 导入成功
-            self.production_line = line
-            self._mark_dirty()
-            self._update_display()
-            
-            # 如果有警告信息，显示警告对话框
-            if error_msg:
-                messagebox.showwarning("导入完成（有警告）", f"成功导入{len(line.stations)}个工序\n\n{error_msg}")
-                self.status_bar.config(text=f"已导入：{line.name}（{len(line.stations)}个工序，有警告）")
-            else:
-                self.status_bar.config(text=f"已导入：{line.name}（{len(line.stations)}个工序）")
-        else:
-            # 导入失败，显示错误信息
-            messagebox.showerror("导入失败", error_msg or "未知错误")
-    
+
     def _menu_exit(self) -> None:
         """文件菜单 - 退出"""
         if self._dirty:
-            choice = messagebox.askyesnocancel("退出", "当前配置有未保存的修改，是否先保存？")
+            choice = messagebox.askyesnocancel(
+                "退出", "当前配置有未保存的修改，是否先保存为方案？"
+            )
             if choice is None:
                 return
             if choice:
-                if not self._menu_save_config():
-                    return
+                self._btn_save_scenario()
         if messagebox.askyesno("确认", "确定要退出吗？"):
             self.root.quit()
 
@@ -565,30 +476,6 @@ class MainWindow:
 
         if dialog.result.get("auto_start") and self.production_line.stations:
             self._btn_start_simulation()
-    
-    def _menu_add_station(self) -> None:
-        """编辑菜单 - 添加工序"""
-        self._on_add_station()
-    
-    def _menu_edit_station(self) -> None:
-        """编辑菜单 - 编辑工序"""
-        self._on_edit_station()
-    
-    def _menu_delete_station(self) -> None:
-        """编辑菜单 - 删除工序"""
-        self._on_delete_station()
-    
-    def _menu_start_simulation(self) -> None:
-        """仿真菜单 - 开始仿真"""
-        self._btn_start_simulation()
-    
-    def _menu_pause_simulation(self) -> None:
-        """仿真菜单 - 暂停仿真"""
-        self._btn_pause_simulation()
-    
-    def _menu_stop_simulation(self) -> None:
-        """仿真菜单 - 停止仿真"""
-        self._btn_stop_simulation()
     
     def _menu_analysis_guide(self) -> None:
         """分析菜单 - 分析指南（V3.3）"""
@@ -821,17 +708,19 @@ class MainWindow:
         """帮助菜单 - 使用说明"""
         help_text = """
 【操作步骤】
-1. 新建/打开/导入产线配置，或用「快速配置向导」一键生成
+1. 用「文件 → 快速配置向导」一键生成产线，或使用已有方案
 2. 添加/编辑工序（参数随生产类型自动适配）
 3. 点击「开始仿真」，观察画布、KPI 与报警
-4. 保存方案、方案对比、导出报告、敏感性试算
-5. 快捷键：Ctrl+N/O/S/E、Ctrl+K 命令面板、空格 开始/暂停
+4. 保存方案（主界面或「文件 → 保存方案」）、
+   方案管理 / 对比、KPI 历史趋势、导出报告
+5. 分析试算：敏感性试算、批量试算、智能优化、人力规划
+6. 快捷键：Ctrl+S 保存方案、Ctrl+K 命令面板、空格 开始/暂停
 
 【亮点与价值】
 • 把产线设计从"2 周试错"压缩到"2 小时仿真"
 • 支持烟弹组装 / 烟油灌装 / 尼古丁袋三种生产类型
 • 智能报警：瓶颈、WIP、饥饿/堵塞、预测预警、根因建议
-• 亮/暗双主题、2026 桌面级交互体验
+• 统一浅色主题、2026 桌面级交互体验
 • 完整本地运行，数据不出设备
         """
         messagebox.showinfo("使用说明", help_text)
@@ -874,27 +763,24 @@ class MainWindow:
 
     def _bind_shortcuts(self) -> None:
         """绑定全局键盘快捷键"""
-        self.root.bind('<Control-n>', lambda e: self._menu_new_line())
-        self.root.bind('<Control-o>', lambda e: self._menu_open_config())
-        self.root.bind('<Control-s>', lambda e: self._menu_save_config())
-        self.root.bind('<Control-e>', lambda e: self._menu_import_excel())
+        self.root.bind('<Control-s>', lambda e: self._btn_save_scenario())
         self.root.bind('<Control-k>', lambda e: self._open_command_palette())
         self.root.bind('<space>', self._on_space_shortcut)
 
     def _open_command_palette(self) -> None:
         """打开命令面板（Ctrl+K，V3.0）"""
         commands = [
-            ("新建产线", self._menu_new_line),
-            ("打开配置", self._menu_open_config),
-            ("保存配置", self._menu_save_config),
-            ("导入Excel", self._menu_import_excel),
             ("快速配置向导", self._menu_wizard),
-            ("开始仿真", self._btn_start_simulation),
-            ("暂停仿真", self._btn_pause_simulation),
-            ("停止仿真", self._btn_stop_simulation),
+            ("保存方案", self._btn_save_scenario),
+            ("触发切换", self._menu_trigger_changeover),
+            ("敏感性试算", self._menu_sensitivity),
+            ("批量试算", self._menu_sweep),
+            ("智能优化", self._menu_optimize),
+            ("人力规划", self._menu_hr_planning),
             ("方案管理/对比", self._menu_manage_scenarios),
-            ("方案管理", self._menu_manage_scenarios),
+            ("KPI 历史趋势", self._menu_history),
             ("导出报告", self._menu_export_report),
+            ("分析指南", self._menu_analysis_guide),
             ("术语说明", self._menu_glossary),
         ]
         CommandPalette(self.root, commands)
