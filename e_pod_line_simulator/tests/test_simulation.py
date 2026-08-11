@@ -363,6 +363,10 @@ def test_predictive_wip_alert():
     ]
     assert predictive
     assert "80%预警线" in predictive[0].message
+    assert (
+        "按实测上游速率" in predictive[0].message
+        or "按上游产能估算" in predictive[0].message
+    )
 
 
 def test_wip_suggestion_mentions_downstream_root_cause():

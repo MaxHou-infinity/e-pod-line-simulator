@@ -691,6 +691,11 @@ class SimulationEngine:
                         minutes_to_alert = remaining / net_per_min
                         if minutes_to_alert <= 30.0:
                             self._predict_alerted.add(station.id)
+                            rate_label = (
+                                "按实测上游速率"
+                                if self.env.now >= 60.0
+                                else "按上游产能估算"
+                            )
                             self._emit_alert(Alert(
                                 alert_type="blockage",
                                 severity="info",
@@ -698,7 +703,7 @@ class SimulationEngine:
                                 message=(
                                     f"预计 {minutes_to_alert:.0f} 分钟后"
                                     f"{station.name}的WIP将达到80%预警线"
-                                    f"（按实测上游速率）"
+                                    f"（{rate_label}）"
                                 ),
                                 suggestion=self._wip_suggestion(station, station_index),
                                 timestamp_minutes=timestamp_minutes,
