@@ -80,6 +80,7 @@ def test_sweep_dialog_methods_exist():
 
     assert hasattr(SweepDialog, "_run")
     assert hasattr(SweepDialog, "_close")
+    assert hasattr(SweepDialog, "_draw_chart")
 
 
 def test_optimize_dialog_methods_exist():

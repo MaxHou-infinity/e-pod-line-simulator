@@ -2311,6 +2311,7 @@ class SweepDialog:
 
     def __init__(self, parent, production_line: Optional[ProductionLine]):
         self.line = production_line
+        self.rows = []
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("批量试算")
         self.dialog.geometry("640x520")
@@ -2380,11 +2381,27 @@ class SweepDialog:
             self.tree.column(col, width=width, anchor=tk.E if col != "label" else tk.W)
         self.tree.grid(row=5, column=0, columnspan=2, sticky=tk.NSEW, pady=(4, 0))
 
+        ttk.Label(main, text="图表指标:").grid(
+            row=6, column=0, sticky=tk.W, pady=8
+        )
+        self.metric_var = tk.StringVar(value="total_output")
+        self.metric_combo = ttk.Combobox(
+            main,
+            textvariable=self.metric_var,
+            values=["total_output", "unit_cost", "upph"],
+            state="readonly",
+            width=14,
+        )
+        self.metric_combo.grid(row=6, column=1, sticky=tk.W, pady=8)
+        self.metric_combo.bind("<<ComboboxSelected>>", lambda e: self._draw_chart())
         ttk.Button(main, text="关闭", command=self._close).grid(
-            row=6, column=1, sticky=tk.E, pady=8
+            row=6, column=2, sticky=tk.E, pady=8, padx=(8, 0)
         )
         main.rowconfigure(5, weight=1)
         main.columnconfigure(1, weight=1)
+        main.columnconfigure(2, weight=0)
+        self.canvas = tk.Canvas(main, height=180, bg="#FFFFFF", highlightthickness=1)
+        self.canvas.grid(row=8, column=0, columnspan=3, sticky=tk.NSEW, pady=(4, 0))
         HelpSection(
             main,
             "使用说明",
@@ -2392,7 +2409,7 @@ class SweepDialog:
             "参数：worker_count=工序人数；machine_takt=机台节拍（秒）；"
             "oee=设备综合效率；shift_hours=班次时长（小时）。\n"
             "取值列表用逗号分隔，如 1,2,3。工序ID 留空时作用于瓶颈工序。",
-        ).grid(row=7, column=0, columnspan=2, sticky=tk.W, pady=(8, 0))
+        ).grid(row=7, column=0, columnspan=3, sticky=tk.W, pady=(8, 0))
 
     def _run(self) -> None:
         try:
@@ -2409,24 +2426,75 @@ class SweepDialog:
                 return
             self.dialog.config(cursor="watch")
             self.dialog.update_idletasks()
-            rows = run_sweep(
+            base = SimulationEngine(copy.deepcopy(self.line)).run_sync(
+                duration_hours=duration
+            )
+            base_row = {
+                "label": "基线（当前）",
+                "total_output": base.total_output,
+                "daily_output": round(base.kpis.get("daily_output", 0.0), 1),
+                "unit_cost": base.kpis.get("unit_cost", 0.0),
+                "upph": base.kpis.get("upph", 0.0),
+            }
+            sweep_rows = run_sweep(
                 self.line, param, values,
                 station_id=station_id, duration_hours=duration,
             )
+            self.rows = [base_row] + sweep_rows
             for item in self.tree.get_children():
                 self.tree.delete(item)
-            for row in rows:
-                self.tree.insert("", tk.END, values=(
+            for index, row in enumerate(self.rows):
+                item = self.tree.insert("", tk.END, values=(
                     row["label"],
                     row["total_output"],
                     row["daily_output"],
                     round(row["unit_cost"], 3),
                     round(row["upph"], 1),
                 ))
+                if index == 0:
+                    self.tree.item(item, tags=("baseline",))
+            self.tree.tag_configure("baseline", background="#EAF2FF")
+            self._draw_chart()
         except Exception as e:
             messagebox.showerror("试算失败", f"{e}\n\n详细日志：logs/app.log")
         finally:
             self.dialog.config(cursor="")
+
+    def _draw_chart(self) -> None:
+        """批量试算折线图（V3.3）"""
+        self.canvas.delete("all")
+        if len(self.rows) < 2:
+            self.canvas.create_text(
+                300, 80, text="运行试算后显示对比曲线", fill="#888888"
+            )
+            return
+        metric = self.metric_var.get()
+        series = [row.get(metric, 0.0) for row in self.rows[1:]]
+        base_value = self.rows[0].get(metric, 0.0)
+        values = series + [base_value]
+        vmin, vmax = min(values), max(values)
+        span = (vmax - vmin) or 1.0
+        width, height = 640, 180
+        pad = 34
+        points = []
+        for i, value in enumerate(series):
+            x = pad + i * (width - 2 * pad) / max(len(series) - 1, 1)
+            y = height - pad - (value - vmin) / span * (height - 2 * pad)
+            points.append((x, y))
+        for (x1, y1), (x2, y2) in zip(points, points[1:]):
+            self.canvas.create_line(x1, y1, x2, y2, fill="#1F6FEB", width=2)
+        for x, y in points:
+            self.canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="#1F6FEB")
+        baseline_y = height - pad - (base_value - vmin) / span * (height - 2 * pad)
+        self.canvas.create_line(
+            pad, baseline_y, width - pad, baseline_y,
+            fill="#B3261E", dash=(4, 3),
+        )
+        self.canvas.create_text(
+            8, 6, anchor=tk.NW,
+            text=f"{metric} 曲线（红虚线=基线 {base_value:.2f}）",
+            fill="#555555",
+        )
 
     def _close(self) -> None:
         self.dialog.destroy()
