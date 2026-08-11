@@ -5,7 +5,7 @@
 避免多处维护导致版本不一致。
 """
 
-__version__ = "3.3.1"
+__version__ = "3.3.2"
 VERSION_STRING = f"v{__version__}"
 
 # Bug 反馈与资助入口（可在发布前替换为个人链接）

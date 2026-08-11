@@ -61,6 +61,61 @@ jobs:
             gh release create "${TAG}" "${ZIP}" --title "${TAG} 发布" --generate-notes
           fi
 
+  build-windows:
+    name: Build Windows EXE (PyInstaller)
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: e_pod_line_simulator
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build EXE with PyInstaller
+        run: |
+          pyinstaller --noconfirm --windowed --name "E-Pod-Line-Simulator" `
+            --add-data "assets;assets" `
+            --add-data "configs;configs" `
+            run.py
+
+      - name: Zip dist folder
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "dist/E-Pod-Line-Simulator/*" `
+            -DestinationPath "$env:GITHUB_WORKSPACE/E-Pod-Line-Simulator-Windows-$env:GITHUB_REF_NAME.zip" `
+            -Force
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: E-Pod-Line-Simulator-Windows-${{ github.ref_name }}
+          path: E-Pod-Line-Simulator-Windows-${{ github.ref_name }}.zip
+          if-no-files-found: error
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $zip = "$env:GITHUB_WORKSPACE/E-Pod-Line-Simulator-Windows-$tag.zip"
+          gh release view $tag | Out-Null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $zip --clobber
+          } else {
+            gh release create $tag $zip --title "$tag 发布" --generate-notes
+          }
+
   build-app:
     name: Build macOS App (PyInstaller)
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')

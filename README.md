@@ -6,7 +6,7 @@
 > Production Line Simulation & Optimization for E-cigarette Pods, E-liquid Filling
 > and Nicotine Pouches — powered by SimPy.
 
-![version](https://img.shields.io/badge/version-3.3.1-1F2329)
+![version](https://img.shields.io/badge/version-3.3.2-1F2329)
 ![python](https://img.shields.io/badge/Python-3.8%2B-2F6FED)
 ![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-1F6FEB)
 ![CI](https://github.com/MaxHou-infinity/e-pod-line-simulator/actions/workflows/ci.yml/badge.svg)
@@ -25,7 +25,7 @@
 - **HR 视角的人力规划**：目标产量反推各岗位人数、多班次排班、人力成本、招聘缺口与爬坡达产，HRBP/HR 可直接导出 Excel/PDF；
 - **智能评估与优化**：瓶颈/WIP/饥饿/堵塞/预测预警、敏感性试算、批量试算、KPI 历史趋势，乃至遗传算法自动寻优；
 - **分析体验（V3.3）**：统一结果表格（导出/复制/基线对比）、智能优化基线Δ与锁定工序、敏感性一键应用、分析指南与就地术语说明
-- **开箱即用**：macOS App、Windows 启动器、源码三种方式，零配置启动；GitHub Release 一键下载。
+- **开箱即用**：macOS App / Windows EXE、源码包、启动器三种方式，零配置启动；GitHub Release 一键下载。
 
 ## 👥 面向谁
 
@@ -77,14 +77,16 @@
 
 ## 🚀 快速开始
 
-### 方式一：macOS App（零依赖）
+### 方式一：macOS / Windows 安装包（零依赖）
 
 从 [GitHub Releases](https://github.com/MaxHou-infinity/e-pod-line-simulator/releases/latest)
-下载 `E-Pod-Line-Simulator-v3.3.1-macOS.zip`，解压后双击 App 即可使用。
+下载对应平台包：
+- macOS：`E-Pod-Line-Simulator-v3.3.2-macOS.zip`，解压后双击 App
+- Windows：`E-Pod-Line-Simulator-v3.3.2-Windows.zip`，解压后双击 EXE
 
 ### 方式二：压缩包（推荐普通用户）
 
-下载 `E-Pod-Line-Simulator-v3.3.1.zip`：
+下载 `E-Pod-Line-Simulator-v3.3.2.zip`：
 
 1. 解压后进入 `e_pod_line_simulator`；
 2. macOS 双击 `启动.command`，Windows 双击 `启动.bat`（首次自动安装依赖）。
@@ -99,20 +101,13 @@ python run.py                      # 启动 GUI
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest tests -q          # 133 个用例
+python -m pytest tests -q          # 138 个用例
 ```
 
 ## 📚 文档导航
 
 - [详细 README（安装 / 配置 / FAQ）](e_pod_line_simulator/README.md)
 - [更新日志 CHANGELOG](CHANGELOG.md) · [开发与贡献规范](AGENTS.md)
-- [V3.2 人力规划与多业态深化路线图](e_pod_line_simulator/docs/v3.2/需求与开发路线图.md)
-- [V3.3 分析体验与学习成本优化路线图](e_pod_line_simulator/docs/v3.3/需求与开发路线图.md)
-- [V3.2 开发日志](e_pod_line_simulator/docs/v3.2/开发日志.md)
-- [V3.3 开发日志](e_pod_line_simulator/docs/v3.3/开发日志.md)
-- [V1.3 烟油 / 尼古丁袋扩展需求](e_pod_line_simulator/docs/v1.3/需求与开发路线图.md)
-- [V3.0 体验与视觉升级规划](e_pod_line_simulator/docs/v3.0/体验视觉升级规划.md)
-- [项目成熟度分析](e_pod_line_simulator/docs/项目成熟度分析.md)
 
 ## 🛠 技术栈
 
@@ -122,8 +117,8 @@ python -m pytest tests -q          # 133 个用例
 | SimPy 4.0+ | 离散事件仿真引擎 |
 | pandas / openpyxl | Excel 导入导出 |
 | reportlab | PDF 报告 |
-| pytest / pytest-cov | 133 个用例 + 覆盖率 |
-| GitHub Actions | CI 回归 + Release 自动打包（源码包 / macOS App） |
+| pytest / pytest-cov | 138 个用例 + 覆盖率 |
+| GitHub Actions | CI 回归 + Release 自动打包（源码包 / macOS App / Windows EXE） |
 
 ## 📁 目录结构
 
@@ -131,19 +126,15 @@ python -m pytest tests -q          # 133 个用例
 e_pod_line_simulator/
 ├── src/        # 源码（models / simulation / hr_planning / optimizer / gui / reporting）
 ├── configs/    # 默认配置、Excel 模板、方案与运行历史
-├── docs/       # PRD、路线图、开发日志（v1.1-v3.2）
-├── tests/      # 133 个 pytest 用例
+├── docs/       # 用户文档（截图等）
+├── tests/      # 138 个 pytest 用例
 ├── packaging/  # PyInstaller 打包配置
 └── assets/     # 图标与赞赏码资源
 ```
 
-## 🗺 路线图
+## 🏷 版本
 
-- ✅ V1.0-V1.3：MVP、交互 / 视觉、烟油与尼古丁袋产品形态扩展
-- ✅ V3.0 / V3.1：2026 桌面美学、智能报警与评估
-- ✅ **V3.2**：人力规划与多业态深化（已定版 v3.2.0）
-- ✅ **V3.3**：分析体验与学习成本优化（已定版 v3.3.1）
-- ⏳ V2.0：Web 化；Windows EXE 打包
+当前版本 **v3.3.2**；历史版本与变更详见 [CHANGELOG](CHANGELOG.md)。
 
 ## 💬 支持与反馈
 

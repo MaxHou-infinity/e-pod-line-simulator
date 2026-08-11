@@ -28,3 +28,6 @@ run_history.json
 /.~*.xlsx
 /*.pdf
 /*.json
+e_pod_line_simulator/docs/
+e_pod_line_simulator/logs.md
+电子烟产线仿真优化*.md

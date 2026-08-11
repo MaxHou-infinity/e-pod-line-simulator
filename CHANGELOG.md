@@ -3,6 +3,23 @@
 本项目采用 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)
 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [3.3.2] - 2026-08-11
+
+### Added
+
+- 工序编辑新增“工种”字段（烟油/尼古丁袋按生产类型显示）
+- Windows EXE 打包（GitHub Actions windows-latest，随 Release 发布）
+- 主报告 Excel 新增“产线配置”Sheet；PDF 升级为七节报告
+- Excel 导入模板升级：工序新字段/产线配置/原料/到货计划
+
+### Changed
+
+- 烟油灌装计量单位由“升”改为“千克”
+- KPI 历史/批量试算/智能优化界面中文化、工序下拉选择、方案可应用
+- 顶部菜单重组（文件/仿真精简，分析拆分为 分析/方案/报告）
+- “触发切换”升级为底部「停机切换（换型）」按钮 + 选工序引导
+- 报警栏按钮遮挡修复；仓库移除开发类文档（路线图/日志/成熟度/PRD）
+
 ## [3.3.1] - 2026-08-11
 
 ### Fixed
