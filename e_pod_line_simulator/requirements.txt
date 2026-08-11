@@ -1,4 +1,4 @@
-# 电子烟产线仿真优化工具 - Python依赖包
+# PuffLine Planner - Python 运行依赖
 
 # 核心依赖
 simpy>=4.0.1          # 离散事件仿真引擎 - 用于运行产线仿真

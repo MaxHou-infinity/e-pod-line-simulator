@@ -160,12 +160,14 @@ def test_about_dialog_class_and_urls():
     from src.gui_panels import AboutDialog
     from src.version import (
         BUG_REPORT_URL,
+        PRODUCT_NAME,
         WECHAT_QR_PATH,
         WECHAT_QR_SMALL_PATH,
     )
 
     assert callable(AboutDialog)
-    assert BUG_REPORT_URL.startswith("https://")
+    assert PRODUCT_NAME == "PuffLine Planner"
+    assert BUG_REPORT_URL == "https://github.com/MaxHou-infinity/puffline-planner/issues"
     assert isinstance(WECHAT_QR_PATH, str)
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     assert os.path.exists(os.path.join(repo_root, WECHAT_QR_PATH))

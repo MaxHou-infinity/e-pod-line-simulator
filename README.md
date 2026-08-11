@@ -1,168 +1,140 @@
-# PuffLine Planner · 电子烟产线仿真与人力规划工具
+![PuffLine Planner：产线仿真与人力规划](docs/images/puffline-banner.png)
 
-> **Simulate. Optimize. Staff.** —— 离散事件产线仿真与人力配置决策工具，
-> 覆盖 **烟弹组装 / 烟油灌装 / 尼古丁袋高速包装** 三种生产形态。
+<p align="center">
+  <a href="https://github.com/MaxHou-infinity/puffline-planner/releases/latest"><strong>下载最新版</strong></a>
+  ·
+  <a href="#从产线数据到决策材料"><strong>查看工作流程</strong></a>
+  ·
+  <a href="docs/user-guide.md"><strong>阅读使用指南</strong></a>
+</p>
+
+<p align="center">
+  <img alt="latest release" src="https://img.shields.io/github/v/release/MaxHou-infinity/puffline-planner?label=release&color=2F6FED">
+  <img alt="Python 3.8+" src="https://img.shields.io/badge/Python-3.8%2B-2F6FED">
+  <img alt="macOS and Windows" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-1F6FEB">
+  <a href="https://github.com/MaxHou-infinity/puffline-planner/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/MaxHou-infinity/puffline-planner/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="source available license" src="https://img.shields.io/badge/license-source--available-7357FF"></a>
+</p>
+
+# PuffLine Planner
+
+**在投入现场试错前，用离散事件仿真比较产能、瓶颈、成本与人力配置方案。**
+
+PuffLine Planner 是一款面向 IE 工程师、产线经理、精益顾问和 HRBP 的桌面决策工具。它覆盖烟弹组装、烟油灌装和尼古丁袋高速包装三种生产形态，将工序节拍、设备效率、WIP、人力和成本放进同一个可重复试算的模型中。
+
+> 当前版本为 **v3.3.2 Public Beta**。仿真结果用于方案预评估，不替代现场测时、工艺验证、质量验证或法规合规判断。
+
+## 它帮助你回答什么
+
+| 决策场景 | PuffLine Planner 给出的结果 |
+|---|---|
+| 新线或改线前，哪里会先形成瓶颈？ | 工序产能、WIP、饥饿/堵塞、瓶颈与失衡方向 |
+| 加人、提 OEE、缩短节拍，哪个动作更有效？ | 敏感性试算、批量方案对比、算法辅助优化 |
+| 目标产量需要多少人，缺口何时出现？ | 岗位人数、班次、人力成本、招聘缺口与爬坡达产 |
+| 如何把分析结果交给业务团队？ | Excel/PDF 报告、方案对比、KPI 历史与可复制结果表 |
+
+## 从产线数据到决策材料
+
+~~~mermaid
+flowchart LR
+    A["导入工序、节拍、人员与成本"] --> B["运行 SimPy 离散事件仿真"]
+    B --> C["识别瓶颈、WIP 与失衡"]
+    C --> D["比较加人、OEE、节拍和自动化方案"]
+    D -->|继续试算| B
+    D -->|选定方案| E["形成产能与人力配置建议"]
+    E --> F["导出 Excel / PDF 决策材料"]
+~~~
+
+## 合成演示：6 工序烟弹装配线
+
+下面的画面来自当前 v3.3.2 代码，使用不包含真实企业数据的合成参数。演示线设置 6 道工序、12 名人员，并刻意保留一个可诊断瓶颈，用于展示软件如何把工序数据转化为决策指标。
+
+![PuffLine Planner v3.3.2 平衡产线演示](docs/images/screenshot-main-v3.3.2.png)
+
+演示结果包括：
+
+- 识别“密封检测”为当前瓶颈，瓶颈产能约 151 颗/小时；
+- 预计日产量 1,054 颗，单位成本约 1.82 元/颗；
+- 产线平衡率 87.6%，UPPH 约 12.5 颗/人·小时；
+- 可继续比较加人、节拍优化或 OEE 改善后的变化。
+
+节点中的百分比是相对当前瓶颈产能的能力指数，100% 为瓶颈基准，并非设备利用率。这些数字仅用于展示界面与分析路径，不代表真实工厂基准。
+
+## 三种生产形态
+
+| 生产形态 | 计量单位 | 重点建模能力 |
+|---|---|---|
+| 烟弹组装 | 颗 | 人工装配、BOM、组件缺料、返工与线平衡 |
+| 烟油灌装 | 千克 | 配方、批次、储罐、CIP/SIP、原料库存与放行隔离 |
+| 尼古丁袋高速包装 | 袋 | 机台节拍、OEE 分解、换型矩阵与高速包装线 |
+
+## 核心能力
+
+- **离散事件仿真**：并联/协同工序、有限缓冲区、饥饿、堵塞、切换和质量门；
+- **瓶颈与失衡诊断**：工序级运行/等待/堵塞指标、WIP 方向与预测预警；
+- **人力规划**：目标产量反推人数、多班次排班、人力成本、招聘缺口和爬坡达产；
+- **方案试算**：敏感性分析、批量参数网格、KPI 历史、遗传算法辅助优化；
+- **报告交付**：多方案对比以及 Excel/PDF 报告导出。
+
+## 快速开始
+
+### 方式一：下载桌面版
+
+前往 [GitHub Releases](https://github.com/MaxHou-infinity/puffline-planner/releases/latest)，选择 macOS、Windows 或源码压缩包。
+
+> 当前公开版本 v3.3.2 的附件仍沿用历史 `E-Pod-Line-Simulator` 文件名；下一补丁版本起将统一为 `PuffLine-Planner`。请以 Release 页面实际列出的附件为准。
 >
-> Production Line Simulation & Optimization for E-cigarette Pods, E-liquid Filling
-> and Nicotine Pouches — powered by SimPy.
+> macOS 当前发布包尚未签名和公证。首次启动如被 Gatekeeper 拦截，请在访达中右键应用并选择“打开”。请只从本仓库 Release 页面下载安装包。
 
-![version](https://img.shields.io/badge/version-3.3.2-1F2329)
-![python](https://img.shields.io/badge/Python-3.8%2B-2F6FED)
-![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-1F6FEB)
-![CI](https://github.com/MaxHou-infinity/puffline-planner/actions/workflows/ci.yml/badge.svg)
-![tests](https://img.shields.io/badge/tests-133%20passed-green)
-![license](https://img.shields.io/badge/license-Attribution%20Authorization-blue)
-![release](https://img.shields.io/github/v/release/MaxHou-infinity/puffline-planner?label=latest%20release&color=2F6FED)
+### 方式二：源码运行
 
-![主界面](docs/images/screenshot_main.png)
+~~~bash
+git clone https://github.com/MaxHou-infinity/puffline-planner.git
+cd puffline-planner/e_pod_line_simulator
+python -m pip install -r requirements.txt
+python run.py
+~~~
 
----
+开发与测试：
 
-## ✨ 亮点速览
+~~~bash
+python -m pip install -r requirements-dev.txt
+python -m pytest tests -q
+~~~
 
-- **把 2 周试错压缩到 2 小时仿真**：投入人力/设备前，量化产能、瓶颈、成本与人效，用数据替代“现场试错”；
-- **覆盖 3 种真实业态**：烟弹组装（颗）、烟油灌装（千克·配方/批次/储罐/CIP）、尼古丁袋高速包装（袋·机台节拍/OEE 分解），字段与计量单位自动适配；
-- **HR 视角的人力规划**：目标产量反推各岗位人数、多班次排班、人力成本、招聘缺口与爬坡达产，HRBP/HR 可直接导出 Excel/PDF；
-- **智能评估与优化**：瓶颈/WIP/饥饿/堵塞/预测预警、敏感性试算、批量试算、KPI 历史趋势，乃至遗传算法自动寻优；
-- **分析体验（V3.3）**：统一结果表格（导出/复制/基线对比）、智能优化基线Δ与锁定工序、敏感性一键应用、分析指南与就地术语说明
-- **开箱即用**：macOS App / Windows EXE、源码包、启动器三种方式，零配置启动；GitHub Release 一键下载。
+更完整的安装、配置、Excel 导入和 FAQ 请阅读 [用户指南](docs/user-guide.md)。
 
-## 👥 面向谁
+## 技术栈与质量信号
 
-| 角色 | 解决什么问题 |
-|------|--------------|
-| **IE 工程师** | 新线平衡、瓶颈识别、参数 → 产能 / 线平衡 / 优化建议 |
-| **产线经理** | 换型、维护、班次与排产对产出的影响 |
-| **精益顾问** | 失衡分析、敏感性试算、改善建议与对标报告 |
-| **HRBP / HR** | 人力需求预估、人力成本预算、招聘计划、爬坡达产预测 |
-
-## 🧩 核心功能
-
-### 仿真引擎（SimPy 离散事件）
-
-- 并联 / 协同两种人力协作模式，WIP 缓冲区、饥饿 / 堵塞、切换事件
-- 烟油批量过程：配方 → 调配 → 陈化 → 灌装 → QC → 放行；CIP/SIP 清洗
-- 机台节拍建模（高速包装线）；质量门（抽检 / 缺陷 / 返工）
-- V3.2 深化：储罐容量约束（满罐等待 / 报警）、批次排产序列、周期性 CIP、
-  原料到货 / 投料 / 缺料阻塞、质量门放行隔离、BOM 组件消耗与返工回路
-
-### 三种生产形态
-
-| 形态 | 计量单位 | 行业关键能力 |
-|------|----------|--------------|
-| 烟弹组装 | 颗 | BOM / 组件缺料 / 返工回路 / 人工装配线平衡 |
-| 烟油灌装 | 千克 | 配方 / 批次 / 储罐 / CIP-SIP / 原料库存 / 放行隔离 |
-| 尼古丁袋高速包装 | 袋 | 机台节拍 / OEE 三要素分解 / 换型矩阵 / 高速包装线 |
-
-### 人力规划（V3.2，面向 HRBP/HR）
-
-- 目标产量反推各工序 / 工种人数（并联加人、协同加人无效自动识别）
-- 多班次排班、加班、休息；人力成本（工资 / 加班 / 社保 / 招聘 / 培训 / 缺勤 / 离职）
-- 按周招聘缺口时间线；新员工爬坡曲线与达产天数
-- Excel（人力需求 / 成本 / 缺口）+ PDF 摘要一键导出
-
-### 智能报警与评估
-
-- 瓶颈、WIP 堆积、饥饿 / 堵塞、预测预警；建议按工序类型分流（协同工序不再误推“加人”）
-- 工序级指标：运行 / 等待 / 堵塞、实际利用率、失衡分析、OEE 分解
-- 敏感性试算（加人 / 减人 / OEE / 节拍 / 自动化替代 / 原料价格）
-- 批量试算（参数网格自动仿真对比）、KPI 历史趋势（表格 + 折线图）
-- 遗传算法智能优化：以单位成本或总产出为目标，输出 TOP 方案
-
-### 报告与协作
-
-- 方案持久化对比（最多 5 个）、Excel（10+ Sheet）/ PDF 报告导出
-- 快速配置向导（模板 → 数据来源 → 班次 → 一键仿真）
-- 统一浅色主题、命令面板（Ctrl+K）、快捷键、Toast、报警筛选 / 折叠
-
-## 🚀 快速开始
-
-### 方式一：macOS / Windows 安装包（零依赖）
-
-从 [GitHub Releases](https://github.com/MaxHou-infinity/puffline-planner/releases/latest)
-下载对应平台包：
-- macOS：`E-Pod-Line-Simulator-v3.3.2-macOS.zip`，解压后双击 App
-- Windows：`E-Pod-Line-Simulator-v3.3.2-Windows.zip`，解压后双击 EXE
-
-### 方式二：压缩包（推荐普通用户）
-
-下载 `E-Pod-Line-Simulator-v3.3.2.zip`：
-
-1. 解压后进入 `e_pod_line_simulator`；
-2. macOS 双击 `启动.command`，Windows 双击 `启动.bat`（首次自动安装依赖）。
-
-### 方式三：命令行 / 开发者
-
-```bash
-cd e_pod_line_simulator
-pip install -r requirements.txt   # 运行依赖
-python run.py                      # 启动 GUI
-```
-
-```bash
-pip install -r requirements-dev.txt
-python -m pytest tests -q          # 138 个用例
-```
-
-## 📚 文档导航
-
-- [详细 README（安装 / 配置 / FAQ）](e_pod_line_simulator/README.md)
-- [更新日志 CHANGELOG](CHANGELOG.md) · [开发与贡献规范](AGENTS.md)
-
-## 🛠 技术栈
-
-| 组件 | 说明 |
-|------|------|
-| Python 3.8+ / Tkinter | 桌面应用（标准库 GUI） |
+| 组件 | 用途 |
+|---|---|
+| Python 3.8+ / Tkinter | 本地桌面应用 |
 | SimPy 4.0+ | 离散事件仿真引擎 |
 | pandas / openpyxl | Excel 导入导出 |
 | reportlab | PDF 报告 |
-| pytest / pytest-cov | 138 个用例 + 覆盖率 |
-| GitHub Actions | CI 回归 + Release 自动打包（源码包 / macOS App / Windows EXE） |
+| pytest / pytest-cov | 自动化回归与覆盖率检查 |
+| GitHub Actions / PyInstaller | CI 与 macOS/Windows 打包 |
 
-## 📁 目录结构
+项目在本地运行，不需要账号，也不会主动上传产线数据。当前 CI 状态可在 [Actions](https://github.com/MaxHou-infinity/puffline-planner/actions) 查看。
 
-```
-e_pod_line_simulator/
-├── src/        # 源码（models / simulation / hr_planning / optimizer / gui / reporting）
-├── configs/    # 默认配置、Excel 模板、方案与运行历史
-├── docs/       # 用户文档（截图等）
-├── tests/      # 138 个 pytest 用例
-├── packaging/  # PyInstaller 打包配置
-└── assets/     # 图标与赞赏码资源
-```
+## 文档与参与
 
-## 🏷 版本
+- [用户指南](docs/user-guide.md)：安装、工作流、配置、Excel 导入与 FAQ
+- [更新日志](CHANGELOG.md)：版本能力与修复记录
+- [贡献指南](CONTRIBUTING.md)：开发环境、测试和 Pull Request 要求
+- [Issues](https://github.com/MaxHou-infinity/puffline-planner/issues)：Bug、功能建议和使用反馈
 
-当前版本 **v3.3.2**；历史版本与变更详见 [CHANGELOG](CHANGELOG.md)。
+## 许可与边界
 
-## 💬 支持与反馈
+本项目采用自定义的[署名-授权许可证](LICENSE)，属于 **source-available（源码可用）**：
 
-- 🐛 Bug / 建议：[GitHub Issues](https://github.com/MaxHou-infinity/puffline-planner/issues)
-- ⭐ 觉得有用？欢迎 Star、Fork 与贡献
-- ☕ 资助作者：扫描 `e_pod_line_simulator/assets/wechat_qr.png`（微信赞赏码）
+- 使用、复制或修改时必须保留署名与原始仓库链接；
+- 对外发布、分发、销售或用于商业用途前，必须取得作者明确授权；
+- 仿真结果不构成产能、成本、质量、安全或合规承诺，实际投产前应完成现场验证。
 
-## 📄 许可与免责
+---
 
-本项目采用 **署名-授权许可证 v1.0**（[LICENSE](LICENSE)）：允许使用与修改，
-但须保留作者署名与出处；对外发布或商业使用前，须通知作者并取得明确授权。
-
-仿真结果为产线设计与人力规划的参考，不构成产能或成本承诺；实际投产前请以现场验证为准，作者不对据此做出的决策损失承担责任。
-
-## 🔍 找到本项目（关键词导览）
-
-**面向 HR / 人力规划**
-人力需求预估、人力成本、排班、招聘缺口、爬坡达产、UPPH、人效、
-HR Planning、Manpower Planning、Headcount、Staffing、Labor Cost
-
-**面向供应链 / IE / 产线管理**
-产线仿真、离散事件仿真、数字孪生、瓶颈分析、产线平衡、WIP、OEE、
-快速换型、CIP/SIP、Line Balancing、Bottleneck Analysis、
-Discrete Event Simulation、Production Line Simulation
-
-**行业关键词**
-电子烟、烟弹、烟油、尼古丁袋、雾化、E-cigarette、E-liquid、
-Nicotine Pouch、Vape、Pod
-
-**技术栈**
-SimPy、Tkinter、Python、pandas、openpyxl、reportlab、PyInstaller
+<p align="center">
+  <strong>Simulate. Optimize. Staff.</strong><br>
+  Production-line simulation and workforce planning for pods, e-liquid and nicotine pouches.
+</p>

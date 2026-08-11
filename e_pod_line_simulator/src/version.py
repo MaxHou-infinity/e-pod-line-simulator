@@ -7,8 +7,9 @@
 
 __version__ = "3.3.2"
 VERSION_STRING = f"v{__version__}"
+PRODUCT_NAME = "PuffLine Planner"
 
 # Bug 反馈与资助入口（可在发布前替换为个人链接）
-BUG_REPORT_URL = "https://github.com/MaxHou-infinity/e-pod-line-simulator/issues"
+BUG_REPORT_URL = "https://github.com/MaxHou-infinity/puffline-planner/issues"
 WECHAT_QR_PATH = "assets/wechat_qr.png"  # 微信赞赏码（PNG/GIF）
 WECHAT_QR_SMALL_PATH = "assets/wechat_qr_small.png"  # 关于对话框内嵌小图

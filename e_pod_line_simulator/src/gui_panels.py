@@ -39,6 +39,7 @@ from src.theme import (
 from src.glossary import GLOSSARY
 from src.version import (
     BUG_REPORT_URL,
+    PRODUCT_NAME,
     WECHAT_QR_PATH,
     WECHAT_QR_SMALL_PATH,
     __version__,
@@ -1974,7 +1975,7 @@ class AboutDialog:
 
         title = ttk.Label(
             main,
-            text=f"电子烟产线仿真优化工具 v{__version__}",
+            text=f"{PRODUCT_NAME} v{__version__}",
             font=(family, 15, 'bold'),
         )
         title.pack(anchor=tk.W, pady=(0, 4))

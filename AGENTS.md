@@ -1,77 +1,103 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Project Structure
 
-The application lives in `e_pod_line_simulator/`:
+The Python desktop application lives in `e_pod_line_simulator/`:
 
-```
-src/                  # Application code
-  main.py             # Entry point
-  models.py           # Data models: Station, ProductionLine, Scenario
-  simulation.py       # SimPy simulation engine and bottleneck logic
-  scenario_manager.py # Scenario save/compare/recommend logic
-  gui_main.py         # Main Tkinter window
-  gui_canvas.py       # 2D production-line canvas
-  gui_panels.py       # Config, KPI, and alert panels
-  utils.py            # File I/O, validation, helpers
-configs/              # default.json and Excel import template
-docs/                 # Design, API, and maturity documents
-tests/                # Test scripts
+```text
+e_pod_line_simulator/
+├── src/             # Application, simulation, analysis, and GUI modules
+├── tests/           # pytest test suite
+├── configs/         # Default configuration and Excel import template
+├── assets/          # Runtime images and other bundled assets
+├── packaging/       # PyInstaller spec
+├── requirements.txt
+├── requirements-dev.txt
+└── run.py           # Source entry point
 ```
 
-Top-level PRD files (`电子烟产线仿真优化*.md`) and scenario JSONs
-(`方案*.json`) are part of the product spec and must stay at the root.
+Repository-level user documentation is in `README.md`, `docs/user-guide.md`,
+`CHANGELOG.md`, and `CONTRIBUTING.md`. GitHub Actions are defined under
+`.github/workflows/`.
 
-## Build, Test, and Development Commands
+## Setup and Commands
+
+Run development commands from `e_pod_line_simulator/` unless noted otherwise:
 
 ```bash
-pip install -r requirements.txt        # Install SimPy, pandas, openpyxl
-python run.py                          # Launch the GUI
-python tests/test_basic.py             # Run the basic test suite
-python -m pytest tests -q              # Run the full pytest suite
+python -m pip install -r requirements-dev.txt
+python run.py
+python -m pytest tests -q
 ```
 
-There is no build step; packaging (PyInstaller) is not configured yet.
-Use an environment where `simpy` is installed.
+CI uses Python 3.12 on macOS and runs the complete pytest suite. The declared
+runtime minimum is Python 3.8+.
 
-## Coding Style & Naming Conventions
+For a local PyInstaller build:
 
-- Python 3.8+, PEP 8: 4-space indentation, line length ≤ 99.
-- Classes: `PascalCase` (`ProductionLine`); functions/variables: `snake_case`
-  (`get_capacity`); constants: `UPPER_SNAKE`.
-- Add docstrings and type hints to public classes and functions.
-- Identifiers stay English; comments and UI text may be Chinese.
-- No formatter or linter is configured; check syntax with
-  `python -m py_compile <file>`.
+```bash
+pyinstaller --noconfirm packaging/e_pod_line_simulator.spec
+```
 
-## Testing Guidelines
+Windows and macOS release packages are also built by
+`.github/workflows/packaging.yml` on version tags or manual dispatch.
 
-- Tests are plain Python scripts under `tests/`, named `test_*.py`, with
-  functions named `test_*`.
-- `tests/test_basic.py` covers models, KPI calculation, bottleneck detection,
-  waste detection, and utilities.
-- Add tests in the same file for small changes, or create `test_<module>.py`
-  for larger features.
-- Target coverage for core modules is >80% (aspirational, not yet enforced).
+## Coding Conventions
 
-## Commit & Pull Request Guidelines
+- Follow PEP 8 with 4-space indentation and a maximum line length of 99.
+- Use `PascalCase` for classes, `snake_case` for functions and variables, and
+  `UPPER_SNAKE_CASE` for constants.
+- Add docstrings and useful type annotations to public interfaces.
+- Keep identifiers in English; comments and user-facing UI text may be Chinese.
+- Preserve the local-only design: do not add credentials, telemetry, or external
+  data transfer without an explicit product decision.
 
-- Follow Conventional Commits: `type: description`, e.g.
-  `feat: 增加报告导出`, `fix: 修复仿真重启问题`, `docs: 更新 README`.
-- Descriptions may be Chinese; keep them short and specific.
-- One logical change per commit; keep the working tree clean.
-- Pull requests must state what and why, link related issues, and include
-  screenshots for UI changes. Run the test suite before requesting review.
-- Update `logs.md` and the relevant `docs/` files when behavior changes.
+## Tests and Verification
 
-## Security & Configuration Tips
+- Test files belong in `e_pod_line_simulator/tests/` and use `test_*.py` names.
+- Add focused tests for new behavior and regression tests for bug fixes.
+- Run `python -m pytest tests -q` before claiming completion.
+- For changes to models, simulation, scenarios, reports, or utilities, inspect
+  coverage with `pytest-cov`; the target for core modules is at least 80%.
+- UI changes require both relevant automated checks and a manual launch check
+  when the environment supports Tkinter.
 
-- This is a local-only tool; never store credentials in configs.
-- Do not commit `__pycache__/`, `.DS_Store`, `.trae/`, or `*.log` — they are
-  already covered by `.gitignore`.
-- Always validate station parameters and sanitize imported Excel data.
+## Documentation Discipline
 
-## Agent-Specific Instructions
+- `README.md` is the public product overview and primary marketing entry point.
+- `docs/user-guide.md` is the authoritative installation, usage, configuration,
+  and FAQ guide.
+- `CONTRIBUTING.md` is the public contribution process; do not expose internal
+  agent instructions there.
+- Update `CHANGELOG.md` for user-visible release changes.
+- Keep version numbers, download names, screenshots, links, and UI labels aligned
+  with current source and release artifacts.
+- Do not create duplicate project overviews inside application subdirectories.
 
-- Read `README.md` and the relevant `docs/` file before editing.
+## Commit and Pull Request Guidelines
+
+- Prefer Conventional Commits, for example `fix: 修复仿真重启问题` or
+  `docs: 更新用户指南`.
+- Keep each commit and pull request focused on one logical change.
+- Pull requests should explain what changed, why it changed, and how it was
+  verified; link relevant issues.
+- Include before/after screenshots for UI changes and example inputs/outputs for
+  calculation changes.
+- Never publish, tag, release, or push without explicit owner authorization.
+
+## Security and Data Handling
+
+- Never commit credentials, personal information, customer data, or unredacted
+  production configurations.
+- Sanitize Excel imports and validate station parameters at input boundaries.
+- Do not commit generated caches, build output, logs, or OS metadata.
+- Preserve user changes in a dirty worktree and avoid destructive Git commands.
+
+## Agent Instructions
+
+- Read `README.md`, `docs/user-guide.md`, and the relevant source/tests before
+  editing behavior.
+- Prefer evidence from current source, tests, workflows, and release artifacts
+  over historical documentation.
 - Keep user-facing responses in Chinese unless the user asks otherwise.
+- Verify the requested scope before editing; do not modify unrelated files.
