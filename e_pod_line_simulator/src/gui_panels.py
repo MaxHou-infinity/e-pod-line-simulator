@@ -23,7 +23,13 @@ from typing import List, Optional, Callable, Dict, Any
 from src.models import Station, Alert, CollaborationType, ProductionLine
 from src.utils import validate_station, get_alert_color
 from src.scenario_manager import ScenarioManager
-from src.theme import ALERT_ICONS, COLORS, ToolTip, resolve_font_family
+from src.theme import (
+    ALERT_ICONS,
+    COLORS,
+    ToolTip,
+    resolve_font_family,
+    show_toast,
+)
 from src.glossary import GLOSSARY
 from src.version import (
     BUG_REPORT_URL,

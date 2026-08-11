@@ -1287,6 +1287,14 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：134 passed
 
+## 2026-08-11 - 修复“复制文本”报错
+
+### 完成内容
+- gui_panels 补齐 `show_toast` 导入；剪贴板复制反馈恢复正常
+
+### 验证
+- pytest：134 passed
+
 ## 2026-08-11 - 修复方案对比复选框不可见
 
 ### 完成内容
