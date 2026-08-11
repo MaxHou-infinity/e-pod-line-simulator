@@ -116,6 +116,13 @@ def test_analysis_guide_dialog_exists():
     assert len(AnalysisGuideDialog.GUIDE_TEXT) > 100
 
 
+def test_changeover_dialog_methods_exist():
+    from src.gui_panels import ChangeoverDialog
+
+    assert hasattr(ChangeoverDialog, "_confirm")
+    assert hasattr(ChangeoverDialog, "_create_widgets")
+
+
 def test_canvas_capacity_text_uses_dynamic_unit():
     from src.gui_canvas import format_capacity_text
 

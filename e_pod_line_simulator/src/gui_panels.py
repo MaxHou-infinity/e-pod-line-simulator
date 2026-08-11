@@ -3467,6 +3467,100 @@ class AnalysisGuideDialog:
         self.dialog.geometry(f"+{x}+{y}")
 
 
+class ChangeoverDialog:
+    """
+    停机切换对话框（V3.3.1）
+
+    通过工序下拉选择要换型的工序，避免用户在画布/工序列表中寻找。
+    """
+
+    def __init__(self, parent, production_line: Optional[ProductionLine]):
+        self.line = production_line
+        self.result: Optional[Dict[str, Any]] = None
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("停机切换（换型）")
+        self.dialog.geometry("480x330")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        self._create_widgets()
+        self.dialog.bind('<Escape>', lambda e: self.dialog.destroy())
+        self.dialog.bind('<Return>', lambda e: self._confirm())
+        self.dialog.update_idletasks()
+        x = (self.dialog.winfo_screenwidth() // 2) - (self.dialog.winfo_width() // 2)
+        y = (self.dialog.winfo_screenheight() // 2) - (self.dialog.winfo_height() // 2)
+        self.dialog.geometry(f"+{x}+{y}")
+        self.dialog.wait_window()
+
+    def _create_widgets(self) -> None:
+        main = ttk.Frame(self.dialog, padding=14)
+        main.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(main, text="选择要停机的工序:").grid(
+            row=0, column=0, sticky=tk.W, pady=5
+        )
+        station_options = []
+        if self.line:
+            station_options = [
+                f"{s.id} {s.name}" for s in self.line.stations
+            ]
+        self.station_var = tk.StringVar(
+            value=station_options[0] if station_options else ""
+        )
+        self.station_combo = ttk.Combobox(
+            main,
+            textvariable=self.station_var,
+            values=station_options,
+            state="readonly",
+            width=30,
+        )
+        self.station_combo.grid(row=0, column=1, sticky=tk.W, pady=5)
+
+        ttk.Label(main, text="停机时长(分钟):").grid(
+            row=1, column=0, sticky=tk.W, pady=5
+        )
+        self.minutes_var = tk.StringVar(value="45")
+        ttk.Entry(main, textvariable=self.minutes_var, width=10).grid(
+            row=1, column=1, sticky=tk.W, pady=5
+        )
+        ttk.Label(
+            main,
+            text="默认取所选工序的切换时间",
+            foreground=COLORS["text_secondary"],
+        ).grid(row=1, column=2, sticky=tk.W, padx=(8, 0), pady=5)
+
+        ttk.Button(main, text="确认停机切换", command=self._confirm).grid(
+            row=2, column=0, columnspan=2, sticky=tk.W, pady=10
+        )
+        HelpSection(
+            main,
+            "使用说明",
+            "作用：仿真运行中模拟一次换型停机（如更换口味/规格/配方），"
+            "观察对上下游与产出的影响。\n"
+            "选择工序：下拉已列出全部工序（ID+名称），无需在画布或"
+            "工序列表中寻找；确认后该工序会在画布上高亮。",
+        ).grid(row=3, column=0, columnspan=3, sticky=tk.W, pady=(8, 0))
+
+    def _confirm(self) -> None:
+        text = self.station_var.get()
+        if not text:
+            messagebox.showwarning("警告", "请先选择工序")
+            return
+        try:
+            minutes = int(float(self.minutes_var.get()))
+        except ValueError:
+            messagebox.showerror("错误", "停机时长必须是整数分钟")
+            return
+        if minutes <= 0:
+            messagebox.showerror("错误", "停机时长必须大于 0")
+            return
+        self.result = {
+            "station_id": text.split(" ")[0],
+            "station_name": text.split(" ", 1)[1] if " " in text else text,
+            "minutes": minutes,
+        }
+        self.dialog.destroy()
+
+
 class WizardDialog:
     """
     快速配置向导 - 分步引导新手完成产线配置

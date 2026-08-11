@@ -49,6 +49,7 @@ from src.gui_panels import (
     OptimizeDialog,
     ResultTableDialog,
     AnalysisGuideDialog,
+    ChangeoverDialog,
 )
 from src.utils import (
     validate_production_line,
@@ -150,11 +151,6 @@ class MainWindow:
         file_menu.add_command(label="保存方案...", command=self._btn_save_scenario)
         file_menu.add_separator()
         file_menu.add_command(label="退出", command=self._menu_exit)
-
-        # 仿真菜单（V3.3.1 精简：仅保留触发切换）
-        sim_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="仿真", menu=sim_menu)
-        sim_menu.add_command(label="触发切换...", command=self._menu_trigger_changeover)
 
         # 分析菜单（试算与优化）
         analysis_menu = tk.Menu(menubar, tearoff=0)
@@ -278,6 +274,20 @@ class MainWindow:
             style="Danger.TButton",
         )
         self.btn_stop.pack(side=tk.LEFT, padx=5)
+
+        # 停机切换（换型）按钮（V3.3.1）
+        self.btn_changeover = ttk.Button(
+            control_frame,
+            text="停机切换（换型）",
+            command=self._btn_changeover,
+            state=tk.DISABLED,
+            style="Secondary.TButton",
+        )
+        self.btn_changeover.pack(side=tk.LEFT, padx=5)
+        ToolTip(
+            self.btn_changeover,
+            "仿真运行中，手动触发所选工序的换型停机（如更换口味/规格/配方）",
+        )
         
         # 速度选择
         speed_frame = ttk.Frame(control_frame)
@@ -772,7 +782,7 @@ class MainWindow:
         commands = [
             ("快速配置向导", self._menu_wizard),
             ("保存方案", self._btn_save_scenario),
-            ("触发切换", self._menu_trigger_changeover),
+            ("停机切换", self._btn_changeover),
             ("敏感性试算", self._menu_sensitivity),
             ("批量试算", self._menu_sweep),
             ("智能优化", self._menu_optimize),
@@ -865,6 +875,7 @@ class MainWindow:
         self.btn_start.config(state=tk.DISABLED)
         self.btn_pause.config(state=tk.NORMAL)
         self.btn_stop.config(state=tk.NORMAL)
+        self.btn_changeover.config(state=tk.NORMAL)
         
         self.status_bar.config(text="仿真运行中...")
     
@@ -898,6 +909,7 @@ class MainWindow:
                 self.btn_start.config(state=tk.NORMAL)
                 self.btn_pause.config(state=tk.DISABLED)
                 self.btn_stop.config(state=tk.DISABLED)
+                self.btn_changeover.config(state=tk.DISABLED)
                 
                 # 重置画布状态（如果有的话）
                 if self.canvas_view and self.production_line:
@@ -1104,34 +1116,33 @@ class MainWindow:
             self._update_display()
             self.status_bar.config(text=f"已删除工序：{station.name}")
 
-    def _menu_trigger_changeover(self) -> None:
-        """仿真菜单 - 触发切换（使用当前选中工序）"""
-        selected = self.config_panel.get_selected_station()
-        if selected is None:
-            messagebox.showwarning("警告", "请先选择一个工序")
+    def _btn_changeover(self) -> None:
+        """主界面按钮 - 停机切换（换型）"""
+        if self.production_line is None or not self.production_line.stations:
+            messagebox.showwarning("警告", "没有可切换的工序")
             return
-        self._trigger_changeover(selected.id)
+        dialog = ChangeoverDialog(self.root, self.production_line)
+        if not dialog.result:
+            return
+        self._trigger_changeover(
+            dialog.result["station_id"], dialog.result["minutes"]
+        )
 
-    def _trigger_changeover(self, station_id: str) -> None:
-        """触发指定工序的切换停机"""
+    def _trigger_changeover(self, station_id: str, minutes: int = 45) -> None:
+        """触发指定工序的换型停机"""
         if not self.simulation_engine or not self.simulation_engine.is_running:
-            messagebox.showwarning("警告", "请先开始仿真，再触发切换")
+            messagebox.showwarning("警告", "请先开始仿真，再执行停机切换")
             return
         station = self.production_line.get_station(station_id)
         if station is None:
             return
-        minutes = simpledialog.askinteger(
-            "触发切换",
-            f"请输入「{station.name}」的切换停机时长（分钟）：",
-            initialvalue=station.changeover_time or 45,
-            minvalue=1,
-            maxvalue=600,
-        )
-        if not minutes:
-            return
         try:
             self.simulation_engine.trigger_changeover(station_id, minutes)
-            self.status_bar.config(text=f"已触发「{station.name}」切换，停机{minutes}分钟")
+            self.canvas_view.highlight_station(station_id)
+            self.status_bar.config(
+                text=f"已触发「{station.name}」停机切换，停机{minutes}分钟"
+            )
+            show_toast(self.root, f"「{station.name}」停机切换中")
         except ValueError as e:
             messagebox.showerror("错误", str(e))
 
