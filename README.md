@@ -22,7 +22,7 @@
 
 PuffLine Planner 是一款面向 IE 工程师、产线经理、精益顾问和 HRBP 的桌面决策工具。它覆盖烟弹组装、烟油灌装和尼古丁袋高速包装三种生产形态，将工序节拍、设备效率、WIP、人力和成本放进同一个可重复试算的模型中。
 
-> 当前版本为 **v3.3.2 Public Beta**。仿真结果用于方案预评估，不替代现场测时、工艺验证、质量验证或法规合规判断。
+> 当前版本为 **v3.3.3 Public Beta**。仿真结果用于方案预评估，不替代现场测时、工艺验证、质量验证或法规合规判断。
 
 ## 它帮助你回答什么
 
@@ -47,9 +47,9 @@ flowchart LR
 
 ## 合成演示：6 工序烟弹装配线
 
-下面的画面来自当前 v3.3.2 代码，使用不包含真实企业数据的合成参数。演示线设置 6 道工序、12 名人员，并刻意保留一个可诊断瓶颈，用于展示软件如何把工序数据转化为决策指标。
+下面的画面来自当前代码，使用不包含真实企业数据的合成参数。演示线设置 6 道工序、12 名人员，并刻意保留一个可诊断瓶颈，用于展示软件如何把工序数据转化为决策指标。
 
-![PuffLine Planner v3.3.2 平衡产线演示](docs/images/screenshot-main-v3.3.2.png)
+![PuffLine Planner 合成产线演示](docs/images/screenshot-main-synthetic.png)
 
 演示结果包括：
 
@@ -82,7 +82,7 @@ flowchart LR
 
 前往 [GitHub Releases](https://github.com/MaxHou-infinity/puffline-planner/releases/latest)，选择 macOS、Windows 或源码压缩包。
 
-> 当前公开版本 v3.3.2 的附件仍沿用历史 `E-Pod-Line-Simulator` 文件名；下一补丁版本起将统一为 `PuffLine-Planner`。请以 Release 页面实际列出的附件为准。
+> v3.3.3 起，Release 附件统一使用 `PuffLine-Planner` 文件名；历史 v3.3.2 仍使用 `E-Pod-Line-Simulator`。请以 Release 页面实际列出的附件为准。
 >
 > macOS 当前发布包尚未签名和公证。首次启动如被 Gatekeeper 拦截，请在访达中右键应用并选择“打开”。请只从本仓库 Release 页面下载安装包。
 

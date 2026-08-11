@@ -5,6 +5,10 @@
 
 ## [Unreleased]
 
+后续变更将在下一版本发布前补充。
+
+## [3.3.3] - 2026-08-11
+
 ### Added
 
 - 新增 PuffLine Planner 品牌 Banner、应用图标和当前版本合成演示截图
