@@ -323,6 +323,8 @@ def test_wip_suggestion_direction_and_dedup():
         assert "上游" in alert.suggestion
         assert "限制上游投料" in alert.suggestion
     assert any(a.severity == "critical" for a in wip_alerts)
+    critical = next(a for a in wip_alerts if a.severity == "critical")
+    assert "自80%预警以来" in critical.message
 
 
 def test_starvation_alert():
@@ -333,7 +335,7 @@ def test_starvation_alert():
 
     starvation = [a for a in result.alerts if a.alert_type == "starvation"]
     assert starvation
-    assert "上游供料不足" in starvation[0].suggestion
+    assert "上游" in starvation[0].suggestion
 
 
 def test_station_metrics_and_warmup():
@@ -361,3 +363,13 @@ def test_predictive_wip_alert():
     ]
     assert predictive
     assert "80%预警线" in predictive[0].message
+
+
+def test_wip_suggestion_mentions_downstream_root_cause():
+    line = ProductionLine("下游根因测试", shift_hours=1, break_minutes=0)
+    line.add_station(Station("s01", "上游", 1.0, 1))
+    line.add_station(Station("s02", "中游", 1.0, 1))
+    line.add_station(Station("s03", "慢下游", 100.0, 1))
+    engine = SimulationEngine(line)
+    suggestion = engine._wip_suggestion(line.stations[1], 1)
+    assert "下游" in suggestion and "堵塞停线" in suggestion

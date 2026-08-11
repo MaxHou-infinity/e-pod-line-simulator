@@ -109,6 +109,7 @@ class SimulationEngine:
         # P0 报警去重状态
         self._blockage_state: Dict[str, str] = {}   # station_id -> warning/critical
         self._blockage_since: Dict[str, float] = {}
+        self._blockage_full_since: Dict[str, float] = {}
         self._predict_alerted: set = set()
         # P1 工序级时间统计
         self.station_running_seconds: Dict[str, float] = {}
@@ -213,6 +214,17 @@ class SimulationEngine:
 
     def _wip_suggestion(self, station, station_index: int) -> str:
         """按失衡方向生成 WIP 建议（P0）"""
+        downstream = (
+            self.line.stations[station_index + 1]
+            if station_index < len(self.line.stations) - 1
+            else None
+        )
+        if downstream and downstream.get_capacity() < station.get_capacity():
+            return (
+                f"本工序产能高于下游「{downstream.name}」"
+                f"（{downstream.get_capacity():.0f}），输入堆积往往由下游堵塞停线引起；"
+                f"建议提升「{downstream.name}」产能或消除下游瓶颈"
+            )
         if station_index > 0:
             upstream = self.line.stations[station_index - 1]
             up_cap = upstream.get_capacity()
@@ -355,6 +367,7 @@ class SimulationEngine:
         self._rng = random.Random(self.random_seed)
         self._blockage_state = {}
         self._blockage_since = {}
+        self._blockage_full_since = {}
         self._predict_alerted = set()
         self.station_running_seconds = {}
         self.station_starved_seconds = {}
@@ -662,7 +675,15 @@ class SimulationEngine:
                     and station.id not in self._predict_alerted
                 ):
                     upstream = self.line.stations[station_index - 1]
-                    up_cap = upstream.get_capacity()
+                    # P2.2：优先使用实测上游产出速率，避免理论产能高估
+                    if self.env.now >= 60.0:
+                        measured_per_h = (
+                            self.station_outputs.get(upstream.id, 0)
+                            / self.env.now * 3600.0
+                        )
+                        up_cap = max(measured_per_h, 0.0)
+                    else:
+                        up_cap = upstream.get_capacity()
                     st_cap = station.get_capacity()
                     net_per_min = (up_cap - st_cap) / 60.0
                     remaining = station.buffer_capacity * 0.8 - wip_count
@@ -677,6 +698,7 @@ class SimulationEngine:
                                 message=(
                                     f"预计 {minutes_to_alert:.0f} 分钟后"
                                     f"{station.name}的WIP将达到80%预警线"
+                                    f"（按实测上游速率）"
                                 ),
                                 suggestion=self._wip_suggestion(station, station_index),
                                 timestamp_minutes=timestamp_minutes,
@@ -686,6 +708,7 @@ class SimulationEngine:
                 if utilization < 0.8:
                     self._blockage_state.pop(station.id, None)
                     self._blockage_since.pop(station.id, None)
+                    self._blockage_full_since.pop(station.id, None)
                     continue
 
                 # 状态去重与升级（P0）：warning 每工序仅报一次，满缓冲持续 3 分钟升级 critical
@@ -697,6 +720,8 @@ class SimulationEngine:
                 )
 
                 if utilization < 1.0:
+                    # 缓冲区未满，重置满缓冲计时
+                    self._blockage_full_since.pop(station.id, None)
                     if current != "warning":
                         self._blockage_state[station.id] = "warning"
                         self._blockage_since[station.id] = self.env.now
@@ -709,15 +734,21 @@ class SimulationEngine:
                             timestamp_minutes=timestamp_minutes,
                         ))
                 else:
+                    if station.id not in self._blockage_full_since:
+                        self._blockage_full_since[station.id] = self.env.now
+                    full_min = (
+                        (self.env.now - self._blockage_full_since[station.id]) / 60.0
+                    )
                     if current != "critical":
-                        if current == "warning" and sustained_min >= 3.0:
+                        if current == "warning" and full_min >= 3.0:
                             self._blockage_state[station.id] = "critical"
                             self._emit_alert(Alert(
                                 alert_type="blockage",
                                 severity="critical",
                                 station_id=station.id,
                                 message=(
-                                    f"{station.name}缓冲区已满并持续 {sustained_min:.0f} 分钟"
+                                    f"{station.name}缓冲区已满并持续 {full_min:.0f} 分钟"
+                                    f"（自80%预警以来 {sustained_min:.0f} 分钟）"
                                     f"：{wip_count}/{station.buffer_capacity}"
                                 ),
                                 suggestion=self._wip_suggestion(station, station_index),
@@ -727,6 +758,7 @@ class SimulationEngine:
                             # 直接从 0 跳到满缓冲：先报 warning
                             self._blockage_state[station.id] = "warning"
                             self._blockage_since[station.id] = self.env.now
+                            self._blockage_full_since[station.id] = self.env.now
                             self._emit_alert(Alert(
                                 alert_type="blockage",
                                 severity="warning",
@@ -751,14 +783,27 @@ class SimulationEngine:
                 if idx == 0:
                     continue
                 starved = self.station_starved_seconds.get(station.id, 0.0)
-                if starved >= 300 and station.id not in self._starvation_alerted:
+                per_worker = starved / max(1, station.worker_count)
+                if per_worker >= 300 and station.id not in self._starvation_alerted:
                     self._starvation_alerted.add(station.id)
+                    bottleneck = self.line.find_bottleneck()
+                    if bottleneck and bottleneck.id != station.id and idx > self.line.stations.index(bottleneck):
+                        suggestion = (
+                            f"上游受瓶颈「{bottleneck.name}」限制"
+                            f"（{bottleneck.get_capacity():.0f}/h），"
+                            f"建议提升瓶颈产能或增加缓存"
+                        )
+                    else:
+                        suggestion = "上游供料不足或被堵塞，建议平衡上游节拍或增加缓存"
                     self._emit_alert(Alert(
                         alert_type="starvation",
                         severity="warning",
                         station_id=station.id,
-                        message=f"{station.name}累计等待物料 {starved / 60.0:.1f} 分钟",
-                        suggestion="上游供料不足或被堵塞，建议平衡上游节拍或增加缓存",
+                        message=(
+                            f"{station.name}累计等待物料 {per_worker / 60.0:.1f} 分钟/工位"
+                            f"（汇总 {starved / 60.0:.1f} 分钟）"
+                        ),
+                        suggestion=suggestion,
                         timestamp_minutes=timestamp_minutes,
                     ))
 
@@ -766,14 +811,27 @@ class SimulationEngine:
                 if idx >= len(self.line.stations) - 1:
                     continue
                 blocked = self.station_blocked_seconds.get(station.id, 0.0)
-                if blocked >= 300 and station.id not in self._blocked_alerted:
+                per_worker = blocked / max(1, station.worker_count)
+                if per_worker >= 300 and station.id not in self._blocked_alerted:
                     self._blocked_alerted.add(station.id)
+                    bottleneck = self.line.find_bottleneck()
+                    if bottleneck and bottleneck.id != station.id and idx < self.line.stations.index(bottleneck):
+                        suggestion = (
+                            f"下游受瓶颈「{bottleneck.name}」限制"
+                            f"（{bottleneck.get_capacity():.0f}/h），"
+                            f"建议提升瓶颈产能或增加缓存"
+                        )
+                    else:
+                        suggestion = "下游消化不足，建议提升下游产能或增加缓存"
                     self._emit_alert(Alert(
                         alert_type="blockage",
                         severity="warning",
                         station_id=station.id,
-                        message=f"{station.name}被下游堵塞累计 {blocked / 60.0:.1f} 分钟",
-                        suggestion="下游消化不足，建议提升下游产能或增加缓存",
+                        message=(
+                            f"{station.name}被下游堵塞累计 {per_worker / 60.0:.1f} 分钟/工位"
+                            f"（汇总 {blocked / 60.0:.1f} 分钟）"
+                        ),
+                        suggestion=suggestion,
                         timestamp_minutes=timestamp_minutes,
                     ))
     
@@ -1019,6 +1077,7 @@ class SimulationEngine:
         self._rng = random.Random(self.random_seed)
         self._blockage_state = {}
         self._blockage_since = {}
+        self._blockage_full_since = {}
         self._predict_alerted = set()
         self.station_running_seconds = {}
         self.station_starved_seconds = {}
