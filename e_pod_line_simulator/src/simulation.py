@@ -415,6 +415,49 @@ class SimulationEngine:
                 'quantity': quantity,
             })
 
+    def _consume_station_materials(self, station) -> simpy.events.Process:
+        """
+        工序级 BOM 投料（V3.2）：每件消耗组件；缺料时等待并报警。
+        """
+        required = dict(station.bom)
+
+        def _missing() -> Dict[str, float]:
+            return {
+                m: q for m, q in required.items()
+                if self._inventory.get(m, 0.0) + 1e-9 < q
+            }
+
+        missing = _missing()
+        while missing:
+            for material in missing:
+                key = (station.id, material)
+                if key not in self._material_alerted:
+                    self._material_alerted.add(key)
+                    self._emit_alert(Alert(
+                        alert_type="material_shortage",
+                        severity="WARNING",
+                        station_id=station.id,
+                        message=(
+                            f"{station.name} 缺料：{material} 缺 "
+                            f"{missing[material]:.1f}（库存 "
+                            f"{self._inventory.get(material, 0.0):.1f}）"
+                        ),
+                        suggestion="安排组件到货或补充库存",
+                        timestamp_minutes=round(self.env.now / 60.0, 1),
+                    ))
+            yield self.env.timeout(60)
+            missing = _missing()
+
+        for material, quantity in required.items():
+            self._inventory[material] -= quantity
+            self.material_events.append({
+                'time': self.env.now,
+                'type': 'consume',
+                'station_id': station.id,
+                'material': material,
+                'quantity': quantity,
+            })
+
     def _batch_process(self, batch) -> simpy.events.Process:
         """
         批次过程（V1.3 烟油灌装）
@@ -638,9 +681,9 @@ class SimulationEngine:
             # 烟油：批次排产序列驱动（V3.2）
             self.env.process(self._batch_sequence_process())
             self.env.process(self._tank_drain_process())
-            self.env.process(self._material_arrival_process())
         else:
             self._spawn_station_processes()
+        self.env.process(self._material_arrival_process())
         
         # 步骤4：启动监控进程
         # 监控瓶颈变化和WIP堆积
@@ -770,6 +813,10 @@ class SimulationEngine:
                     # 第一个工序，没有上游，直接开始加工
                     # 模拟物料源持续供应
                     pass
+
+                # V3.2：BOM 组件投料（缺料时阻塞）
+                if station.bom and (self.line.materials or self.line.inventory):
+                    yield self.env.process(self._consume_station_materials(station))
                 
                 # 步骤2：请求工人资源
                 # request()会阻塞直到有可用工人
@@ -838,6 +885,13 @@ class SimulationEngine:
                                     'rework_min': station.rework_minutes,
                                 })
                                 station.current_status = "idle"
+                                # V3.2 返工回路：缺陷件非阻塞回写缓冲区，
+                                # 避免满缓冲死锁（首工序无上游则报废）
+                                if (
+                                    station_index > 0
+                                    and len(input_buffer.items) < input_buffer.capacity
+                                ):
+                                    input_buffer.items.append("material")
                                 continue
                     
                     # 步骤7：更新统计数据
@@ -1355,10 +1409,10 @@ class SimulationEngine:
             # 烟油：批次排产序列驱动（V3.2）
             self.env.process(self._batch_sequence_process())
             self.env.process(self._tank_drain_process())
-            self.env.process(self._material_arrival_process())
         else:
             # 组装 / 尼古丁袋：工序进程驱动（袋装使用机台节拍）
             self._spawn_station_processes()
+        self.env.process(self._material_arrival_process())
         self.env.process(self._monitor_bottleneck())
         self.env.process(self._monitor_wip())
         self.env.process(self._monitor_starvation())

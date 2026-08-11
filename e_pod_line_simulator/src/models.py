@@ -151,6 +151,9 @@ class Station:
 
     # V1.3 扩展：清洗切换（CIP/SIP，分钟）
     clean_time_minutes: float = 0.0
+
+    # V3.2：BOM 组件消耗（组件名 → 单件用量）
+    bom: Dict[str, float] = field(default_factory=dict)
     
     # 运行时状态（这些字段在仿真过程中会动态更新）
     current_status: str = "idle"  # 当前状态：idle(空闲)、running(运行)、blocked(堵塞)、waiting(等待)

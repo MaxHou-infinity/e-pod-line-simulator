@@ -133,6 +133,54 @@ def test_material_shortage_blocks_batch_until_arrival():
     assert len(result.batch_results) == 1
 
 
+def test_assembly_bom_consumption_and_shortage():
+    """V3.2 L9：组装工序按 BOM 消耗组件，缺料阻塞、到货恢复"""
+    line = ProductionLine("BOM测试", shift_hours=1, break_minutes=0)
+    line.add_station(Station(
+        "s01", "棉芯安装", 1.0, 1,
+        oee=1.0, efficiency=1.0, changeover_time=0,
+        bom={"棉芯": 1},
+    ))
+    line.add_station(Station(
+        "s02", "包装", 1.0, 1,
+        oee=1.0, efficiency=1.0, changeover_time=0,
+    ))
+    line.materials.append(Material("棉芯", "个", 0.0))
+    line.inventory = {"棉芯": 0.0}
+    line.material_arrivals.append(MaterialArrival(30.0, "棉芯", 5000.0))
+
+    result = SimulationEngine(line).run_sync(duration_hours=2.0)
+
+    assert any(a.alert_type == "material_shortage" for a in result.alerts)
+    consumes = [
+        e for e in result.material_events
+        if e["type"] == "consume" and e.get("station_id") == "s01"
+    ]
+    assert len(consumes) > 0
+    assert result.station_outputs["s01"] == len(consumes)
+    assert result.inventory["棉芯"] == pytest.approx(5000.0 - len(consumes))
+
+
+def test_assembly_rework_returns_item_to_line():
+    """V3.2 L9：缺陷件重新入线返工，最终可流向下游"""
+    line = ProductionLine("返工测试", shift_hours=1, break_minutes=0)
+    line.add_station(Station(
+        "s01", "注油", 1.0, 1,
+        oee=1.0, efficiency=1.0, changeover_time=0,
+    ))
+    line.add_station(Station(
+        "s02", "质检", 1.0, 1,
+        oee=1.0, efficiency=1.0, changeover_time=0,
+        sampling_rate=1.0, defect_rate=0.5, rework_minutes=2.0,
+    ))
+    engine = SimulationEngine(line)
+    engine.random_seed = 7
+    result = engine.run_sync(duration_hours=0.5)
+
+    assert len(result.quality_results) >= 1
+    assert result.station_outputs["s02"] >= 1
+
+
 def test_liquid_tanks_drain_by_first_station_capacity():
     """V3.2 L2：成品罐按首工序（灌装）产能持续消耗"""
     line = create_liquid_line()
