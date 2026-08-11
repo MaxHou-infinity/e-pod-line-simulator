@@ -3212,8 +3212,9 @@ class WizardDialog:
             f"时薪：{self.wage_var.get()} 元/小时\n"
         )
         if line.stations:
-            summary += f"瓶颈产能：{line.get_bottleneck_capacity():.0f} 颗/h\n"
-            summary += f"预计日产量：{line.calculate_daily_output():.0f} 颗\n"
+            unit = line.get_unit()
+            summary += f"瓶颈产能：{line.get_bottleneck_capacity():.0f} {unit}/h\n"
+            summary += f"预计日产量：{line.calculate_daily_output():.0f} {unit}\n"
         self.summary_text.config(state=tk.NORMAL)
         self.summary_text.delete("1.0", tk.END)
         self.summary_text.insert("1.0", summary)

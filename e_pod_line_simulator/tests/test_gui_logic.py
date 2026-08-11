@@ -108,6 +108,14 @@ def test_analysis_guide_dialog_exists():
     assert len(AnalysisGuideDialog.GUIDE_TEXT) > 100
 
 
+def test_canvas_capacity_text_uses_dynamic_unit():
+    from src.gui_canvas import format_capacity_text
+
+    assert format_capacity_text(100, "袋") == "⚡ 100 袋/h"
+    assert format_capacity_text(100, "升") == "⚡ 100 升/h"
+    assert format_capacity_text(100, "颗") == "⚡ 100 颗/h"
+
+
 def test_station_edit_fields_mapping():
     assert station_edit_fields(ProductionType.ASSEMBLY) == set()
     assert station_edit_fields(ProductionType.LIQUID_FILLING) == {

@@ -3,6 +3,13 @@
 本项目采用 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)
 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Fixed
+
+- 修复画布运行态产能单位写死“颗”：尼古丁袋/烟油灌装在仿真中
+  的单位显示不再回退为“颗”（含快速配置向导摘要）
+
 ## [3.3.0] - 2026-08-11
 
 ### Changed

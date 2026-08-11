@@ -22,6 +22,11 @@ from src.utils import get_status_color, CANVAS_WIDTH, CANVAS_HEIGHT, STATION_WID
 from src.theme import COLORS, status_soft, resolve_font_family
 
 
+def format_capacity_text(capacity: float, unit: str) -> str:
+    """产能文本（单位动态，V3.3 修复写死'颗'的问题）"""
+    return f"⚡ {capacity:.0f} {unit}/h"
+
+
 def compute_reorder_order(
     order_ids: List[str],
     station_id: str,
@@ -454,7 +459,7 @@ class CanvasView(tk.Canvas):
         unit = self.production_line.get_unit() if self.production_line else "颗"
         text_id3 = self.create_text(
             x, y + 15,
-            text=f"⚡ {capacity:.0f} {unit}/h",
+            text=format_capacity_text(capacity, unit),
             font=(family, 10),
             tags=(f"station_{station.id}", "station")
         )
@@ -679,9 +684,10 @@ class CanvasView(tk.Canvas):
             # 更新产能文本（如果有变化）
             if station.id in self.station_texts and len(self.station_texts[station.id]) >= 3:
                 capacity = station_state.get('capacity', station.get_capacity())
+                unit = self.production_line.get_unit() if self.production_line else "颗"
                 self.itemconfig(
                     self.station_texts[station.id][2],
-                    text=f"⚡ {capacity:.0f} 颗/h"
+                    text=format_capacity_text(capacity, unit),
                 )
         
         # 更新WIP显示

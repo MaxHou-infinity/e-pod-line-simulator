@@ -1277,6 +1277,16 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 遗留
 - V2.0：Web 化；Windows EXE 构建
 
+## 2026-08-11 - 修复画布产能单位写死“颗”
+
+### 完成内容
+- `update_simulation_state` 产能文本改用 `get_unit()` 动态单位
+- 新增 `format_capacity_text` 纯函数与回归测试
+- 快速配置向导摘要同步修复
+
+### 验证
+- pytest：134 passed
+
 ## 2026-08-11 - V3.0 L5 画布视觉升级
 
 ### 完成内容
