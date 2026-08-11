@@ -106,6 +106,7 @@ python -m pytest tests -q          # 126 个用例
 - [详细 README（安装 / 配置 / FAQ）](e_pod_line_simulator/README.md)
 - [更新日志 CHANGELOG](CHANGELOG.md) · [开发与贡献规范](AGENTS.md)
 - [V3.2 人力规划与多业态深化路线图](e_pod_line_simulator/docs/v3.2/需求与开发路线图.md)
+- [V3.3 分析体验与学习成本优化路线图](e_pod_line_simulator/docs/v3.3/需求与开发路线图.md)
 - [V3.2 开发日志](e_pod_line_simulator/docs/v3.2/开发日志.md)
 - [V1.3 烟油 / 尼古丁袋扩展需求](e_pod_line_simulator/docs/v1.3/需求与开发路线图.md)
 - [V3.0 体验与视觉升级规划](e_pod_line_simulator/docs/v3.0/体验视觉升级规划.md)
@@ -139,6 +140,7 @@ e_pod_line_simulator/
 - ✅ V1.0-V1.3：MVP、交互 / 视觉、烟油与尼古丁袋产品形态扩展
 - ✅ V3.0 / V3.1：2026 桌面美学、智能报警与评估
 - ✅ **V3.2**：人力规划与多业态深化（已定版 v3.2.0）
+- ⏳ **V3.3**：分析体验与学习成本优化（规划中）
 - ⏳ V2.0：Web 化；Windows EXE 打包
 
 ## 💬 支持与反馈
