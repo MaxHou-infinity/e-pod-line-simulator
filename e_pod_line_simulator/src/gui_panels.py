@@ -1570,6 +1570,8 @@ class ScenarioManageDialog:
         self.dialog.geometry("780x480")
         self.dialog.transient(parent)
         self.dialog.grab_set()
+        self._img_unchecked = self._make_check_image(False)
+        self._img_checked = self._make_check_image(True)
 
         self._create_widgets()
         self.dialog.bind('<Escape>', lambda e: self.dialog.destroy())
@@ -1580,6 +1582,31 @@ class ScenarioManageDialog:
         y = (self.dialog.winfo_screenheight() // 2) - (self.dialog.winfo_height() // 2)
         self.dialog.geometry(f"+{x}+{y}")
 
+    @staticmethod
+    def _make_check_image(filled: bool) -> tk.PhotoImage:
+        """生成 22x22 复选框图片（V3.3：增大点选与视觉面积）"""
+        size = 22
+        pixels = [["#FFFFFF"] * size for _ in range(size)]
+        for i in range(size):
+            pixels[0][i] = "#666666"
+            pixels[size - 1][i] = "#666666"
+            pixels[i][0] = "#666666"
+            pixels[i][size - 1] = "#666666"
+        if filled:
+            for y in range(2, size - 2):
+                for x in range(2, size - 2):
+                    pixels[y][x] = "#1F6FEB"
+            # 白色对勾
+            for i in range(6):
+                pixels[8 + i][5 + i] = "#FFFFFF"
+            for i in range(8):
+                pixels[8 + i][12 - i] = "#FFFFFF"
+                pixels[7 + i][12 - i] = "#FFFFFF"
+        data = "\n".join(" ".join(row) for row in pixels)
+        image = tk.PhotoImage(width=size, height=size)
+        image.put(data)
+        return image
+
     def _create_widgets(self) -> None:
         """创建界面组件"""
         main_frame = ttk.Frame(self.dialog, padding=10)
@@ -1587,7 +1614,7 @@ class ScenarioManageDialog:
 
         columns = ('check', 'name', 'created_at', 'description', 'unit_cost')
         self.tree = ttk.Treeview(main_frame, columns=columns, show='headings', height=14)
-        self.tree.heading('check', text='☐')
+        self.tree.heading('check', text='选择')
         self.tree.heading('name', text='方案名称')
         self.tree.heading('created_at', text='创建时间')
         self.tree.heading('description', text='描述')
@@ -1627,14 +1654,14 @@ class ScenarioManageDialog:
         for idx, name in enumerate(self.scenario_manager.list_scenarios()):
             scenario = self.scenario_manager.get_scenario(name)
             kpis = scenario.get_kpis()
-            check_text = "☑" if self.checked.get(name) else "☐"
+            check_image = self._img_checked if self.checked.get(name) else self._img_unchecked
             self.tree.insert('', tk.END, values=(
-                check_text,
+                "",
                 name,
                 scenario.created_at,
                 scenario.description,
                 f"{kpis['unit_cost']:.3f}",
-            ), tags=(name, 'even' if idx % 2 == 0 else 'odd'))
+            ), image=check_image, tags=(name, 'even' if idx % 2 == 0 else 'odd'))
 
     def _on_tree_click(self, event: tk.Event) -> None:
         """点击复选框列切换勾选状态（仅对比模式）"""
@@ -1669,7 +1696,7 @@ class ScenarioManageDialog:
             state=tk.NORMAL if len(selected) >= 2 else tk.DISABLED
         )
         self.compare_hint_var.set(
-            f"已勾选 {len(selected)}/3：{'、'.join(selected) or '（请勾选 2-3 个方案）'}"
+            f"已勾选 {len(selected)}/3：{'、'.join(selected) or '（点击左侧复选框勾选 2-3 个方案）'}"
         )
 
     def _selected_names(self) -> List[str]:
@@ -1681,12 +1708,12 @@ class ScenarioManageDialog:
     def _toggle_compare(self) -> None:
         """切换对比模式：显示复选框与确认按钮"""
         self.compare_mode = not self.compare_mode
-        width = 40 if self.compare_mode else 0
+        width = 56 if self.compare_mode else 0
         self.tree.column('check', width=width, stretch=False, anchor=tk.CENTER)
         if self.compare_mode:
             self.btn_confirm_compare.pack(side=tk.LEFT, padx=(4, 0))
             self.btn_confirm_compare.config(state=tk.DISABLED)
-            self.compare_hint_var.set("勾选 2-3 个方案后点击「确认对比」")
+            self.compare_hint_var.set("点击左侧复选框勾选 2-3 个方案后点击「确认对比」")
         else:
             self.btn_confirm_compare.pack_forget()
             self.checked = {k: False for k in self.checked}
