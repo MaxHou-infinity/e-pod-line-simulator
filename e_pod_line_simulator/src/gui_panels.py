@@ -1612,14 +1612,16 @@ class ScenarioManageDialog:
         main_frame = ttk.Frame(self.dialog, padding=10)
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        columns = ('check', 'name', 'created_at', 'description', 'unit_cost')
-        self.tree = ttk.Treeview(main_frame, columns=columns, show='headings', height=14)
-        self.tree.heading('check', text='选择')
+        columns = ('name', 'created_at', 'description', 'unit_cost')
+        self.tree = ttk.Treeview(
+            main_frame, columns=columns, show='tree headings', height=14
+        )
+        self.tree.heading('#0', text='选择')
         self.tree.heading('name', text='方案名称')
         self.tree.heading('created_at', text='创建时间')
         self.tree.heading('description', text='描述')
         self.tree.heading('unit_cost', text='单位成本')
-        self.tree.column('check', width=0, stretch=False, anchor=tk.CENTER)
+        self.tree.column('#0', width=0, stretch=False, anchor=tk.CENTER)
         self.tree.column('name', width=140)
         self.tree.column('created_at', width=140)
         self.tree.column('description', width=260)
@@ -1656,21 +1658,20 @@ class ScenarioManageDialog:
             kpis = scenario.get_kpis()
             check_image = self._img_checked if self.checked.get(name) else self._img_unchecked
             self.tree.insert('', tk.END, values=(
-                "",
                 name,
                 scenario.created_at,
                 scenario.description,
                 f"{kpis['unit_cost']:.3f}",
-            ), image=check_image, tags=(name, 'even' if idx % 2 == 0 else 'odd'))
+            ), image=check_image, text="", tags=(name, 'even' if idx % 2 == 0 else 'odd'))
 
     def _on_tree_click(self, event: tk.Event) -> None:
         """点击复选框列切换勾选状态（仅对比模式）"""
         if not self.compare_mode:
             return
-        if self.tree.identify_region(event.x, event.y) != "cell":
+        if self.tree.identify_region(event.x, event.y) not in ("cell", "tree"):
             return
         column = self.tree.identify_column(event.x)
-        if column != "#1":
+        if column not in ("#0", "#1"):
             return
         row_id = self.tree.identify_row(event.y)
         if not row_id:
@@ -1709,7 +1710,7 @@ class ScenarioManageDialog:
         """切换对比模式：显示复选框与确认按钮"""
         self.compare_mode = not self.compare_mode
         width = 56 if self.compare_mode else 0
-        self.tree.column('check', width=width, stretch=False, anchor=tk.CENTER)
+        self.tree.column('#0', width=width, stretch=False, anchor=tk.CENTER)
         if self.compare_mode:
             self.btn_confirm_compare.pack(side=tk.LEFT, padx=(4, 0))
             self.btn_confirm_compare.config(state=tk.DISABLED)
