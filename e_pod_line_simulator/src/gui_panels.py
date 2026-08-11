@@ -2946,7 +2946,7 @@ class AnalysisGuideDialog:
     def __init__(self, parent):
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("分析指南")
-        self.dialog.geometry("640x560")
+        self.dialog.geometry("520x560")
         self.dialog.transient(parent)
         self.dialog.grab_set()
 
@@ -2959,9 +2959,6 @@ class AnalysisGuideDialog:
         text.configure(yscrollcommand=scrollbar.set)
         text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        ttk.Button(main, text="关闭", command=self.dialog.destroy).pack(
-            side=tk.BOTTOM, pady=8
-        )
         self.dialog.bind('<Escape>', lambda e: self.dialog.destroy())
         self.dialog.update_idletasks()
         x = (self.dialog.winfo_screenwidth() // 2) - (self.dialog.winfo_width() // 2)
