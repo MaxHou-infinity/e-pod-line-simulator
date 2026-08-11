@@ -38,13 +38,11 @@ def test_design_tokens_2_0():
     assert theme.RADIUS == {'sm': 8, 'md': 12, 'lg': 16}
     assert theme.SHADOW['card'] == (0, 1, 2)
     assert theme.MOTION['normal'] == 180
-    assert 'light' in theme.THEMES and 'dark' in theme.THEMES
-    assert theme.get_palette(False)['bg'] == '#F5F6F8'
-    assert theme.get_palette(True)['bg'] == '#17181C'
-    assert theme.is_dark() is False
+    assert 'light' in theme.THEMES and 'dark' not in theme.THEMES
+    assert theme.THEMES['light']['bg'] == '#F5F6F8'
 
 
-def test_dark_status_palette():
+def test_status_palette():
     assert theme.status_color('running') == '#34C759'  # 默认亮色
     assert theme.status_soft('blocked') == '#FDEBEA'
     assert theme.alert_color('warning') == '#FF9F0A'
