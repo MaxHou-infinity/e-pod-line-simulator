@@ -5,12 +5,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- 新增 PuffLine Planner 品牌 Banner、应用图标和当前版本合成演示截图
+- 新增用户指南、贡献指南以及 Bug / 功能建议 Issue 表单
+
 ### Changed
 
 - 仓库更名为 **PuffLine Planner**（`puffline-planner`），
   简介与 topics 优化（新增 manpower-planning / hr-planning /
   supply-chain / nicotine-pouch / bottleneck-analysis 等），
   提升 HR 与供应链从业者的搜索命中率
+- README 重构为产品化入口：价值主张、决策流程、演示结果、下载与许可边界
+- 应用窗口、安装包、Bundle ID、Bug 反馈链接和后续 Release 附件统一使用
+  PuffLine Planner 品牌；重复的子目录 README 合并为 `docs/user-guide.md`
 
 ## [3.3.2] - 2026-08-11
 

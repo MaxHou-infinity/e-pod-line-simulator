@@ -1,4 +1,4 @@
-"""AI 自动优化模块单元测试（V3.2 P2）"""
+"""遗传算法辅助优化模块单元测试（V3.2 P2）"""
 
 from src.models import ProductionLine, Station
 from src.optimizer import optimize

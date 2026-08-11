@@ -60,7 +60,7 @@ from src.reporting import export_report
 from src.sensitivity import run_sensitivity
 from src.history import append_snapshot, build_snapshot
 from src.theme import ToolTip, apply_theme, show_toast
-from src.version import __version__
+from src.version import PRODUCT_NAME, __version__
 
 
 class MainWindow:
@@ -86,7 +86,7 @@ class MainWindow:
         """
         # 创建主窗口
         self.root = tk.Tk()
-        self.root.title(f"电子烟产线仿真优化工具 v{__version__}")
+        self.root.title(f"{PRODUCT_NAME} v{__version__}")
         self.root.geometry("1500x900")  # 默认窗口：宽1500，高900
 
         # 应用 V3.0 设计令牌（统一浅色主题）

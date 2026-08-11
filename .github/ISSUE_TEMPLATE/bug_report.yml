@@ -1,0 +1,76 @@
+name: Bug 报告
+description: 报告可复现的错误、崩溃或结果异常
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。请勿上传企业机密、个人信息或未经脱敏的生产数据。
+  - type: input
+    id: version
+    attributes:
+      label: 应用版本
+      description: 可在“帮助 → 关于”或下载文件名中查看。
+      placeholder: 例如 v3.3.2
+    validations:
+      required: true
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: 操作系统
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - 其他
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: 启动方式
+      options:
+        - macOS 打包应用
+        - Windows 打包应用
+        - 源码运行
+        - 其他
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤
+      description: 请从启动应用开始，列出能稳定复现问题的最少步骤。
+      placeholder: |
+        1. 打开……
+        2. 配置……
+        3. 点击……
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期结果
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果
+      description: 如有报错，请粘贴完整错误文本；截图可直接拖入。
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: 补充信息
+      description: 可提供生产类型、最小化配置或问题出现频率。上传前请脱敏。
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索现有 Issue，未发现相同问题。
+          required: true
+        - label: 我已移除附件中的敏感信息。
+          required: true

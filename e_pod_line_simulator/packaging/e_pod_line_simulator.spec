@@ -7,10 +7,17 @@ PyInstaller 打包配置（V3.2 P2）
 """
 
 import os
+import re
 
 from PyInstaller.utils.hooks import collect_submodules
 
 ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))
+with open(os.path.join(ROOT, "src", "version.py"), encoding="utf-8") as version_file:
+    VERSION = re.search(
+        r'^__version__\s*=\s*"([^"]+)"',
+        version_file.read(),
+        re.MULTILINE,
+    ).group(1)
 
 datas = [
     (os.path.join(ROOT, "assets"), "assets"),
@@ -43,7 +50,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="E-Pod-Line-Simulator",
+    name="PuffLine-Planner",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -59,12 +66,13 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=True,
-    name="E-Pod-Line-Simulator",
+    name="PuffLine-Planner",
 )
 
 app = BUNDLE(
     coll,
-    name="E-Pod-Line-Simulator.app",
-    icon=None,
-    bundle_identifier="com.maxhou.e-pod-line-simulator",
+    name="PuffLine Planner.app",
+    icon=os.path.join(ROOT, "assets", "puffline-icon.icns"),
+    version=VERSION,
+    bundle_identifier="com.maxhou.pufflineplanner",
 )

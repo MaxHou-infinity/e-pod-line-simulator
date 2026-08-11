@@ -124,7 +124,7 @@ def test_utils():
 def main():
     """主测试函数"""
     print("\n" + "=" * 50)
-    print("电子烟产线仿真优化工具 - 基础功能测试")
+    print("PuffLine Planner - 基础功能测试")
     print("=" * 50 + "\n")
     
     try:

@@ -24,6 +24,7 @@ if project_root not in sys.path:
 
 from src.gui_main import MainWindow
 from src.utils import setup_logger
+from src.version import PRODUCT_NAME
 
 
 def main():
@@ -43,7 +44,7 @@ def main():
         # 设置日志
         logger = setup_logger()
         logger.info("=" * 50)
-        logger.info("电子烟产线仿真优化工具启动")
+        logger.info("%s 启动", PRODUCT_NAME)
         logger.info("=" * 50)
         
         # 创建主窗口
