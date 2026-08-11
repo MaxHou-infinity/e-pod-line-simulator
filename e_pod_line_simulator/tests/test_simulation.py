@@ -283,3 +283,38 @@ def test_pouch_quality_gate_reduces_output():
     # 缺陷率 100% 时合格产出为 0（缺陷件返工隔离，不计产出）
     assert result.total_output == 0
     assert len(result.quality_results) >= 3
+
+
+def test_bottleneck_suggestion_respects_collaboration_type():
+    line = make_line()
+    # make_line 工序为并联，构造协同瓶颈
+    collab = Station("s03", "协同工序", 20.0, 2,
+                     collaboration_type=CollaborationType.COLLABORATIVE)
+    line.add_station(collab)
+    result = SimulationEngine(line).run_sync(duration_hours=0.5)
+    bottleneck_alerts = [a for a in result.alerts if a.alert_type == "bottleneck"]
+    assert bottleneck_alerts
+    assert "加人不会提升产能" in bottleneck_alerts[0].suggestion
+
+
+def test_bottleneck_suggestion_for_machine_takt():
+    from src.models import create_pouch_line
+    result = SimulationEngine(create_pouch_line()).run_sync(duration_hours=0.5)
+    bottleneck_alerts = [a for a in result.alerts if a.alert_type == "bottleneck"]
+    assert bottleneck_alerts
+    assert "机台数" in bottleneck_alerts[0].suggestion
+
+
+def test_wip_suggestion_direction_and_dedup():
+    line = ProductionLine("WIP建议测试", shift_hours=1, break_minutes=0)
+    line.add_station(Station("s01", "快上游", 1.0, 10, buffer_capacity=100))
+    line.add_station(Station("s02", "慢下游", 100.0, 1, buffer_capacity=5))
+    result = SimulationEngine(line).run_sync(duration_hours=1.0)
+
+    blockage = [a for a in result.alerts if a.alert_type == "blockage"]
+    # 去重后：warning（80%）+ critical（满缓冲持续升级），不应每 30 秒刷屏
+    assert len(blockage) <= 3, len(blockage)
+    for alert in blockage:
+        assert "上游" in alert.suggestion
+        assert "限制上游投料" in alert.suggestion
+    assert any(a.severity == "critical" for a in blockage)

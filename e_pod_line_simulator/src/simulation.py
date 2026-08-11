@@ -106,6 +106,10 @@ class SimulationEngine:
         self.cleaning_events: List[Dict[str, Any]] = []
         self._last_batch_recipe: Optional[str] = None
         self.random_seed: Optional[int] = None
+        # P0 报警去重状态
+        self._blockage_state: Dict[str, str] = {}   # station_id -> warning/critical
+        self._blockage_since: Dict[str, float] = {}
+        self._predict_alerted: set = set()
     
     def set_callback(self, callback: Callable[[SimulationState], None]) -> None:
         """
@@ -186,6 +190,35 @@ class SimulationEngine:
         for event in others:
             self.event_queue.put(event)
         return events
+
+    def _bottleneck_suggestion(self, station) -> str:
+        """按工序类型生成瓶颈建议（P0）"""
+        if station.machine_takt:
+            return (
+                f"建议增加{station.name}的机台数或降低机台节拍"
+                f"（当前节拍 {station.machine_takt:.1f} 秒）"
+            )
+        if station.collaboration_type == CollaborationType.COLLABORATIVE:
+            return (
+                f"{station.name}为协同工序：加人不会提升产能，"
+                f"建议提升 OEE/工艺节拍或评估改为并联"
+            )
+        return f"建议增加{station.name}的并联工人数量或提升OEE"
+
+    def _wip_suggestion(self, station, station_index: int) -> str:
+        """按失衡方向生成 WIP 建议（P0）"""
+        if station_index > 0:
+            upstream = self.line.stations[station_index - 1]
+            up_cap = upstream.get_capacity()
+            st_cap = station.get_capacity()
+            if up_cap > st_cap:
+                return (
+                    f"上游「{upstream.name}」产能（{up_cap:.0f}）高于本工序"
+                    f"（{st_cap:.0f}），建议提升{station.name}产能"
+                    f"（节拍/OEE/设备）或限制上游投料；扩大缓冲区仅缓解不治本"
+                )
+            return f"建议平衡「{upstream.name}」与{station.name}的节拍或增加缓存"
+        return f"建议提升{station.name}产能或扩大缓冲区"
 
     def _batch_process(self, batch) -> simpy.events.Process:
         """
@@ -314,6 +347,9 @@ class SimulationEngine:
         self.quality_results = []
         self.cleaning_events = []
         self._rng = random.Random(self.random_seed)
+        self._blockage_state = {}
+        self._blockage_since = {}
+        self._predict_alerted = set()
 
         # 步骤1：创建SimPy环境
         # Environment是SimPy的核心，管理仿真时钟和事件队列
@@ -550,7 +586,7 @@ class SimulationEngine:
                         f"瓶颈工序：{bottleneck.name}，"
                         f"产能：{bottleneck.get_capacity():.0f}{self.line.get_unit()}/h"
                     ),
-                    suggestion=f"建议增加{bottleneck.name}的工人数量或提升OEE",
+                    suggestion=self._bottleneck_suggestion(bottleneck),
                     timestamp_minutes=timestamp_minutes
                 )
                 self._emit_alert(alert)
@@ -586,17 +622,61 @@ class SimulationEngine:
                     'wip': wip_count,
                 })
                 
-                # 如果WIP超过80%容量，发出警报
-                if utilization >= 0.8:
-                    alert = Alert(
-                        alert_type="blockage",
-                        severity="warning",
-                        station_id=station.id,
-                        message=f"{station.name}的WIP堆积：{wip_count}/{station.buffer_capacity}",
-                        suggestion=f"建议增加{station.name}的下游产能或扩大缓冲区",
-                        timestamp_minutes=timestamp_minutes
-                    )
-                    self._emit_alert(alert)
+                station_index = self.line.stations.index(station)
+
+                # 低于阈值：重置状态
+                if utilization < 0.8:
+                    self._blockage_state.pop(station.id, None)
+                    self._blockage_since.pop(station.id, None)
+                    continue
+
+                # 状态去重与升级（P0）：warning 每工序仅报一次，满缓冲持续 3 分钟升级 critical
+                current = self._blockage_state.get(station.id)
+                sustained_min = (
+                    (self.env.now - self._blockage_since[station.id]) / 60.0
+                    if station.id in self._blockage_since
+                    else 0.0
+                )
+
+                if utilization < 1.0:
+                    if current != "warning":
+                        self._blockage_state[station.id] = "warning"
+                        self._blockage_since[station.id] = self.env.now
+                        self._emit_alert(Alert(
+                            alert_type="blockage",
+                            severity="warning",
+                            station_id=station.id,
+                            message=f"{station.name}的WIP堆积：{wip_count}/{station.buffer_capacity}",
+                            suggestion=self._wip_suggestion(station, station_index),
+                            timestamp_minutes=timestamp_minutes,
+                        ))
+                else:
+                    if current != "critical":
+                        if current == "warning" and sustained_min >= 3.0:
+                            self._blockage_state[station.id] = "critical"
+                            self._emit_alert(Alert(
+                                alert_type="blockage",
+                                severity="critical",
+                                station_id=station.id,
+                                message=(
+                                    f"{station.name}缓冲区已满并持续 {sustained_min:.0f} 分钟"
+                                    f"：{wip_count}/{station.buffer_capacity}"
+                                ),
+                                suggestion=self._wip_suggestion(station, station_index),
+                                timestamp_minutes=timestamp_minutes,
+                            ))
+                        elif current is None:
+                            # 直接从 0 跳到满缓冲：先报 warning
+                            self._blockage_state[station.id] = "warning"
+                            self._blockage_since[station.id] = self.env.now
+                            self._emit_alert(Alert(
+                                alert_type="blockage",
+                                severity="warning",
+                                station_id=station.id,
+                                message=f"{station.name}的WIP堆积：{wip_count}/{station.buffer_capacity}",
+                                suggestion=self._wip_suggestion(station, station_index),
+                                timestamp_minutes=timestamp_minutes,
+                            ))
     
     def _update_state_periodically(self) -> simpy.events.Process:
         """
@@ -838,6 +918,9 @@ class SimulationEngine:
         self.quality_results = []
         self.cleaning_events = []
         self._rng = random.Random(self.random_seed)
+        self._blockage_state = {}
+        self._blockage_since = {}
+        self._predict_alerted = set()
 
         self.env = simpy.Environment()
         self._init_resources()
