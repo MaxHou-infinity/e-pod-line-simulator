@@ -1018,6 +1018,15 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：84 passed；GUI 冒烟通过
 
+## 2026-08-11 - V3.0 L6 键盘可达
+
+### 完成内容
+- 各对话框 Esc 关闭/取消、Enter 确定
+- 输入框聚焦主色环（L3 承接）
+
+### 验证
+- pytest：84 passed
+
 ## 2026-08-11 - V3.0 L5 画布视觉升级
 
 ### 完成内容

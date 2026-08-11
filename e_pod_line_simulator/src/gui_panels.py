@@ -708,6 +708,9 @@ class StationDialog:
         
         # 创建输入字段
         self._create_widgets(station)
+        # V3.0 键盘可达：Esc 取消，Enter 确定
+        self.dialog.bind('<Escape>', lambda e: self._btn_cancel())
+        self.dialog.bind('<Return>', lambda e: self._btn_ok())
         
         # 居中显示
         self.dialog.update_idletasks()
@@ -961,6 +964,9 @@ class ShiftConfigDialog:
         
         # 创建输入字段
         self._create_widgets(shift_hours, break_minutes, worker_hourly_wage)
+        # V3.0 键盘可达：Esc 取消，Enter 确定
+        self.dialog.bind('<Escape>', lambda e: self._btn_cancel())
+        self.dialog.bind('<Return>', lambda e: self._btn_ok())
         
         # 居中显示
         self.dialog.update_idletasks()
@@ -1104,6 +1110,8 @@ class SaveScenarioDialog:
         
         # 绑定回车键
         self.dialog.bind('<Return>', lambda e: self._on_confirm())
+        # V3.0 键盘可达：Esc 取消
+        self.dialog.bind('<Escape>', lambda e: self._on_cancel())
         
         # 居中显示（相对于父窗口，而不是屏幕）
         # 必须在创建完所有widgets后调用update_idletasks()
@@ -1277,6 +1285,7 @@ class ScenarioCompareDialog:
         
         # 创建界面（先创建界面，再计算位置）
         self._create_widgets()
+        self.dialog.bind('<Escape>', lambda e: self.dialog.destroy())
         
         # 居中显示（相对于父窗口）
         self.dialog.update_idletasks()
@@ -1455,6 +1464,7 @@ class ScenarioManageDialog:
         self.dialog.grab_set()
 
         self._create_widgets()
+        self.dialog.bind('<Escape>', lambda e: self.dialog.destroy())
 
         self.dialog.update_idletasks()
         x = (self.dialog.winfo_screenwidth() - self.dialog.winfo_width()) // 2
@@ -1636,6 +1646,7 @@ class WizardDialog:
         self.auto_start_var = tk.BooleanVar(value=True)
 
         self._create_widgets()
+        self.dialog.bind('<Escape>', lambda e: self.dialog.destroy())
         self._show_step(0)
 
         # 居中显示
