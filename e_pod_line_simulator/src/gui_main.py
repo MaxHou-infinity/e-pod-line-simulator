@@ -46,6 +46,7 @@ from src.gui_panels import (
     WizardDialog,
     HrPlanningDialog,
     HistoryDialog,
+    SweepDialog,
 )
 from src.utils import (
     load_config,
@@ -180,6 +181,7 @@ class MainWindow:
         analysis_menu.add_command(label="敏感性试算...", command=self._menu_sensitivity)
         analysis_menu.add_command(label="人力规划...", command=self._menu_hr_planning)
         analysis_menu.add_command(label="KPI 历史趋势...", command=self._menu_history)
+        analysis_menu.add_command(label="批量试算...", command=self._menu_sweep)
         analysis_menu.add_command(label="导出报告", command=self._menu_export_report)
         
         # 帮助菜单
@@ -723,6 +725,14 @@ class MainWindow:
         """分析菜单 - KPI 历史趋势（V3.2 P1）"""
         HistoryDialog(self.root, self.production_line)
         self.status_bar.config(text="KPI 历史趋势已关闭")
+
+    def _menu_sweep(self) -> None:
+        """分析菜单 - 批量试算（V3.2 P1）"""
+        if self.production_line is None or not self.production_line.stations:
+            messagebox.showwarning("警告", "没有可试算的产线配置")
+            return
+        SweepDialog(self.root, self.production_line)
+        self.status_bar.config(text="批量试算已关闭")
     
     def _menu_help(self) -> None:
         """帮助菜单 - 使用说明"""

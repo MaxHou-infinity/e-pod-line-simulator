@@ -5,7 +5,7 @@
 """
 
 import copy
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from src.models import CollaborationType, ProductionLine
 from src.simulation import SimulationEngine
@@ -69,3 +69,49 @@ def run_sensitivity(
         })
 
     return scenarios
+
+
+def run_sweep(
+    line: ProductionLine,
+    param: str,
+    values: List[float],
+    station_id: Optional[str] = None,
+    duration_hours: float = 8.0,
+    warmup_minutes: float = 0.0,
+) -> List[Dict]:
+    """
+    批量试算（V3.2 P1）
+
+    对同一参数的一组取值逐一仿真，对比产出/日产量/单位成本/UPPH。
+    参数支持：worker_count / machine_takt / oee（作用于指定工序，
+    缺省为瓶颈工序）与 shift_hours（作用于产线）。
+    """
+    target = line.get_station(station_id) if station_id else line.find_bottleneck()
+    rows: List[Dict] = []
+    for value in values:
+        clone = copy.deepcopy(line)
+        if param == "shift_hours":
+            clone.shift_hours = max(1, int(value))
+        elif param in ("worker_count", "machine_takt", "oee"):
+            if target is None:
+                continue
+            station = clone.get_station(target.id)
+            if station is None:
+                continue
+            if param == "worker_count":
+                station.worker_count = max(1, int(value))
+            elif param == "machine_takt":
+                station.machine_takt = max(0.1, float(value))
+            else:
+                station.oee = min(1.0, max(0.01, float(value)))
+        else:
+            continue
+        result = SimulationEngine(clone).run_sync(duration_hours, warmup_minutes)
+        rows.append({
+            'label': f"{param}={value}",
+            'total_output': result.total_output,
+            'daily_output': round(result.kpis.get('daily_output', 0.0), 1),
+            'unit_cost': result.kpis.get('unit_cost', 0.0),
+            'upph': result.kpis.get('upph', 0.0),
+        })
+    return rows

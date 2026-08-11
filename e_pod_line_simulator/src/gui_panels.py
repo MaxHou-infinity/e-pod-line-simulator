@@ -49,6 +49,7 @@ from src.history import (
     kpi_series,
     load_history,
 )
+from src.sensitivity import run_sweep
 
 
 def build_template_line(key: str) -> ProductionLine:
@@ -2193,6 +2194,135 @@ class HistoryDialog:
             messagebox.showerror("失败", "记录失败，请查看 logs/app.log")
         self._refresh()
         self._draw_chart()
+
+    def _close(self) -> None:
+        self.dialog.destroy()
+
+
+class SweepDialog:
+    """
+    批量试算对话框（V3.2 P1）
+
+    对同一参数的一组取值批量仿真对比（工人数/机台节拍/OEE/班次时长）。
+    """
+
+    PARAM_LABELS = {
+        "worker_count": "工人数",
+        "machine_takt": "机台节拍(秒)",
+        "oee": "OEE",
+        "shift_hours": "班次时长(小时)",
+    }
+
+    def __init__(self, parent, production_line: Optional[ProductionLine]):
+        self.line = production_line
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("批量试算")
+        self.dialog.geometry("640x520")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        self._create_widgets()
+        self.dialog.bind('<Escape>', lambda e: self._close())
+        self.dialog.update_idletasks()
+        x = (self.dialog.winfo_screenwidth() // 2) - (self.dialog.winfo_width() // 2)
+        y = (self.dialog.winfo_screenheight() // 2) - (self.dialog.winfo_height() // 2)
+        self.dialog.geometry(f"+{x}+{y}")
+        self.dialog.wait_window()
+
+    def _create_widgets(self) -> None:
+        main = ttk.Frame(self.dialog, padding=14)
+        main.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(main, text="参数:").grid(row=0, column=0, sticky=tk.W, pady=4)
+        self.param_var = tk.StringVar(value="worker_count")
+        ttk.Combobox(
+            main,
+            textvariable=self.param_var,
+            values=list(self.PARAM_LABELS.keys()),
+            state="readonly",
+            width=18,
+        ).grid(row=0, column=1, sticky=tk.W, pady=4)
+
+        ttk.Label(main, text="工序ID（留空=瓶颈）:").grid(
+            row=1, column=0, sticky=tk.W, pady=4
+        )
+        self.station_var = tk.StringVar(value="")
+        ttk.Entry(main, textvariable=self.station_var, width=20).grid(
+            row=1, column=1, sticky=tk.W, pady=4
+        )
+
+        ttk.Label(main, text="取值列表（逗号分隔）:").grid(
+            row=2, column=0, sticky=tk.W, pady=4
+        )
+        self.values_var = tk.StringVar(value="1,2,3")
+        ttk.Entry(main, textvariable=self.values_var, width=28).grid(
+            row=2, column=1, sticky=tk.W, pady=4
+        )
+
+        ttk.Label(main, text="仿真时长(小时):").grid(
+            row=3, column=0, sticky=tk.W, pady=4
+        )
+        self.duration_var = tk.StringVar(
+            value=str(self.line.shift_hours) if self.line else "8"
+        )
+        ttk.Entry(main, textvariable=self.duration_var, width=10).grid(
+            row=3, column=1, sticky=tk.W, pady=4
+        )
+
+        ttk.Button(main, text="开始试算", command=self._run).grid(
+            row=4, column=0, columnspan=2, sticky=tk.W, pady=8
+        )
+
+        columns = ("label", "output", "daily", "unit_cost", "upph")
+        self.tree = ttk.Treeview(main, columns=columns, show="headings", height=10)
+        self.tree.heading("label", text="参数")
+        self.tree.heading("output", text="总产出")
+        self.tree.heading("daily", text="日产量")
+        self.tree.heading("unit_cost", text="单位成本")
+        self.tree.heading("upph", text="UPPH")
+        for col, width in (("label", 140), ("output", 100), ("daily", 100),
+                           ("unit_cost", 100), ("upph", 100)):
+            self.tree.column(col, width=width, anchor=tk.E if col != "label" else tk.W)
+        self.tree.grid(row=5, column=0, columnspan=2, sticky=tk.NSEW, pady=(4, 0))
+
+        ttk.Button(main, text="关闭", command=self._close).grid(
+            row=6, column=1, sticky=tk.E, pady=8
+        )
+        main.rowconfigure(5, weight=1)
+        main.columnconfigure(1, weight=1)
+
+    def _run(self) -> None:
+        try:
+            param = self.param_var.get()
+            station_id = self.station_var.get().strip() or None
+            values = [
+                float(v.strip())
+                for v in self.values_var.get().replace("，", ",").split(",")
+                if v.strip()
+            ]
+            duration = float(self.duration_var.get())
+            if not values:
+                messagebox.showwarning("警告", "请填写取值列表")
+                return
+            self.dialog.config(cursor="watch")
+            self.dialog.update_idletasks()
+            rows = run_sweep(
+                self.line, param, values,
+                station_id=station_id, duration_hours=duration,
+            )
+            for item in self.tree.get_children():
+                self.tree.delete(item)
+            for row in rows:
+                self.tree.insert("", tk.END, values=(
+                    row["label"],
+                    row["total_output"],
+                    row["daily_output"],
+                    round(row["unit_cost"], 3),
+                    round(row["upph"], 1),
+                ))
+        except Exception as e:
+            messagebox.showerror("试算失败", f"{e}\n\n详细日志：logs/app.log")
+        finally:
+            self.dialog.config(cursor="")
 
     def _close(self) -> None:
         self.dialog.destroy()

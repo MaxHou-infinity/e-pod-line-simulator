@@ -73,6 +73,13 @@ def test_history_dialog_methods_exist():
     assert hasattr(HistoryDialog, "_close")
 
 
+def test_sweep_dialog_methods_exist():
+    from src.gui_panels import SweepDialog
+
+    assert hasattr(SweepDialog, "_run")
+    assert hasattr(SweepDialog, "_close")
+
+
 def test_station_edit_fields_mapping():
     assert station_edit_fields(ProductionType.ASSEMBLY) == set()
     assert station_edit_fields(ProductionType.LIQUID_FILLING) == {
