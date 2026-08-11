@@ -1,21 +1,34 @@
-MIT License
+# 署名-授权许可证 v1.0（Attribution-Authorization License v1.0）
 
-Copyright (c) 2026 Max Hou
+版权所有（c）2026 Max Hou（侯潇越）
+保留所有权利（All Rights Reserved）。
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+## 授权条款
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+在遵守下列条件的前提下，作者授予你全球性、免费、不可再授权的许可，
+允许你使用、复制、修改本软件：
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+1. **署名（Attribution）**
+   任何使用、复制或修改，均须在显著位置保留本许可声明、原始作者署名
+   （Max Hou）以及原始仓库链接：
+   <https://github.com/MaxHou-infinity/e-pod-line-simulator>
+
+2. **通知授权（Notification & Authorization）**
+   在对外发布、分发、销售本软件或其修改版本，或将本软件用于任何商业用途
+   之前，你须以书面方式（GitHub Issue 或邮件等）通知作者，并获得作者的
+   明确授权。
+
+3. **修改声明（Modification Notice）**
+   对软件作出修改后，须在分发物中说明修改内容与修改者身份。
+
+## 限制与免责
+
+- 未经作者明确书面授权，不得将本软件或其修改版本用于商业目的。
+- 本软件按“现状（AS IS）”提供，作者不对其质量、适用性或特定用途的
+  适配性作任何明示或默示担保。
+- 在任何情况下，作者均不对因使用或无法使用本软件而产生的任何直接、
+  间接、附带或后果性损害承担责任。
+
+## 联系方式
+
+- GitHub Issues：<https://github.com/MaxHou-infinity/e-pod-line-simulator/issues>

@@ -6,7 +6,9 @@
 ![version](https://img.shields.io/badge/version-3.0.0-1F2329)
 ![python](https://img.shields.io/badge/Python-3.8%2B-2F6FED)
 ![CI](https://github.com/MaxHou-infinity/e-pod-line-simulator/actions/workflows/ci.yml/badge.svg)
-![license](https://img.shields.io/badge/license-MIT-green)
+![license](https://img.shields.io/badge/license-Attribution%20Authorization-blue)
+
+![主界面](docs/images/screenshot_main.png)
 
 ---
 
@@ -97,7 +99,8 @@ e_pod_line_simulator/
 
 ## 许可与免责
 
-本项目基于 **MIT License** 开源（[LICENSE](LICENSE)），可自由使用、修改与分发。
+本项目采用 **署名-授权许可证 v1.0**（[LICENSE](LICENSE)）：允许使用与修改，
+但须保留作者署名与出处；对外发布或商业使用前，须通知作者并取得明确授权。
 
 仿真结果为产线设计与人力规划的参考，不构成产能或成本承诺；实际投产前请以现场验证为准，作者不对据此做出的决策损失承担责任。
 
