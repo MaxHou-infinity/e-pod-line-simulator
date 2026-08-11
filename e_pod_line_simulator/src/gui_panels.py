@@ -1390,9 +1390,12 @@ class ScenarioCompareDialog:
             ('balance_rate', '产线平衡率', '%', lambda x: f"{x*100:.1f}%"),
             ('upph', 'UPPH', f'{unit}/人·h', lambda x: f"{x:.1f}")
         ]
+
+        self.tree.tag_configure('even', background=COLORS['surface'])
+        self.tree.tag_configure('odd', background=COLORS['bg'])
         
         # 遍历每个KPI指标
-        for metric_key, metric_name, unit, format_func in kpi_configs:
+        for row_index, (metric_key, metric_name, unit, format_func) in enumerate(kpi_configs):
             # 查找对应的差异数据
             diff_data = next(
                 (d for d in self.comparison_data['differences'] if d['metric_key'] == metric_key),
@@ -1423,7 +1426,11 @@ class ScenarioCompareDialog:
                     row_values.append(diff_text)
                 
                 # 插入行
-                item_id = self.tree.insert('', tk.END, values=row_values)
+                self.tree.insert(
+                    '', tk.END,
+                    values=row_values,
+                    tags=('even' if row_index % 2 == 0 else 'odd'),
+                )
                 
                 # 根据差异设置颜色（改善=绿色，恶化=红色）
                 # 注意：Treeview的颜色设置需要特殊处理，这里先不设置
@@ -1464,7 +1471,7 @@ class ScenarioManageDialog:
         self.tree.heading('name', text='方案名称')
         self.tree.heading('created_at', text='创建时间')
         self.tree.heading('description', text='描述')
-        self.tree.heading('unit_cost', text='单颗成本(元/颗)')
+        self.tree.heading('unit_cost', text='单位成本')
         self.tree.column('name', width=140)
         self.tree.column('created_at', width=150)
         self.tree.column('description', width=260)
@@ -1482,7 +1489,9 @@ class ScenarioManageDialog:
         """刷新方案列表"""
         for item in self.tree.get_children():
             self.tree.delete(item)
-        for name in self.scenario_manager.list_scenarios():
+        self.tree.tag_configure('even', background=COLORS['surface'])
+        self.tree.tag_configure('odd', background=COLORS['bg'])
+        for idx, name in enumerate(self.scenario_manager.list_scenarios()):
             scenario = self.scenario_manager.get_scenario(name)
             kpis = scenario.get_kpis()
             self.tree.insert('', tk.END, values=(
@@ -1490,7 +1499,7 @@ class ScenarioManageDialog:
                 scenario.created_at,
                 scenario.description,
                 f"{kpis['unit_cost']:.3f}",
-            ), tags=(name,))
+            ), tags=(name, 'even' if idx % 2 == 0 else 'odd'))
 
     def _delete_selected(self) -> None:
         """删除选中的方案"""
