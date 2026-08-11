@@ -102,7 +102,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${GITHUB_REF_NAME}"
-          ZIP="E-Pod-Line-Simulator-macOS-${TAG}.zip"
+          ZIP="${GITHUB_WORKSPACE}/E-Pod-Line-Simulator-macOS-${TAG}.zip"
           if gh release view "${TAG}" >/dev/null 2>&1; then
             gh release upload "${TAG}" "${ZIP}" --clobber
           else
