@@ -583,23 +583,40 @@ class AlertPanel(ttk.LabelFrame):
     def __init__(self, parent):
         """初始化报警面板"""
         super().__init__(parent, text="报警信息", padding=10)
+        self._alerts: List[Alert] = []
+        self._collapsed = False
 
-        # 头部：一键复制报警文本
+        # 头部：筛选 / 清空 / 折叠 / 复制
         header = ttk.Frame(self)
         header.pack(fill=tk.X)
+        self.filter_var = tk.StringVar(value="全部")
+        self.filter_combo = ttk.Combobox(
+            header,
+            textvariable=self.filter_var,
+            values=["全部", "严重", "警告", "信息"],
+            width=6,
+            state="readonly",
+        )
+        self.filter_combo.pack(side=tk.LEFT, padx=2)
+        self.filter_combo.bind('<<ComboboxSelected>>', lambda e: self._apply_filter())
+        self.btn_clear = ttk.Button(header, text="清空", width=6, command=self._clear)
+        self.btn_clear.pack(side=tk.LEFT, padx=2)
+        self.btn_collapse = ttk.Button(
+            header, text="折叠", width=6, command=self._toggle_collapse
+        )
+        self.btn_collapse.pack(side=tk.LEFT, padx=2)
         self.btn_copy_alerts = ttk.Button(
             header,
-            text="📋 复制报警",
-            width=12,
+            text="📋 复制",
+            width=8,
             command=self._copy_alerts,
         )
         self.btn_copy_alerts.pack(side=tk.RIGHT)
-        ToolTip(self.btn_copy_alerts, "一键复制全部报警文本到剪贴板")
 
         # 报警列表（使用Text组件显示）
         self.text_widget = tk.Text(self, height=10, wrap=tk.WORD)
         self.text_widget.pack(fill=tk.BOTH, expand=True)
-        
+
         # 配置文本样式
         self.text_widget.config(state=tk.DISABLED)  # 只读
     
@@ -610,42 +627,62 @@ class AlertPanel(ttk.LabelFrame):
         Args:
             alert: 报警对象
         """
+        self._alerts.append(alert)
+        self._render()
+
+    def _render(self) -> None:
+        """按筛选条件渲染报警列表（V3.0）"""
         # 启用编辑
         self.text_widget.config(state=tk.NORMAL)
-        
-        # 获取颜色
-        color = get_alert_color(alert.severity)
-        
-        # 格式化时间戳（分钟）
-        time_str = f"{alert.timestamp_minutes:.1f}分钟"
-        icon = ALERT_ICONS.get(alert.severity, '•')
-        
-        # 插入报警文本（包含时间戳）
-        text = f"[{time_str}] {icon} [{alert.severity.upper()}] {alert.message}\n"
-        if alert.suggestion:
-            text += f"  建议：{alert.suggestion}\n"
-        text += "\n"
-        
-        # 插入文本并应用颜色标记
-        start_pos = self.text_widget.index(tk.END)
-        self.text_widget.insert(tk.END, text)
-        end_pos = self.text_widget.index(tk.END)
-        
-        # 应用颜色标记（整个文本）
-        self.text_widget.tag_add(alert.severity, start_pos, end_pos)
-        self.text_widget.tag_config(alert.severity, foreground=color)
-        
-        # 滚动到底部
+        self.text_widget.delete("1.0", tk.END)
+
+        severity_map = {"全部": "all", "严重": "critical", "警告": "warning", "信息": "info"}
+        target = severity_map.get(self.filter_var.get(), "all")
+
+        for alert in self._alerts:
+            if target != "all" and alert.severity != target:
+                continue
+            color = get_alert_color(alert.severity)
+            time_str = f"{alert.timestamp_minutes:.1f}分钟"
+            icon = ALERT_ICONS.get(alert.severity, '•')
+            text = f"[{time_str}] {icon} [{alert.severity.upper()}] {alert.message}\n"
+            if alert.suggestion:
+                text += f"  建议：{alert.suggestion}\n"
+            text += "\n"
+
+            start_pos = self.text_widget.index(tk.END)
+            self.text_widget.insert(tk.END, text)
+            end_pos = self.text_widget.index(tk.END)
+            self.text_widget.tag_add(alert.severity, start_pos, end_pos)
+            self.text_widget.tag_config(alert.severity, foreground=color)
+
         self.text_widget.see(tk.END)
-        
         # 禁用编辑
         self.text_widget.config(state=tk.DISABLED)
-    
+
     def clear(self) -> None:
         """清空报警信息"""
-        self.text_widget.config(state=tk.NORMAL)
-        self.text_widget.delete(1.0, tk.END)
-        self.text_widget.config(state=tk.DISABLED)
+        self._alerts = []
+        self._render()
+
+    def _apply_filter(self) -> None:
+        """应用报警级别筛选"""
+        self._render()
+
+    def _clear(self) -> None:
+        """清空按钮"""
+        self._alerts = []
+        self._render()
+
+    def _toggle_collapse(self) -> None:
+        """折叠/展开报警列表"""
+        self._collapsed = not self._collapsed
+        if self._collapsed:
+            self.text_widget.pack_forget()
+            self.btn_collapse.config(text="展开")
+        else:
+            self.text_widget.pack(fill=tk.BOTH, expand=True)
+            self.btn_collapse.config(text="折叠")
 
     def _copy_alerts(self) -> None:
         """一键复制全部报警文本到剪贴板"""

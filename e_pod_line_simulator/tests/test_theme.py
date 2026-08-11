@@ -48,3 +48,8 @@ def test_dark_status_palette():
     assert theme.status_color('running') == '#34C759'  # 默认亮色
     assert theme.status_soft('blocked') == '#FDEBEA'
     assert theme.alert_color('warning') == '#FF9F0A'
+
+
+def test_toast_available():
+    assert hasattr(theme, 'Toast')
+    assert callable(theme.show_toast)

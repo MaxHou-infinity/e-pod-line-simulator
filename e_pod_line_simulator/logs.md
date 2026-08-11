@@ -1027,6 +1027,15 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：84 passed
 
+## 2026-08-11 - V3.0 L7 Toast 与报警栏折叠筛选
+
+### 完成内容
+- Toast 反馈（保存/导出/主题切换）
+- 报警栏级别筛选、清空、折叠/展开
+
+### 验证
+- pytest：85 passed；GUI 冒烟通过
+
 ## 2026-08-11 - V3.0 L5 画布视觉升级
 
 ### 完成内容

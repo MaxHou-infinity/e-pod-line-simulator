@@ -346,3 +346,37 @@ class ToolTip:
             except Exception:
                 pass
             self._after_id = None
+
+
+class Toast:
+    """
+    轻量 Toast 反馈（V3.0）
+
+    使用方式：
+        show_toast(root, "已保存")
+    """
+
+    def __init__(self, root, text: str, duration_ms: int = 2200):
+        top = tk.Toplevel(root)
+        top.overrideredirect(True)
+        top.attributes('-topmost', True)
+        label = tk.Label(
+            top,
+            text=text,
+            bg=COLORS['toast_bg'],
+            fg=COLORS['toast_fg'],
+            padx=16,
+            pady=10,
+            font=(resolve_font_family(), 11),
+        )
+        label.pack()
+        top.update_idletasks()
+        x = root.winfo_rootx() + root.winfo_width() - top.winfo_width() - 24
+        y = root.winfo_rooty() + root.winfo_height() - top.winfo_height() - 48
+        top.geometry(f"+{max(0, x)}+{max(0, y)}")
+        top.after(duration_ms, top.destroy)
+
+
+def show_toast(root, text: str, duration_ms: int = 2200) -> None:
+    """显示 Toast 反馈"""
+    Toast(root, text, duration_ms)

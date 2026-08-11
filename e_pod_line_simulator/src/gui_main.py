@@ -54,7 +54,7 @@ from src.utils import (
 )
 from src.scenario_manager import ScenarioManager
 from src.reporting import export_report
-from src.theme import ToolTip, apply_theme
+from src.theme import ToolTip, apply_theme, show_toast
 from src.version import __version__
 
 
@@ -608,7 +608,7 @@ class MainWindow:
         
         # 检查保存结果
         if dialog.result:
-            messagebox.showinfo("成功", f"方案'{dialog.result['name']}'已保存")
+            show_toast(self.root, f"方案已保存：{dialog.result['name']}")
             if dialog.result.get('path'):
                 self.status_bar.config(
                     text=f"已保存方案：{dialog.result['name']}（已导出：{dialog.result['path']}）"
@@ -653,7 +653,7 @@ class MainWindow:
             return
 
         if export_report(result, file_path):
-            messagebox.showinfo("成功", f"报告已导出：\n{file_path}")
+            show_toast(self.root, f"报告已导出：{file_path}")
             self.status_bar.config(text=f"报告已导出：{file_path}")
             self.logger.info("导出报告成功：%s", file_path)
         else:
@@ -708,6 +708,7 @@ class MainWindow:
         save_ui_config({'theme': 'dark' if self._dark else 'light'})
         mode = '深色' if self._dark else '浅色'
         self.status_bar.config(text=f"已切换到{mode}模式")
+        show_toast(self.root, f"已切换到{mode}模式")
         self.logger.info("主题切换：%s", mode)
 
     def _on_callback_exception(self, exc_type, exc_value, exc_tb) -> None:
