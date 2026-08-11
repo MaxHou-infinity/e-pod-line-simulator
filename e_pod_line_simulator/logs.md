@@ -1128,6 +1128,18 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：95 passed；冒烟通过
 
+## 2026-08-11 - README 增强与 v3.0.0 交付对齐
+
+### 完成内容
+- 重写根 README：英文副标题、徽章、价值主张、功能、快速开始、文档导航、
+  技术栈、路线图、支持与反馈、关键词（中英）
+- 内层 README 增加指向根 README 的入口
+- 重新生成 `E-Pod-Line-Simulator-v3.0.0.zip`（78 条目，含 README/version/二维码）
+- 删除旧 v1.2.0 压缩包
+
+### 验证
+- 本地与 GitHub main 完全同步（tag v1.1.0-v3.0.0）
+
 ## 2026-08-11 - V3.1 P2.9 取消深色模式与按钮配色
 
 ### 完成内容
