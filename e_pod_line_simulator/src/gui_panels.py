@@ -3417,6 +3417,53 @@ class ResultTableDialog:
         self.dialog.destroy()
 
 
+class HelpDialog:
+    """使用说明对话框（V3.3.3：与术语/分析指南一致的可滚动窗口）"""
+
+    HELP_TEXT = """【操作步骤】
+1. 用「文件 → 快速配置向导」一键生成产线，或从「方案」导入已有方案
+2. 在主界面添加/编辑工序（参数随生产类型自动适配；
+   烟油/尼古丁袋可设置工种）
+3. 点击「开始仿真」，观察画布、KPI 与报警；
+   运行中可用「停机切换（换型）」模拟更换口味/规格/配方
+4. 保存方案（主界面或「文件 → 保存方案」）；
+   「方案」菜单用于方案管理 / 对比与 KPI 历史趋势
+5. 分析试算：「分析」菜单提供敏感性试算、批量试算、
+   智能优化、人力规划
+6. 需要存档时用「报告 → 导出报告」（Excel / PDF）
+7. 快捷键：Ctrl+S 保存方案、空格 开始/暂停
+
+【亮点与价值】
+• 把产线设计从"2 周试错"压缩到"2 小时仿真"
+• 支持烟弹组装 / 烟油灌装（千克）/ 尼古丁袋三种生产类型
+• 智能报警：瓶颈、WIP、饥饿/堵塞、预测预警、根因建议
+• 人力规划：目标产量反推人数、成本、招聘缺口与爬坡达产
+• 统一浅色主题、2026 桌面级交互体验
+• 完整本地运行，数据不出设备"""
+
+    def __init__(self, parent):
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("使用说明")
+        self.dialog.geometry("560x560")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        main = ttk.Frame(self.dialog, padding=14)
+        main.pack(fill=tk.BOTH, expand=True)
+        text = tk.Text(main, wrap=tk.WORD, font=(resolve_font_family(), 11))
+        text.insert("1.0", self.HELP_TEXT)
+        text.config(state=tk.DISABLED)
+        scrollbar = ttk.Scrollbar(main, orient=tk.VERTICAL, command=text.yview)
+        text.configure(yscrollcommand=scrollbar.set)
+        text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.dialog.bind('<Escape>', lambda e: self.dialog.destroy())
+        self.dialog.update_idletasks()
+        x = (self.dialog.winfo_screenwidth() // 2) - (self.dialog.winfo_width() // 2)
+        y = (self.dialog.winfo_screenheight() // 2) - (self.dialog.winfo_height() // 2)
+        self.dialog.geometry(f"+{x}+{y}")
+
+
 class AnalysisGuideDialog:
     """分析指南（V3.3）：何时用哪个分析功能"""
 

@@ -49,6 +49,7 @@ from src.gui_panels import (
     ResultTableDialog,
     AnalysisGuideDialog,
     ChangeoverDialog,
+    HelpDialog,
 )
 from src.utils import (
     validate_production_line,
@@ -715,24 +716,7 @@ class MainWindow:
     
     def _menu_help(self) -> None:
         """帮助菜单 - 使用说明"""
-        help_text = """
-【操作步骤】
-1. 用「文件 → 快速配置向导」一键生成产线，或使用已有方案
-2. 添加/编辑工序（参数随生产类型自动适配）
-3. 点击「开始仿真」，观察画布、KPI 与报警
-4. 保存方案（主界面或「文件 → 保存方案」）、
-   方案管理 / 对比、KPI 历史趋势、导出报告
-5. 分析试算：敏感性试算、批量试算、智能优化、人力规划
-6. 快捷键：Ctrl+S 保存方案、空格 开始/暂停
-
-【亮点与价值】
-• 把产线设计从"2 周试错"压缩到"2 小时仿真"
-• 支持烟弹组装 / 烟油灌装 / 尼古丁袋三种生产类型
-• 智能报警：瓶颈、WIP、饥饿/堵塞、预测预警、根因建议
-• 统一浅色主题、2026 桌面级交互体验
-• 完整本地运行，数据不出设备
-        """
-        messagebox.showinfo("使用说明", help_text)
+        HelpDialog(self.root)
     
     def _menu_about(self) -> None:
         """帮助菜单 - 关于"""

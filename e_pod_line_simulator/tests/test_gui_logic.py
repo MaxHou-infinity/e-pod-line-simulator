@@ -183,6 +183,14 @@ def test_glossary_dialog_search_methods_exist():
     assert hasattr(GlossaryDialog, "_render")
 
 
+def test_help_dialog_exists():
+    from src.gui_panels import HelpDialog
+
+    assert hasattr(HelpDialog, "HELP_TEXT")
+    assert "停机切换" in HelpDialog.HELP_TEXT
+    assert "Ctrl+S" in HelpDialog.HELP_TEXT
+
+
 def test_about_dialog_class_and_urls():
     import os
 
