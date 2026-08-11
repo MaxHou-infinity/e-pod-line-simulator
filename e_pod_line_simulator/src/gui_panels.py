@@ -1448,6 +1448,13 @@ class ScenarioCompareDialog:
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(pady=10)
         ttk.Button(button_frame, text="关闭", command=self.dialog.destroy).pack()
+        HelpSection(
+            main_frame,
+            "使用说明",
+            "目的：对比 2-5 个保存方案的 KPI，并给出推荐。\n"
+            "推荐依据：默认按单位成本最低推荐。\n"
+            "差异列 = 各方案相对第一个方案（基准）的差值。",
+        ).pack(fill=tk.X, pady=(0, 8))
     
     def _populate_table(self) -> None:
         """填充对比表格数据"""
@@ -1838,10 +1845,13 @@ class HrPlanningDialog:
         main = ttk.Frame(self.dialog, padding=15)
         main.pack(fill=tk.BOTH, expand=True)
 
-        def _row(row, col, label, var, width=12, padx=(0, 0)):
-            ttk.Label(main, text=label).grid(
+        def _row(row, col, label, var, width=12, padx=(0, 0), hint=None):
+            label_widget = ttk.Label(main, text=label)
+            label_widget.grid(
                 row=row, column=col, sticky=tk.W, pady=4
             )
+            if hint:
+                ToolTip(label_widget, hint)
             ttk.Entry(main, textvariable=var, width=width).grid(
                 row=row, column=col + 1, sticky=tk.W, pady=4, padx=padx
             )
@@ -1857,16 +1867,26 @@ class HrPlanningDialog:
         self.turnover_var = tk.StringVar(value="0")
         self.ramp_var = tk.StringVar(value="90")
 
-        _row(0, 0, "目标日产量:", self.target_var)
-        _row(0, 2, "班次数:", self.shifts_var, padx=(16, 0))
-        _row(1, 0, "班次时长(小时):", self.shift_hours_var)
-        _row(1, 2, "休息(分钟):", self.break_var, padx=(16, 0))
-        _row(2, 0, "加班(小时/班):", self.overtime_var)
-        _row(2, 2, "时薪(元/h):", self.wage_var, padx=(16, 0))
-        _row(3, 0, "社保/福利比例:", self.social_var)
-        _row(3, 2, "缺勤率(0-1):", self.absence_var, padx=(16, 0))
-        _row(4, 0, "月离职率(0-1):", self.turnover_var)
-        _row(4, 2, "爬坡天数:", self.ramp_var, padx=(16, 0))
+        _row(0, 0, "目标日产量:", self.target_var,
+             hint="产线每天需要达到的产出数量（单位随生产类型：颗/升/袋）")
+        _row(0, 2, "班次数:", self.shifts_var, padx=(16, 0),
+             hint="每天开几个班次，如 1/2/3 班")
+        _row(1, 0, "班次时长(小时):", self.shift_hours_var,
+             hint="每个班次的计划时长（含休息），通常 8-12 小时")
+        _row(1, 2, "休息(分钟):", self.break_var, padx=(16, 0),
+             hint="班次内休息时间，影响每日有效工时")
+        _row(2, 0, "加班(小时/班):", self.overtime_var,
+             hint="每个班次额外加班小时数，按加班倍率计薪")
+        _row(2, 2, "时薪(元/h):", self.wage_var, padx=(16, 0),
+             hint="基本时薪（不含加班/社保）")
+        _row(3, 0, "社保/福利比例:", self.social_var,
+             hint="公司承担的社保/福利占工资比例（如 0.30 = 30%）")
+        _row(3, 2, "缺勤率(0-1):", self.absence_var, padx=(16, 0),
+             hint="日常缺勤比例，用于放大在岗覆盖人数（如 0.1 = 10%）")
+        _row(4, 0, "月离职率(0-1):", self.turnover_var,
+             hint="月离职比例，用于估算招聘/培训替换成本")
+        _row(4, 2, "爬坡天数:", self.ramp_var, padx=(16, 0),
+             hint="新员工从入职到满效率所需天数（默认 90 天线性爬坡）")
 
         ttk.Label(
             main, text="当前在岗（每行 工种:人数，默认取产线配置）:"
@@ -1899,6 +1919,17 @@ class HrPlanningDialog:
         self.result_text = tk.Text(main, height=16, width=70, state=tk.DISABLED)
         self.result_text.grid(row=10, column=0, columnspan=4, sticky=tk.NSEW, pady=(4, 0))
         main.rowconfigure(10, weight=1)
+        HelpSection(
+            main,
+            "使用说明",
+            "目的：按目标产量估算产线需要的人数、排班与人力成本，"
+            "供 HRBP/HR 做预算、招聘与爬坡规划。\n"
+            "口径：人力需求按各工序单人工位产能反推；协同工序加人不提升产能。\n"
+            "成本 = 在岗人数 ×（基本工资 + 加班 + 社保福利）；"
+            "招聘缺口 = 需求 − 在岗 − 已计划到岗（按周）。\n"
+            "术语：UPPH=每人每小时产出；缺勤率/离职率/爬坡天数见字段提示。\n"
+            "结果仅供规划参考，不构成用工承诺。",
+        ).grid(row=11, column=0, columnspan=4, sticky=tk.W, pady=(8, 0))
 
     def _parse_current(self) -> Dict[str, int]:
         result: Dict[str, int] = {}
@@ -2140,6 +2171,14 @@ class HistoryDialog:
         self.canvas.pack(fill=tk.BOTH, expand=True)
         self._refresh()
         self._draw_chart()
+        HelpSection(
+            self.dialog,
+            "使用说明",
+            "目的：查看跨运行 KPI 变化趋势，评估优化效果。\n"
+            "记录时机：点击「记录当前产线」立即记录；"
+            "GUI 中停止仿真时自动记录。\n"
+            "历史保存在 configs/run_history.json（最多 200 条，不入库）。",
+        ).pack(fill=tk.X, pady=(6, 0))
 
     def _refresh(self) -> None:
         self.history = load_history()
@@ -2292,6 +2331,14 @@ class SweepDialog:
         )
         main.rowconfigure(5, weight=1)
         main.columnconfigure(1, weight=1)
+        HelpSection(
+            main,
+            "使用说明",
+            "目的：对同一参数的一组取值批量仿真，观察产出/成本/UPPH 变化。\n"
+            "参数：worker_count=工序人数；machine_takt=机台节拍（秒）；"
+            "oee=设备综合效率；shift_hours=班次时长（小时）。\n"
+            "取值列表用逗号分隔，如 1,2,3。工序ID 留空时作用于瓶颈工序。",
+        ).grid(row=7, column=0, columnspan=2, sticky=tk.W, pady=(8, 0))
 
     def _run(self) -> None:
         try:
