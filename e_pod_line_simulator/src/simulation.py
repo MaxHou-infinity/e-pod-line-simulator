@@ -480,19 +480,23 @@ class SimulationEngine:
             })
             return
 
-        # CIP/SIP 清洗切换：换配方时按配方清洗时长停机
+        # CIP/SIP 清洗切换：换配方时优先按换型矩阵，其次配方清洗时长
+        matrix_min = self.line.changeover_matrix.get(
+            self._last_batch_recipe, {}
+        ).get(recipe.name, 0.0)
         if (
             self._last_batch_recipe is not None
             and self._last_batch_recipe != recipe.name
-            and recipe.clean_time_min > 0
+            and (matrix_min > 0 or recipe.clean_time_min > 0)
         ):
             clean_start = self.env.now
-            yield self.env.timeout(recipe.clean_time_min * 60)
+            clean_min = matrix_min if matrix_min > 0 else recipe.clean_time_min
+            yield self.env.timeout(clean_min * 60)
             self.cleaning_events.append({
                 'time': clean_start,
                 'recipe_from': self._last_batch_recipe,
                 'recipe_to': recipe.name,
-                'clean_min': recipe.clean_time_min,
+                'clean_min': clean_min,
                 'reason': 'recipe_change',
             })
             self._last_clean_hour = self.env.now / 3600.0
@@ -1487,6 +1491,21 @@ class SimulationEngine:
             running = self.station_running_seconds.get(station.id, 0.0)
             waiting = self.station_starved_seconds.get(station.id, 0.0)
             blocked = self.station_blocked_seconds.get(station.id, 0.0)
+            output = self.station_outputs.get(station.id, 0)
+            defects = sum(
+                1 for q in self.quality_results
+                if q.get('station_id') == station.id
+            )
+            duration = self.duration_seconds or 1.0
+            ideal_rate_per_sec = station.get_capacity() / 3600.0
+            availability = min(1.0, running / duration) if duration else 0.0
+            performance = (
+                output / max(running * ideal_rate_per_sec, 1e-9)
+                if running > 0 and ideal_rate_per_sec > 0
+                else 0.0
+            )
+            quality = output / (output + defects) if output + defects > 0 else 0.0
+            oee = availability * performance * quality
             station_metrics[station.id] = {
                 'name': station.name,
                 'capacity': round(station.get_capacity(), 1),
@@ -1494,6 +1513,10 @@ class SimulationEngine:
                 'waiting_sec': round(waiting, 1),
                 'blocked_sec': round(blocked, 1),
                 'utilization': round(running / self.duration_seconds, 4) if self.duration_seconds else 0.0,
+                'oee_availability': round(availability, 4),
+                'oee_performance': round(performance, 4),
+                'oee_quality': round(quality, 4),
+                'oee_total': round(oee, 4),
             }
 
         return SimulationResult(

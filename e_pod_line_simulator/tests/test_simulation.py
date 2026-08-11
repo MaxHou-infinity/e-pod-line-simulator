@@ -411,6 +411,54 @@ def test_pouch_machine_takt_throughput():
     assert result.unit == "袋"
 
 
+def test_oee_three_factor_decomposition():
+    """V3.2 L10：工序指标包含 OEE 可用率×性能率×合格率"""
+    line = ProductionLine("OEE分解", production_type=ProductionType.POUCH_PACKAGING)
+    line.add_station(Station(
+        "p01", "填充机", 1.0, 1,
+        machine_takt=1.0, oee=1.0, efficiency=1.0,
+        changeover_time=0, clean_time_minutes=0,
+    ))
+    result = SimulationEngine(line).run_sync(duration_hours=0.5)
+
+    m = result.station_metrics["p01"]
+    assert "oee_availability" in m
+    assert "oee_performance" in m
+    assert "oee_quality" in m
+    assert m["oee_quality"] == 1.0
+    assert abs(
+        m["oee_total"]
+        - m["oee_availability"] * m["oee_performance"] * m["oee_quality"]
+    ) < 1e-6
+
+
+def test_changeover_matrix_overrides_recipe_clean_time():
+    """V3.2 L10：换型矩阵时长优先于配方清洗时长"""
+    line = ProductionLine("换型矩阵", production_type=ProductionType.LIQUID_FILLING)
+    line.recipes.append(Recipe(
+        name="配方A", batch_volume_l=100, yield_rate=0.95,
+        mixing_time_min=10, aging_time_min=0,
+        filling_rate_l_per_h=600, qc_time_min=5, clean_time_min=30,
+    ))
+    line.recipes.append(Recipe(
+        name="配方B", batch_volume_l=100, yield_rate=0.95,
+        mixing_time_min=10, aging_time_min=0,
+        filling_rate_l_per_h=600, qc_time_min=5, clean_time_min=30,
+    ))
+    line.changeover_matrix = {"配方A": {"配方B": 15.0}}
+    line.tanks.append(Tank("T01", "成品罐", 10000, 0))
+    line.batches.append(Batch("B001", "配方A", 100))
+    line.batches.append(Batch("B002", "配方B", 100))
+
+    result = SimulationEngine(line).run_sync(duration_hours=24.0)
+
+    recipe_change = [
+        e for e in result.cleaning_events if e.get("reason") == "recipe_change"
+    ]
+    assert len(recipe_change) == 1
+    assert recipe_change[0]["clean_min"] == 15.0
+
+
 def test_liquid_quality_gate_rework():
     line = create_liquid_line()
     qc = line.get_station("s03")

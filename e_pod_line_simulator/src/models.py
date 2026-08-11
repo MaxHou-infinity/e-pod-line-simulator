@@ -362,6 +362,9 @@ class ProductionLine:
     materials: List["Material"] = field(default_factory=list)
     inventory: Dict[str, float] = field(default_factory=dict)  # {原料: 当前库存}
     material_arrivals: List["MaterialArrival"] = field(default_factory=list)
+
+    # V3.2：换型矩阵（配方/规格 A → B 的切换时长，分钟）
+    changeover_matrix: Dict[str, Dict[str, float]] = field(default_factory=dict)
     
     def add_station(self, station: Station) -> None:
         """
@@ -775,6 +778,9 @@ class ProductionLine:
             'materials': [m.to_dict() for m in self.materials],
             'inventory': dict(self.inventory),
             'material_arrivals': [a.to_dict() for a in self.material_arrivals],
+            'changeover_matrix': {
+                k: dict(v) for k, v in self.changeover_matrix.items()
+            },
             'stations': [station.to_dict() for station in self.stations]
         }
     
@@ -810,6 +816,10 @@ class ProductionLine:
                 MaterialArrival.from_dict(a)
                 for a in data.get('material_arrivals', [])
             ],
+            changeover_matrix={
+                k: dict(v)
+                for k, v in data.get('changeover_matrix', {}).items()
+            },
         )
         
         # 添加所有工序

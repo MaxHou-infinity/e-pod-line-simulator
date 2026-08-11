@@ -127,6 +127,10 @@ def export_excel(result: SimulationResult, file_path: str) -> bool:
                 '等待秒': m.get('waiting_sec', 0),
                 '堵塞秒': m.get('blocked_sec', 0),
                 '实际利用率': m.get('utilization', 0),
+                'OEE可用率': m.get('oee_availability', 0),
+                'OEE性能率': m.get('oee_performance', 0),
+                'OEE合格率': m.get('oee_quality', 0),
+                'OEE': m.get('oee_total', 0),
             }
             for sid, m in result.station_metrics.items()
         ])
