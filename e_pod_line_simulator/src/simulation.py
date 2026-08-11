@@ -655,6 +655,33 @@ class SimulationEngine:
                 
                 station_index = self.line.stations.index(station)
 
+                # P2 预测性预警：估算到达 80% 预警线的时间
+                if (
+                    utilization < 0.8
+                    and station_index > 0
+                    and station.id not in self._predict_alerted
+                ):
+                    upstream = self.line.stations[station_index - 1]
+                    up_cap = upstream.get_capacity()
+                    st_cap = station.get_capacity()
+                    net_per_min = (up_cap - st_cap) / 60.0
+                    remaining = station.buffer_capacity * 0.8 - wip_count
+                    if net_per_min > 0 and remaining > 0:
+                        minutes_to_alert = remaining / net_per_min
+                        if minutes_to_alert <= 30.0:
+                            self._predict_alerted.add(station.id)
+                            self._emit_alert(Alert(
+                                alert_type="blockage",
+                                severity="info",
+                                station_id=station.id,
+                                message=(
+                                    f"预计 {minutes_to_alert:.0f} 分钟后"
+                                    f"{station.name}的WIP将达到80%预警线"
+                                ),
+                                suggestion=self._wip_suggestion(station, station_index),
+                                timestamp_minutes=timestamp_minutes,
+                            ))
+
                 # 低于阈值：重置状态
                 if utilization < 0.8:
                     self._blockage_state.pop(station.id, None)
@@ -1079,6 +1106,7 @@ class SimulationEngine:
             blocked = self.station_blocked_seconds.get(station.id, 0.0)
             station_metrics[station.id] = {
                 'name': station.name,
+                'capacity': round(station.get_capacity(), 1),
                 'running_sec': round(running, 1),
                 'waiting_sec': round(waiting, 1),
                 'blocked_sec': round(blocked, 1),

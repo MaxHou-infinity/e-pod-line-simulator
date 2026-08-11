@@ -129,6 +129,37 @@ def export_excel(result: SimulationResult, file_path: str) -> bool:
             for sid, m in result.station_metrics.items()
         ])
 
+        # P2 失衡分析
+        imbalance_rows = []
+        station_ids = list(result.station_metrics.keys())
+        for i, sid in enumerate(station_ids):
+            m = result.station_metrics[sid]
+            ratio = None
+            if i > 0:
+                prev_cap = result.station_metrics[station_ids[i - 1]].get('capacity', 0)
+                capacity = m.get('capacity', 0)
+                ratio = round(capacity / prev_cap, 2) if prev_cap else None
+            conclusion = []
+            if m.get('utilization', 0) >= 0.95:
+                conclusion.append('瓶颈')
+            if m.get('waiting_sec', 0) >= 300:
+                conclusion.append('饥饿')
+            if m.get('blocked_sec', 0) >= 300:
+                conclusion.append('堵塞')
+            if ratio is not None and ratio < 0.8:
+                conclusion.append('产能冗余')
+            imbalance_rows.append({
+                '工序ID': sid,
+                '工序名': m.get('name', ''),
+                '理论产能': m.get('capacity', 0),
+                '上下游产能比': ratio if ratio is not None else '',
+                '实际利用率': m.get('utilization', 0),
+                '等待秒': m.get('waiting_sec', 0),
+                '堵塞秒': m.get('blocked_sec', 0),
+                '结论': '/'.join(conclusion) or '正常',
+            })
+        imbalance_df = pd.DataFrame(imbalance_rows)
+
         directory = os.path.dirname(file_path)
         if directory and not os.path.exists(directory):
             os.makedirs(directory, exist_ok=True)
@@ -145,6 +176,8 @@ def export_excel(result: SimulationResult, file_path: str) -> bool:
                 quality_df.to_excel(writer, sheet_name="质量门", index=False)
             if not metrics_df.empty:
                 metrics_df.to_excel(writer, sheet_name="工序指标", index=False)
+            if not imbalance_df.empty:
+                imbalance_df.to_excel(writer, sheet_name="失衡分析", index=False)
 
         return True
     except Exception:

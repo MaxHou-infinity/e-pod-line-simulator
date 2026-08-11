@@ -55,6 +55,7 @@ from src.utils import (
 )
 from src.scenario_manager import ScenarioManager
 from src.reporting import export_report
+from src.sensitivity import run_sensitivity
 from src.theme import ToolTip, apply_theme, show_toast
 from src.version import __version__
 
@@ -179,6 +180,7 @@ class MainWindow:
         menubar.add_cascade(label="分析", menu=analysis_menu)
         analysis_menu.add_command(label="方案对比", command=self._menu_compare_solutions)
         analysis_menu.add_command(label="方案管理", command=self._menu_manage_scenarios)
+        analysis_menu.add_command(label="敏感性试算...", command=self._menu_sensitivity)
         analysis_menu.add_command(label="导出报告", command=self._menu_export_report)
         
         # 帮助菜单
@@ -663,6 +665,32 @@ class MainWindow:
                 "报告导出失败，请检查路径或依赖（reportlab/openpyxl）。\n\n详细日志：logs/app.log",
             )
             self.logger.error("导出报告失败：%s", file_path)
+
+    def _menu_sensitivity(self) -> None:
+        """分析菜单 - 敏感性试算（V3.1 P2）"""
+        if self.production_line is None or not self.production_line.stations:
+            messagebox.showwarning("警告", "没有可试算的产线配置")
+            return
+        self.status_bar.config(text="正在运行敏感性试算，请稍候...")
+        self.root.update_idletasks()
+        try:
+            scenarios = run_sensitivity(
+                self.production_line,
+                duration_hours=self.production_line.shift_hours,
+            )
+        except Exception as e:
+            messagebox.showerror("试算失败", f"{e}\n\n详细日志：logs/app.log")
+            self.status_bar.config(text="敏感性试算失败")
+            return
+        lines = []
+        for s in scenarios:
+            lines.append(
+                f"{s['label']}：产出 {s['total_output']}，"
+                f"单位成本 {s['unit_cost']:.3f}，"
+                f"Δ产出 {s['delta_output']:+d}，Δ成本 {s['delta_unit_cost']:+.3f}"
+            )
+        messagebox.showinfo("敏感性试算结果", "\n".join(lines))
+        self.status_bar.config(text="敏感性试算完成")
     
     def _menu_help(self) -> None:
         """帮助菜单 - 使用说明"""

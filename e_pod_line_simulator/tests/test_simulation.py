@@ -347,3 +347,17 @@ def test_station_metrics_and_warmup():
         duration_hours=1.0, warmup_minutes=30.0
     )
     assert 0 < with_warmup.total_output < without.total_output
+
+
+def test_predictive_wip_alert():
+    line = ProductionLine("预测预警测试", shift_hours=1, break_minutes=0)
+    line.add_station(Station("s01", "快上游", 2.0, 2, buffer_capacity=100))
+    line.add_station(Station("s02", "慢下游", 20.0, 1, buffer_capacity=100))
+    result = SimulationEngine(line).run_sync(duration_hours=1.0)
+
+    predictive = [
+        a for a in result.alerts
+        if a.severity == "info" and "预计" in a.message
+    ]
+    assert predictive
+    assert "80%预警线" in predictive[0].message

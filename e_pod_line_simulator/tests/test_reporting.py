@@ -27,6 +27,8 @@ def test_export_excel(tmp_path):
     assert "报警记录" in wb.sheetnames
     assert "WIP采样" in wb.sheetnames
     assert "切换事件" in wb.sheetnames
+    assert "工序指标" in wb.sheetnames
+    assert "失衡分析" in wb.sheetnames
 
 
 def test_export_pdf(tmp_path):
