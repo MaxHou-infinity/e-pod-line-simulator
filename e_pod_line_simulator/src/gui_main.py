@@ -40,7 +40,6 @@ from src.gui_panels import (
     SaveScenarioDialog,
     ScenarioManageDialog,
     GlossaryDialog,
-    CommandPalette,
     AboutDialog,
     WizardDialog,
     HrPlanningDialog,
@@ -724,7 +723,7 @@ class MainWindow:
 4. 保存方案（主界面或「文件 → 保存方案」）、
    方案管理 / 对比、KPI 历史趋势、导出报告
 5. 分析试算：敏感性试算、批量试算、智能优化、人力规划
-6. 快捷键：Ctrl+S 保存方案、Ctrl+K 命令面板、空格 开始/暂停
+6. 快捷键：Ctrl+S 保存方案、空格 开始/暂停
 
 【亮点与价值】
 • 把产线设计从"2 周试错"压缩到"2 小时仿真"
@@ -774,26 +773,7 @@ class MainWindow:
     def _bind_shortcuts(self) -> None:
         """绑定全局键盘快捷键"""
         self.root.bind('<Control-s>', lambda e: self._btn_save_scenario())
-        self.root.bind('<Control-k>', lambda e: self._open_command_palette())
         self.root.bind('<space>', self._on_space_shortcut)
-
-    def _open_command_palette(self) -> None:
-        """打开命令面板（Ctrl+K，V3.0）"""
-        commands = [
-            ("快速配置向导", self._menu_wizard),
-            ("保存方案", self._btn_save_scenario),
-            ("停机切换", self._btn_changeover),
-            ("敏感性试算", self._menu_sensitivity),
-            ("批量试算", self._menu_sweep),
-            ("智能优化", self._menu_optimize),
-            ("人力规划", self._menu_hr_planning),
-            ("方案管理/对比", self._menu_manage_scenarios),
-            ("KPI 历史趋势", self._menu_history),
-            ("导出报告", self._menu_export_report),
-            ("分析指南", self._menu_analysis_guide),
-            ("术语说明", self._menu_glossary),
-        ]
-        CommandPalette(self.root, commands)
 
     def _on_space_shortcut(self, event) -> str:
         """空格：开始/暂停/恢复仿真（输入框内不触发）"""

@@ -165,9 +165,22 @@ def test_station_edit_fields_mapping():
     }
 
 
-def test_command_palette_class_available():
-    from src.gui_panels import CommandPalette
-    assert callable(CommandPalette)
+def test_glossary_fuzzy_search():
+    from src.gui_panels import fuzzy_contains
+
+    assert fuzzy_contains("瓶颈", "瓶颈")
+    assert fuzzy_contains("罐容约束", "罐容")
+    assert fuzzy_contains("OEE分解", "oee")
+    assert fuzzy_contains("本周新增需求", "新增需求")
+    # 顺序包含（容忍缺字）：query 字符按顺序出现在文本中
+    assert fuzzy_contains("批次排产序列", "批序")
+    assert not fuzzy_contains("瓶颈", "OEE")
+
+
+def test_glossary_dialog_search_methods_exist():
+    from src.gui_panels import GlossaryDialog
+
+    assert hasattr(GlossaryDialog, "_render")
 
 
 def test_about_dialog_class_and_urls():

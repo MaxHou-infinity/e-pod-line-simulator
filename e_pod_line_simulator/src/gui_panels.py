@@ -71,6 +71,26 @@ from src.optimizer import _params_text, optimize
 from src.simulation import SimulationEngine
 
 
+def fuzzy_contains(text: str, query: str) -> bool:
+    """
+    模糊匹配（V3.3.3 术语搜索）
+
+    - 子串匹配：query 出现在 text 中（忽略大小写）；
+    - 顺序匹配：query 的字符按顺序全部出现在 text 中（容忍缺字）。
+    """
+    text_lower = text.lower()
+    query_lower = query.lower()
+    if not query_lower:
+        return True
+    if query_lower in text_lower:
+        return True
+    position = 0
+    for char in text_lower:
+        if position < len(query_lower) and char == query_lower[position]:
+            position += 1
+    return position == len(query_lower)
+
+
 def build_template_line(key: str) -> ProductionLine:
     """
     按模板 key 创建产线（纯函数，供向导与测试复用）
@@ -1864,6 +1884,26 @@ class GlossaryDialog:
             font=('Arial', 13, 'bold'),
         ).pack(anchor=tk.W, pady=(0, 8))
 
+        search_frame = ttk.Frame(main_frame)
+        search_frame.pack(fill=tk.X, pady=(0, 6))
+        ttk.Label(search_frame, text="搜索:").pack(side=tk.LEFT, padx=(0, 4))
+        self.search_var = tk.StringVar()
+        search_entry = ttk.Entry(search_frame, textvariable=self.search_var, width=30)
+        search_entry.pack(side=tk.LEFT)
+        search_entry.bind("<Return>", lambda e: search_entry.focus_set())
+        self.search_var.trace_add("write", lambda *a: self._render())
+        self.count_var = tk.StringVar(value=f"共 {len(GLOSSARY)} 条")
+        ttk.Label(
+            search_frame,
+            textvariable=self.count_var,
+            foreground=COLORS["text_secondary"],
+        ).pack(side=tk.RIGHT)
+        ttk.Label(
+            main_frame,
+            text="支持模糊搜索：输入关键词即可实时筛选（如 “罐容” 或 “WIP”）",
+            foreground=COLORS["text_secondary"],
+        ).pack(anchor=tk.W, pady=(0, 6))
+
         table_frame = ttk.Frame(main_frame)
         table_frame.pack(fill=tk.BOTH, expand=True)
 
@@ -1879,8 +1919,7 @@ class GlossaryDialog:
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        for term, meaning in GLOSSARY:
-            self.tree.insert('', tk.END, values=(term, meaning))
+        self._render()
 
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill=tk.X, pady=(10, 0))
@@ -1891,68 +1930,16 @@ class GlossaryDialog:
         y = (self.dialog.winfo_screenheight() - self.dialog.winfo_height()) // 2
         self.dialog.geometry(f"+{x}+{y}")
 
-
-class CommandPalette:
-    """
-    命令面板（V3.0，Ctrl+K）
-
-    通过关键词过滤命令，Enter 执行选中项，Esc 关闭。
-    """
-
-    def __init__(self, parent, commands: List[tuple]):
-        self.commands = commands
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title("命令面板")
-        self.dialog.geometry("520x380")
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-
-        family = resolve_font_family()
-        main = ttk.Frame(self.dialog, padding=10)
-        main.pack(fill=tk.BOTH, expand=True)
-        ttk.Label(
-            main,
-            text="输入命令关键词（Enter 执行，Esc 关闭）",
-            font=(family, 9),
-            foreground=COLORS['text_secondary'],
-        ).pack(anchor=tk.W)
-
-        self.search_var = tk.StringVar()
-        self.search_var.trace_add('write', lambda *a: self._render())
-        entry = ttk.Entry(main, textvariable=self.search_var, font=(family, 13))
-        entry.pack(fill=tk.X, pady=5)
-
-        self.tree = ttk.Treeview(main, columns=('label',), show='tree', height=12)
-        self.tree.pack(fill=tk.BOTH, expand=True)
-
-        self.dialog.bind('<Escape>', lambda e: self.dialog.destroy())
-        self.dialog.bind('<Return>', lambda e: self._run_selected())
-
-        self._render()
-        entry.focus_set()
-
     def _render(self) -> None:
-        """按关键词过滤命令列表"""
+        """按关键词模糊筛选术语（V3.3.3）"""
         self.tree.delete(*self.tree.get_children())
-        query = self.search_var.get().strip().lower()
-        for label, _ in self.commands:
-            if not query or query in label.lower():
-                self.tree.insert('', tk.END, text=label, values=(label,))
-
-    def _run_selected(self) -> None:
-        """执行选中的命令（无选中时执行第一条）"""
-        selection = self.tree.selection()
-        if not selection:
-            children = self.tree.get_children()
-            if not children:
-                return
-            selection = (children[0],)
-        label = self.tree.item(selection[0], 'values')[0]
-        for cmd_label, callback in self.commands:
-            if cmd_label == label:
-                self.dialog.destroy()
-                callback()
-                return
+        query = self.search_var.get().strip()
+        count = 0
+        for term, meaning in GLOSSARY:
+            if fuzzy_contains(f"{term} {meaning}", query):
+                self.tree.insert("", tk.END, values=(term, meaning))
+                count += 1
+        self.count_var.set(f"共 {count} / {len(GLOSSARY)} 条")
 
 
 class AboutDialog:
