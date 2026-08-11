@@ -1474,6 +1474,18 @@ class SimulationEngine:
         rejected = [b for b in self.batch_results if b.get('status') == 'rejected']
         kpis['shippable_quantity'] = round(sum(b.get('yield_l', 0) for b in released), 3)
         kpis['rejected_batches'] = len(rejected)
+        # V3.2：原料成本（按消耗量 × 原料单价）
+        material_cost = 0.0
+        material_cost_map = {
+            m.name: m.unit_cost for m in self.line.materials
+        }
+        for event in self.material_events:
+            if event.get('type') == 'consume':
+                material_cost += (
+                    event.get('quantity', 0.0)
+                    * material_cost_map.get(event.get('material', ''), 0.0)
+                )
+        kpis['material_cost'] = round(material_cost, 2)
         kpis['cleaning_time_ratio'] = (
             cleaning_seconds / self.duration_seconds if self.duration_seconds else 0.0
         )

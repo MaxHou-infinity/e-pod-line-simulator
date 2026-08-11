@@ -26,12 +26,15 @@ def run_sensitivity(
         duration_hours, warmup_minutes
     )
     base_unit_cost = base_result.kpis.get('unit_cost', 0.0)
+    base_material_cost = base_result.kpis.get('material_cost', 0.0)
     scenarios = [{
         'label': '基线',
         'total_output': base_result.total_output,
         'unit_cost': base_unit_cost,
+        'material_cost': base_material_cost,
         'delta_output': 0,
         'delta_unit_cost': 0.0,
+        'delta_material_cost': 0.0,
     }]
 
     bottleneck = line.find_bottleneck()
@@ -42,30 +45,85 @@ def run_sensitivity(
     if bottleneck.machine_takt and bottleneck.machine_takt > 1:
         variants.append((
             '机台节拍-1秒',
-            lambda st: setattr(st, 'machine_takt', st.machine_takt - 1.0),
+            lambda c: setattr(
+                c.get_station(bottleneck.id), 'machine_takt',
+                c.get_station(bottleneck.id).machine_takt - 1.0,
+            ),
+        ))
+        variants.append((
+            '增加1台机台',
+            lambda c: setattr(
+                c.get_station(bottleneck.id), 'worker_count',
+                c.get_station(bottleneck.id).worker_count + 1,
+            ),
         ))
     elif bottleneck.collaboration_type == CollaborationType.PARALLEL:
         variants.append((
             '瓶颈+1人',
-            lambda st: setattr(st, 'worker_count', st.worker_count + 1),
+            lambda c: setattr(
+                c.get_station(bottleneck.id), 'worker_count',
+                c.get_station(bottleneck.id).worker_count + 1,
+            ),
+        ))
+        variants.append((
+            '瓶颈+2人',
+            lambda c: setattr(
+                c.get_station(bottleneck.id), 'worker_count',
+                c.get_station(bottleneck.id).worker_count + 2,
+            ),
+        ))
+        variants.append((
+            '自动化替代10%',
+            lambda c: setattr(
+                c.get_station(bottleneck.id), 'process_time',
+                c.get_station(bottleneck.id).process_time * 0.9,
+            ),
+        ))
+    if bottleneck.worker_count > 1:
+        variants.append((
+            '瓶颈-1人',
+            lambda c: setattr(
+                c.get_station(bottleneck.id), 'worker_count',
+                max(1, c.get_station(bottleneck.id).worker_count - 1),
+            ),
         ))
     variants.append((
         '瓶颈OEE+5%',
-        lambda st: setattr(st, 'oee', min(1.0, st.oee + 0.05)),
+        lambda c: setattr(
+            c.get_station(bottleneck.id), 'oee',
+            min(1.0, c.get_station(bottleneck.id).oee + 0.05),
+        ),
     ))
+    if line.materials:
+        variants.append((
+            '原料价格+10%',
+            lambda c: [
+                setattr(m, 'unit_cost', round(m.unit_cost * 1.1, 4))
+                for m in c.materials
+            ],
+        ))
+        variants.append((
+            '原料价格-10%',
+            lambda c: [
+                setattr(m, 'unit_cost', round(m.unit_cost * 0.9, 4))
+                for m in c.materials
+            ],
+        ))
 
     for label, apply in variants:
         clone = copy.deepcopy(line)
-        target = clone.get_station(bottleneck.id)
-        apply(target)
+        apply(clone)
         result = SimulationEngine(clone).run_sync(duration_hours, warmup_minutes)
         unit_cost = result.kpis.get('unit_cost', 0.0)
+        material_cost = result.kpis.get('material_cost', 0.0)
         scenarios.append({
             'label': label,
             'total_output': result.total_output,
             'unit_cost': unit_cost,
+            'material_cost': material_cost,
             'delta_output': result.total_output - base_result.total_output,
             'delta_unit_cost': round(unit_cost - base_unit_cost, 4),
+            'delta_material_cost': round(material_cost - base_material_cost, 4),
         })
 
     return scenarios

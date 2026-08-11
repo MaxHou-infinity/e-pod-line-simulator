@@ -929,6 +929,7 @@ class Material:
     name: str
     unit: str = "kg"
     initial_stock: float = 0.0
+    unit_cost: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
