@@ -20,7 +20,13 @@ import copy
 from tkinter import ttk, messagebox, filedialog
 from typing import List, Optional, Callable, Dict, Any
 
-from src.models import Station, Alert, CollaborationType, ProductionLine
+from src.models import (
+    Station,
+    Alert,
+    CollaborationType,
+    JobRole,
+    ProductionLine,
+)
 from src.utils import validate_station, get_alert_color
 from src.scenario_manager import ScenarioManager
 from src.theme import (
@@ -104,10 +110,20 @@ def station_edit_fields(production_type: ProductionType) -> set:
     """
     quality = {'sampling_rate', 'defect_rate', 'rework_minutes'}
     if production_type == ProductionType.LIQUID_FILLING:
-        return {'clean_time_minutes'} | quality
+        return {'clean_time_minutes', 'job_role'} | quality
     if production_type == ProductionType.POUCH_PACKAGING:
-        return {'machine_takt'} | quality
+        return {'machine_takt', 'job_role'} | quality
     return set()
+
+
+JOB_ROLE_LABELS = {
+    JobRole.MIXER.value: "调香师/调配工",
+    JobRole.FILLING_OPERATOR.value: "灌装操作员",
+    JobRole.QC_TECHNICIAN.value: "QC 化验员",
+    JobRole.PACKAGING_OPERATOR.value: "包装机手",
+    JobRole.CLEANER.value: "清洗工",
+    JobRole.GENERAL.value: "通用装配工",
+}
 
 
 class ConfigPanel(ttk.Frame):
@@ -831,6 +847,37 @@ class StationDialog:
         oee_entry = ttk.Entry(main_frame, textvariable=self.oee_var, width=30)
         oee_entry.grid(row=4, column=1, pady=5)
 
+        # V3.3.1：工种（按生产类型显示）
+        if self.line_type == ProductionType.LIQUID_FILLING:
+            role_values = [
+                "mixer", "filling_operator", "qc_technician", "cleaner", "general",
+            ]
+        elif self.line_type == ProductionType.POUCH_PACKAGING:
+            role_values = [
+                "packaging_operator", "qc_technician", "mixer", "cleaner", "general",
+            ]
+        else:
+            role_values = ["general"]
+        self._role_label_to_value = {
+            JOB_ROLE_LABELS[v]: v for v in role_values
+        }
+        current_role = (
+            station.job_role.value if station and station.job_role else "general"
+        )
+        if current_role not in role_values:
+            current_role = "general"
+        self.job_role_var = tk.StringVar(value=JOB_ROLE_LABELS[current_role])
+        self.job_role_label = ttk.Label(main_frame, text="工种:")
+        self.job_role_label.grid(row=5, column=0, sticky=tk.W, pady=5)
+        self.job_role_combo = ttk.Combobox(
+            main_frame,
+            textvariable=self.job_role_var,
+            values=[JOB_ROLE_LABELS[v] for v in role_values],
+            state="readonly",
+            width=28,
+        )
+        self.job_role_combo.grid(row=5, column=1, pady=5)
+
         # V1.3：生产类型相关字段
         self.machine_takt_var = tk.StringVar(
             value=str(station.machine_takt) if station and station.machine_takt else ""
@@ -849,45 +896,45 @@ class StationDialog:
         )
 
         self.machine_takt_label = ttk.Label(main_frame, text="机台节拍(秒):")
-        self.machine_takt_label.grid(row=5, column=0, sticky=tk.W, pady=5)
+        self.machine_takt_label.grid(row=6, column=0, sticky=tk.W, pady=5)
         self.machine_takt_entry = ttk.Entry(
             main_frame, textvariable=self.machine_takt_var, width=30
         )
-        self.machine_takt_entry.grid(row=5, column=1, pady=5)
+        self.machine_takt_entry.grid(row=6, column=1, pady=5)
 
         self.clean_time_label = ttk.Label(main_frame, text="清洗时间(分钟):")
-        self.clean_time_label.grid(row=6, column=0, sticky=tk.W, pady=5)
+        self.clean_time_label.grid(row=7, column=0, sticky=tk.W, pady=5)
         self.clean_time_entry = ttk.Entry(
             main_frame, textvariable=self.clean_time_var, width=30
         )
-        self.clean_time_entry.grid(row=6, column=1, pady=5)
+        self.clean_time_entry.grid(row=7, column=1, pady=5)
 
         self.sampling_label = ttk.Label(main_frame, text="抽检比例(0-1):")
-        self.sampling_label.grid(row=7, column=0, sticky=tk.W, pady=5)
+        self.sampling_label.grid(row=8, column=0, sticky=tk.W, pady=5)
         self.sampling_entry = ttk.Entry(
             main_frame, textvariable=self.sampling_var, width=30
         )
-        self.sampling_entry.grid(row=7, column=1, pady=5)
+        self.sampling_entry.grid(row=8, column=1, pady=5)
 
         self.defect_label = ttk.Label(main_frame, text="缺陷率(0-1):")
-        self.defect_label.grid(row=8, column=0, sticky=tk.W, pady=5)
+        self.defect_label.grid(row=9, column=0, sticky=tk.W, pady=5)
         self.defect_entry = ttk.Entry(
             main_frame, textvariable=self.defect_var, width=30
         )
-        self.defect_entry.grid(row=8, column=1, pady=5)
+        self.defect_entry.grid(row=9, column=1, pady=5)
 
         self.rework_label = ttk.Label(main_frame, text="返工时长(分钟):")
-        self.rework_label.grid(row=9, column=0, sticky=tk.W, pady=5)
+        self.rework_label.grid(row=10, column=0, sticky=tk.W, pady=5)
         self.rework_entry = ttk.Entry(
             main_frame, textvariable=self.rework_var, width=30
         )
-        self.rework_entry.grid(row=9, column=1, pady=5)
+        self.rework_entry.grid(row=10, column=1, pady=5)
 
         self._apply_type_fields()
         
         # 按钮框架
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=10, column=0, columnspan=2, pady=20)
+        button_frame.grid(row=11, column=0, columnspan=2, pady=20)
         
         # 确定按钮
         btn_ok = ttk.Button(button_frame, text="确定", command=self._btn_ok, style="Primary.TButton")
@@ -908,6 +955,7 @@ class StationDialog:
         """
         visible = station_edit_fields(self.line_type)
         fields = {
+            'job_role': (self.job_role_label, self.job_role_combo),
             'machine_takt': (self.machine_takt_label, self.machine_takt_entry),
             'clean_time_minutes': (self.clean_time_label, self.clean_time_entry),
             'sampling_rate': (self.sampling_label, self.sampling_entry),
@@ -932,6 +980,11 @@ class StationDialog:
             worker_count = int(self.workers_var.get())
             oee = float(self.oee_var.get())
             mode = CollaborationType(self.mode_var.get())
+            job_role = JobRole(
+                self._role_label_to_value.get(
+                    self.job_role_var.get(), "general"
+                )
+            )
 
             # V1.3 可选字段
             machine_takt_text = self.machine_takt_var.get().strip()
@@ -978,6 +1031,7 @@ class StationDialog:
                 process_time=process_time,
                 worker_count=worker_count,
                 collaboration_type=mode,
+                job_role=job_role,
                 oee=oee,
                 machine_takt=machine_takt,
                 clean_time_minutes=clean_time,

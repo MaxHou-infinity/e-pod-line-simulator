@@ -1277,6 +1277,14 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 遗留
 - V2.0：Web 化；Windows EXE 构建
 
+## 2026-08-11 - 工序编辑补充“工种”字段
+
+### 完成内容
+- StationDialog 按生产类型显示工种下拉并写入 Station.job_role
+
+### 验证
+- pytest 136 passed
+
 ## 2026-08-11 - 修复画布产能单位写死“颗”
 
 ### 完成内容

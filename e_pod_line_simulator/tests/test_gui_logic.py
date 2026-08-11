@@ -126,12 +126,14 @@ def test_station_edit_fields_mapping():
     assert station_edit_fields(ProductionType.ASSEMBLY) == set()
     assert station_edit_fields(ProductionType.LIQUID_FILLING) == {
         "clean_time_minutes",
+        "job_role",
         "sampling_rate",
         "defect_rate",
         "rework_minutes",
     }
     assert station_edit_fields(ProductionType.POUCH_PACKAGING) == {
         "machine_takt",
+        "job_role",
         "sampling_rate",
         "defect_rate",
         "rework_minutes",
