@@ -17,6 +17,11 @@ def test_sensitivity_scenarios():
     worker = next(s for s in scenarios if s["label"] == "瓶颈+1人")
     assert worker["delta_output"] > 0
     assert worker["delta_unit_cost"] < 0
+    assert scenarios[0]["apply"] is None
+    assert worker["apply"]["station_id"] == "s01"
+    assert worker["apply"]["attr"] == "worker_count"
+    assert worker["actual_unit_cost"] > 0
+    assert worker["total_cost"] > 0
 
 
 def test_run_sweep_worker_count_monotonic():

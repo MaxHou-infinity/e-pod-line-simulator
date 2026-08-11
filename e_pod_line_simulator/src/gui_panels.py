@@ -2573,12 +2573,14 @@ class ResultTableDialog:
         highlight_key: Optional[str] = None,
         highlight_value=None,
         actions=None,
+        help_text: Optional[str] = None,
     ):
         self.columns = list(columns)
         self.rows = list(rows)
         self.highlight_key = highlight_key
         self.highlight_value = highlight_value
         self.actions = actions or []
+        self.help_text = help_text
 
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
@@ -2619,6 +2621,11 @@ class ResultTableDialog:
             self.tree.heading(key, text=label)
             self.tree.column(key, width=width, anchor=anchor)
         self.tree.pack(fill=tk.BOTH, expand=True)
+
+        if self.help_text:
+            HelpSection(self.dialog, "结果说明", self.help_text).pack(
+                fill=tk.X, pady=(6, 0)
+            )
 
         for row in self.rows:
             values = [row.get(key, "") for key in keys]

@@ -48,6 +48,7 @@ from src.gui_panels import (
     HistoryDialog,
     SweepDialog,
     OptimizeDialog,
+    ResultTableDialog,
 )
 from src.utils import (
     load_config,
@@ -705,15 +706,77 @@ class MainWindow:
             messagebox.showerror("试算失败", f"{e}\n\n详细日志：logs/app.log")
             self.status_bar.config(text="敏感性试算失败")
             return
-        lines = []
+
+        rows = []
         for s in scenarios:
-            lines.append(
-                f"{s['label']}：产出 {s['total_output']}，"
-                f"单位成本 {s['unit_cost']:.3f}，"
-                f"Δ产出 {s['delta_output']:+d}，Δ成本 {s['delta_unit_cost']:+.3f}"
+            rows.append({
+                "label": s["label"],
+                "output": s["total_output"],
+                "unit_cost": round(s["unit_cost"], 3),
+                "actual_unit_cost": round(s["actual_unit_cost"], 3),
+                "delta_output": s["delta_output"],
+                "delta_unit_cost": round(s["delta_unit_cost"], 3),
+            })
+        columns = [
+            ("label", "方案", 120, tk.W),
+            ("output", "总产出", 90, tk.E),
+            ("unit_cost", "理论单位成本", 110, tk.E),
+            ("actual_unit_cost", "实际单位成本", 110, tk.E),
+            ("delta_output", "Δ产出", 80, tk.E),
+            ("delta_unit_cost", "Δ单位成本", 100, tk.E),
+        ]
+
+        def _apply_best() -> None:
+            best = next(
+                (s for s in scenarios if s.get("apply") and s["delta_output"] > 0),
+                None,
             )
-        messagebox.showinfo("敏感性试算结果", "\n".join(lines))
+            if best is None:
+                best = next(
+                    (s for s in scenarios if s.get("apply") and s["delta_unit_cost"] < 0),
+                    None,
+                )
+            if best is None:
+                messagebox.showinfo("提示", "没有可应用的建议方案")
+                return
+            self._apply_suggestion(best)
+            messagebox.showinfo(
+                "已应用",
+                f"已应用「{best['label']}」到当前产线（Δ产出 {best['delta_output']:+d}）",
+            )
+
+        ResultTableDialog(
+            self.root,
+            "敏感性试算结果",
+            columns,
+            rows,
+            highlight_key="label",
+            highlight_value="基线",
+            actions=[("应用最优建议", _apply_best)],
+            help_text=(
+                "总产出为仿真值；理论单位成本=人力成本÷理论日产量；"
+                "实际单位成本=总成本÷本次仿真产出。\n"
+                "「应用最优建议」会把首个 Δ产出>0（或 Δ单位成本<0）的方案"
+                "应用到当前产线。"
+            ),
+        )
         self.status_bar.config(text="敏感性试算完成")
+
+    def _apply_suggestion(self, scenario) -> None:
+        """把敏感性试算建议应用到当前产线（V3.3）"""
+        app = scenario.get("apply")
+        if not app:
+            return
+        if "material_prices" in app:
+            for material in self.production_line.materials:
+                if material.name in app["material_prices"]:
+                    material.unit_cost = app["material_prices"][material.name]
+        else:
+            station = self.production_line.get_station(app["station_id"])
+            if station is not None:
+                setattr(station, app["attr"], app["value"])
+        self._dirty = True
+        self._update_display()
 
     def _menu_hr_planning(self) -> None:
         """分析菜单 - 人力规划（V3.2，面向 HRBP/HR）"""
