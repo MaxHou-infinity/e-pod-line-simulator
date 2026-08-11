@@ -21,6 +21,9 @@ import logging
 
 from src.models import (
     Batch,
+    JobRole,
+    Material,
+    MaterialArrival,
     ProductionLine,
     ProductionType,
     Recipe,
@@ -205,7 +208,15 @@ def import_from_excel(file_path: str) -> Tuple[Optional[ProductionLine], Optiona
             'oee': ['OEE', 'oee', '设备效率', '设备综合效率'],
             'efficiency': ['人员效率', '效率', 'efficiency', 'Efficiency', 'EFFICIENCY', '人员效率系数'],
             'changeover_time': ['切换时间(分钟)', '切换时间', 'changeover_time', 'Changeover Time', 'CHANGEOVER_TIME', '切换'],
-            'buffer_capacity': ['缓冲区容量', '缓冲区', 'buffer_capacity', 'Buffer Capacity', 'BUFFER_CAPACITY', '缓冲']
+            'buffer_capacity': ['缓冲区容量', '缓冲区', 'buffer_capacity', 'Buffer Capacity', 'BUFFER_CAPACITY', '缓冲'],
+            'machine_takt': ['机台节拍(秒)', '机台节拍', 'machine_takt', 'Machine Takt', 'MACHINE_TAKT'],
+            'clean_time_minutes': ['清洗时间(分钟)', '清洗时间', 'clean_time_minutes', 'Clean Time', 'CLEAN_TIME_MINUTES'],
+            'sampling_rate': ['抽检比例', 'sampling_rate', 'Sampling Rate', 'SAMPLING_RATE'],
+            'defect_rate': ['缺陷率', 'defect_rate', 'Defect Rate', 'DEFECT_RATE'],
+            'rework_minutes': ['返工时长(分钟)', '返工时长', 'rework_minutes', 'Rework Minutes', 'REWORK_MINUTES'],
+            'job_role': ['工种', 'job_role', 'Job Role', 'JOB_ROLE'],
+            'cleanroom_zone': ['洁净区', 'cleanroom_zone', 'Cleanroom Zone', 'CLEANROOM_ZONE'],
+            'bom': ['BOM(组件:用量;...)', 'BOM', 'bom', 'BOM组件'],
         }
         
         # 查找实际列名
@@ -234,10 +245,78 @@ def import_from_excel(file_path: str) -> Tuple[Optional[ProductionLine], Optiona
 
         # V1.3：读取生产类型
         try:
-            pt_df = pd.read_excel(file_path, sheet_name='生产类型', header=None, engine='openpyxl')
-            pt_value = str(pt_df.iloc[0, 1]).strip().lower()
+            pt_value = ""
+            try:
+                cfg_df = pd.read_excel(
+                    file_path, sheet_name='产线配置', engine='openpyxl'
+                )
+                for _, row in cfg_df.iterrows():
+                    if str(row.iloc[0]).strip() == 'production_type':
+                        pt_value = str(row.iloc[1]).strip().lower()
+                        break
+            except Exception:
+                pass
+            if not pt_value:
+                pt_df = pd.read_excel(
+                    file_path, sheet_name='生产类型', header=None,
+                    engine='openpyxl',
+                )
+                pt_value = str(pt_df.iloc[0, 1]).strip().lower()
             if pt_value in ('assembly', 'liquid_filling', 'pouch_packaging'):
                 line.production_type = ProductionType(pt_value)
+        except Exception:
+            pass
+
+        # V3.3.1：读取产线级配置（班次/CIP/换型矩阵）
+        try:
+            config_df = pd.read_excel(file_path, sheet_name='产线配置', engine='openpyxl')
+            config_map = {}
+            for _, row in config_df.iterrows():
+                key = str(row.iloc[0]).strip()
+                config_map[key] = row.iloc[1]
+            if config_map.get('shift_hours') not in (None, ''):
+                line.shift_hours = int(float(config_map['shift_hours']))
+            if config_map.get('break_minutes') not in (None, ''):
+                line.break_minutes = int(float(config_map['break_minutes']))
+            if config_map.get('worker_hourly_wage') not in (None, ''):
+                line.worker_hourly_wage = float(config_map['worker_hourly_wage'])
+            if config_map.get('cip_interval_batches') not in (None, ''):
+                line.cip_interval_batches = int(float(config_map['cip_interval_batches']))
+            if config_map.get('cip_interval_hours') not in (None, ''):
+                line.cip_interval_hours = float(config_map['cip_interval_hours'])
+            matrix_text = str(config_map.get('changeover_matrix_json') or '').strip()
+            if matrix_text:
+                matrix = json.loads(matrix_text)
+                if isinstance(matrix, dict):
+                    line.changeover_matrix = matrix
+        except Exception:
+            pass
+
+        # V3.3.1：读取原料与到货计划
+        try:
+            material_df = pd.read_excel(file_path, sheet_name='原料', engine='openpyxl')
+            for _, row in material_df.iterrows():
+                material = Material(
+                    name=str(row['原料名']).strip(),
+                    unit=str(row.get('单位', 'kg')).strip(),
+                    initial_stock=float(row.get('初始库存', 0)),
+                    unit_cost=float(row.get('单价', 0) or 0),
+                )
+                line.materials.append(material)
+                line.inventory[material.name] = material.initial_stock
+        except Exception:
+            pass
+
+        try:
+            arrival_df = pd.read_excel(
+                file_path, sheet_name='到货计划', engine='openpyxl'
+            )
+            for _, row in arrival_df.iterrows():
+                line.material_arrivals.append(MaterialArrival(
+                    time_minutes=float(row['到货时间(分钟)']),
+                    material=str(row['原料']).strip(),
+                    quantity=float(row['数量']),
+                ))
         except Exception:
             pass
 
@@ -359,6 +438,73 @@ def import_from_excel(file_path: str) -> Tuple[Optional[ProductionLine], Optiona
                             buffer_capacity = buffer_val
                     except (ValueError, TypeError):
                         pass  # 使用默认值
+
+                # V3.3.1：读取 V1.3+/V3.2 可选字段
+                machine_takt = None
+                if 'machine_takt' in actual_columns:
+                    text = str(row[actual_columns['machine_takt']]).strip()
+                    if text and text.lower() != 'nan':
+                        machine_takt = float(text)
+
+                clean_time_minutes = 0.0
+                if 'clean_time_minutes' in actual_columns:
+                    clean_time_minutes = float(
+                        row[actual_columns['clean_time_minutes']] or 0
+                    )
+
+                sampling_rate = 0.0
+                if 'sampling_rate' in actual_columns:
+                    sampling_rate = float(
+                        row[actual_columns['sampling_rate']] or 0
+                    )
+
+                defect_rate = 0.0
+                if 'defect_rate' in actual_columns:
+                    defect_rate = float(row[actual_columns['defect_rate']] or 0)
+
+                rework_minutes = 0.0
+                if 'rework_minutes' in actual_columns:
+                    rework_minutes = float(
+                        row[actual_columns['rework_minutes']] or 0
+                    )
+
+                job_role = JobRole.GENERAL
+                if 'job_role' in actual_columns:
+                    role_text = str(
+                        row[actual_columns['job_role']]
+                    ).strip()
+                    role_map = {
+                        '调香师': JobRole.MIXER,
+                        '调配工': JobRole.MIXER,
+                        '灌装操作员': JobRole.FILLING_OPERATOR,
+                        'qc化验员': JobRole.QC_TECHNICIAN,
+                        'qc 化验员': JobRole.QC_TECHNICIAN,
+                        '化验员': JobRole.QC_TECHNICIAN,
+                        '包装机手': JobRole.PACKAGING_OPERATOR,
+                        '清洗工': JobRole.CLEANER,
+                        '通用装配工': JobRole.GENERAL,
+                        '通用': JobRole.GENERAL,
+                    }
+                    job_role = role_map.get(role_text.lower(), JobRole.GENERAL)
+
+                cleanroom_zone = ""
+                if 'cleanroom_zone' in actual_columns:
+                    cleanroom_zone = str(
+                        row[actual_columns['cleanroom_zone']]
+                    ).strip()
+
+                bom = {}
+                if 'bom' in actual_columns:
+                    bom_text = str(row[actual_columns['bom']]).strip()
+                    if bom_text and bom_text.lower() != 'nan':
+                        for part in bom_text.split(';'):
+                            if ':' not in part:
+                                continue
+                            component, amount = part.split(':', 1)
+                            try:
+                                bom[component.strip()] = float(amount)
+                            except ValueError:
+                                pass
                 
                 # 创建工序对象
                 # 导入CollaborationType（延迟导入避免循环依赖）
@@ -377,7 +523,15 @@ def import_from_excel(file_path: str) -> Tuple[Optional[ProductionLine], Optiona
                     oee=oee,
                     efficiency=efficiency,
                     changeover_time=changeover_time,
-                    buffer_capacity=buffer_capacity
+                    buffer_capacity=buffer_capacity,
+                    machine_takt=machine_takt,
+                    clean_time_minutes=clean_time_minutes,
+                    sampling_rate=sampling_rate,
+                    defect_rate=defect_rate,
+                    rework_minutes=rework_minutes,
+                    job_role=job_role,
+                    cleanroom_zone=cleanroom_zone,
+                    bom=bom,
                 )
                 
                 # 校验工序参数
@@ -452,26 +606,44 @@ def create_excel_template(file_path: str, production_type: str = "assembly") -> 
         if directory and not os.path.exists(directory):
             os.makedirs(directory, exist_ok=True)
         
-        # 创建示例数据
+        # 创建示例数据（V3.3.1：补齐 V1.3+/V3.2 字段）
         template_data = [
-            ['注油', 25, 2, '并联', 0.85, 0.95, 45, 100],
-            ['焊接', 30, 3, '并联', 0.90, 0.95, 45, 100],
-            ['组装', 20, 2, '协同', 0.88, 0.95, 0, 100],
-            ['包装', 15, 2, '并联', 0.92, 0.95, 0, 100]
+            ['注油', 25, 2, '并联', 0.85, 0.95, 45, 100, '', 0, 0, 0, 0,
+             '通用装配工', '', ''],
+            ['焊接', 30, 3, '并联', 0.90, 0.95, 45, 100, '', 0, 0, 0, 0,
+             '通用装配工', '', ''],
+            ['组装', 20, 2, '协同', 0.88, 0.95, 0, 100, '', 0, 0, 0, 0,
+             '通用装配工', '', ''],
+            ['包装', 15, 2, '并联', 0.92, 0.95, 0, 100, '', 0, 0, 0, 0,
+             '通用装配工', '', ''],
         ]
-        
-        # 创建DataFrame
+
         df = pd.DataFrame(
             template_data,
-            columns=['工序名', '耗时(秒)', '人数', '模式', 'OEE', '人员效率', '切换时间(分钟)', '缓冲区容量']
+            columns=[
+                '工序名', '耗时(秒)', '人数', '模式', 'OEE', '人员效率',
+                '切换时间(分钟)', '缓冲区容量', '机台节拍(秒)', '清洗时间(分钟)',
+                '抽检比例', '缺陷率', '返工时长(分钟)', '工种', '洁净区',
+                'BOM(组件:用量;...)',
+            ],
         )
-        
-        # 保存为Excel文件（多 Sheet）
+
+        # 产线级配置（V3.3.1）
+        line_config_rows = [
+            ['production_type', production_type],
+            ['shift_hours', 8],
+            ['break_minutes', 60],
+            ['worker_hourly_wage', 20.0],
+            ['cip_interval_batches', 0],
+            ['cip_interval_hours', 0.0],
+            ['changeover_matrix_json', ''],
+        ]
+
         with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
             df.to_excel(writer, sheet_name='工序', index=False)
-            pd.DataFrame([['production_type', production_type]]).to_excel(
-                writer, sheet_name='生产类型', index=False, header=False,
-            )
+            pd.DataFrame(
+                line_config_rows, columns=['配置项', '值']
+            ).to_excel(writer, sheet_name='产线配置', index=False)
 
             if production_type in ('liquid_filling', 'pouch_packaging'):
                 recipe_df = pd.DataFrame([
@@ -492,7 +664,18 @@ def create_excel_template(file_path: str, production_type: str = "assembly") -> 
                     ['B001', '经典烟草', 500, 'queued'],
                 ], columns=['批次ID', '配方名', '批次量L', '状态'])
                 batch_df.to_excel(writer, sheet_name='批次', index=False)
-        
+
+            # 原料与到货计划（V3.3.1，组装 BOM/烟油投料通用）
+            material_df = pd.DataFrame([
+                ['棉芯', '个', 1000, 0.5],
+            ], columns=['原料名', '单位', '初始库存', '单价'])
+            material_df.to_excel(writer, sheet_name='原料', index=False)
+
+            arrival_df = pd.DataFrame([
+                [60, '棉芯', 500],
+            ], columns=['到货时间(分钟)', '原料', '数量'])
+            arrival_df.to_excel(writer, sheet_name='到货计划', index=False)
+
         return True
         
     except Exception as e:

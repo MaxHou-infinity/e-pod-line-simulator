@@ -107,6 +107,42 @@ def test_create_and_import_liquid_template(tmp_path):
     assert len(line.batches) == 1
 
 
+def test_import_excel_new_fields_and_line_config(tmp_path):
+    """V3.3.1：导入模板支持 V1.3+/V3.2 字段与产线级配置"""
+    path = str(tmp_path / "liquid_new.xlsx")
+    assert create_excel_template(path, production_type="liquid_filling") is True
+
+    from openpyxl import load_workbook
+
+    wb = load_workbook(path)
+    ws = wb["工序"]
+    ws.append([
+        "灌装", 1.5, 2, "并联", 0.85, 0.95, 45, 100,
+        2.0, 30, 0.2, 0.01, 15, "灌装操作员", "C",
+        "尼古丁:20;丙二醇:400",
+    ])
+    wb["产线配置"]["B6"] = 2  # cip_interval_batches
+    wb["产线配置"]["B7"] = 1.0  # cip_interval_hours
+    wb.save(path)
+
+    line, error = import_from_excel(path)
+    assert line is not None and error is None
+    filling = next(s for s in line.stations if s.name == "灌装")
+    assert filling.machine_takt == 2.0
+    assert filling.clean_time_minutes == 30
+    assert filling.sampling_rate == 0.2
+    assert filling.defect_rate == 0.01
+    assert filling.rework_minutes == 15
+    assert filling.job_role.value == "filling_operator"
+    assert filling.cleanroom_zone == "C"
+    assert filling.bom == {"尼古丁": 20.0, "丙二醇": 400.0}
+    assert line.cip_interval_batches == 2
+    assert line.cip_interval_hours == 1.0
+    assert len(line.materials) == 1
+    assert line.inventory.get("棉芯") == 1000
+    assert len(line.material_arrivals) == 1
+
+
 def test_import_excel_missing_file(tmp_path):
     line, error = import_from_excel(str(tmp_path / "none.xlsx"))
     assert line is None

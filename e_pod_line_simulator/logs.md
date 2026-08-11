@@ -1285,6 +1285,14 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest 136 passed
 
+## 2026-08-11 - Excel 导入模板升级（P0）
+
+### 完成内容
+- 工序/产线配置/原料/到货计划 Sheet 与导入解析同步
+
+### 验证
+- pytest 137 passed
+
 ## 2026-08-11 - 智能优化界面与应用闭环
 
 ### 完成内容
