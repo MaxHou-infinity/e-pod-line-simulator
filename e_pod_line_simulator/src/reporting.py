@@ -320,6 +320,21 @@ def export_pdf(result: SimulationResult, file_path: str) -> bool:
             leading=14,
         )
 
+        def _pdf_table(rows, widths, header=True):
+            table = Table(rows, colWidths=widths, repeatRows=1 if header else 0)
+            style = [
+                ("FONTNAME", (0, 0), (-1, -1), font_name),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]
+            if header:
+                style.append(
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey)
+                )
+            table.setStyle(TableStyle(style))
+            return table
+
         story = [
             Paragraph(f"电子烟产线仿真报告 - {result.line_name}", title_style),
             Spacer(1, 8 * mm),
@@ -332,22 +347,97 @@ def export_pdf(result: SimulationResult, file_path: str) -> bool:
             Paragraph("一、核心 KPI", header_style),
             Spacer(1, 3 * mm),
         ]
+        story.append(_pdf_table(_kpi_rows(result), [80 * mm, 90 * mm]))
 
-        kpi_table = Table(_kpi_rows(result), colWidths=[80 * mm, 90 * mm])
-        kpi_table.setStyle(TableStyle([
-            ("FONTNAME", (0, 0), (-1, -1), font_name),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("BACKGROUND", (0, 0), (0, -1), colors.lightgrey),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ]))
-        story.append(kpi_table)
+        # 二、产线配置
+        lc = result.line_config or {}
+        config_rows = [["配置项", "值"]]
+        config_rows += [
+            ["产线名称", str(lc.get("name", ""))],
+            ["生产类型", str(lc.get("production_type", ""))],
+            ["班次时长(小时)", str(lc.get("shift_hours", ""))],
+            ["休息(分钟)", str(lc.get("break_minutes", ""))],
+            ["时薪(元/h)", str(lc.get("worker_hourly_wage", ""))],
+            [
+                "周期CIP",
+                f"{lc.get('cip_interval_batches', 0)}批 / "
+                f"{lc.get('cip_interval_hours', 0)}小时",
+            ],
+            [
+                "换型矩阵",
+                json.dumps(
+                    lc.get("changeover_matrix") or {},
+                    ensure_ascii=False,
+                ),
+            ],
+        ]
+        for material in lc.get("materials", []):
+            config_rows.append([
+                f"原料-{material.get('name', '')}",
+                f"{material.get('initial_stock', 0)} {material.get('unit', '')}",
+            ])
+        for station in lc.get("stations", [])[:12]:
+            config_rows.append([
+                f"工序-{station.get('name', '')}",
+                (
+                    f"人数{station.get('worker_count', 0)}/"
+                    f"缓冲{station.get('buffer_capacity', 0)}/"
+                    f"节拍{station.get('machine_takt') or '-'}"
+                ),
+            ])
+        story.append(Spacer(1, 6 * mm))
+        story.append(Paragraph("二、产线配置", header_style))
+        story.append(Spacer(1, 3 * mm))
+        story.append(_pdf_table(config_rows, [80 * mm, 90 * mm]))
+
+        # 三、工序指标（含 OEE）
+        if result.station_metrics:
+            metric_rows = [["工序", "运行s", "等待s", "堵塞s", "利用率", "OEE"]]
+            for sid, m in result.station_metrics.items():
+                metric_rows.append([
+                    str(m.get("name", sid)),
+                    f"{m.get('running_sec', 0):.0f}",
+                    f"{m.get('waiting_sec', 0):.0f}",
+                    f"{m.get('blocked_sec', 0):.0f}",
+                    f"{m.get('utilization', 0) * 100:.1f}%",
+                    f"{m.get('oee_total', 0) * 100:.1f}%",
+                ])
+            story.append(Spacer(1, 6 * mm))
+            story.append(Paragraph("三、工序指标（含 OEE）", header_style))
+            story.append(Spacer(1, 3 * mm))
+            story.append(_pdf_table(metric_rows, [40 * mm, 25 * mm, 25 * mm, 25 * mm, 30 * mm, 30 * mm]))
+
+        # 四、失衡分析
+        imbalance_rows = [["工序", "结论"]]
+        station_ids = list(result.station_metrics.keys())
+        for i, sid in enumerate(station_ids):
+            m = result.station_metrics[sid]
+            ratio = None
+            if i > 0:
+                prev_cap = result.station_metrics[station_ids[i - 1]].get("capacity", 0)
+                capacity = m.get("capacity", 0)
+                ratio = round(capacity / prev_cap, 2) if prev_cap else None
+            conclusion = []
+            if m.get("utilization", 0) >= 0.95:
+                conclusion.append("瓶颈")
+            if m.get("waiting_sec", 0) >= 300:
+                conclusion.append("饥饿")
+            if m.get("blocked_sec", 0) >= 300:
+                conclusion.append("堵塞")
+            if ratio is not None and ratio < 0.8:
+                conclusion.append("产能冗余")
+            imbalance_rows.append([
+                str(m.get("name", sid)),
+                "/".join(conclusion) or "正常",
+            ])
+        story.append(Spacer(1, 6 * mm))
+        story.append(Paragraph("四、失衡分析", header_style))
+        story.append(Spacer(1, 3 * mm))
+        story.append(_pdf_table(imbalance_rows, [80 * mm, 90 * mm]))
 
         if result.alerts:
             story.append(Spacer(1, 6 * mm))
-            story.append(Paragraph("二、报警记录", header_style))
+            story.append(Paragraph("五、报警记录", header_style))
             story.append(Spacer(1, 3 * mm))
             alert_rows = [["时间(分钟)", "级别", "消息"]]
             for alert in result.alerts[:50]:
@@ -356,21 +446,13 @@ def export_pdf(result: SimulationResult, file_path: str) -> bool:
                     alert.severity,
                     alert.message,
                 ])
-            alert_table = Table(alert_rows, colWidths=[25 * mm, 25 * mm, 120 * mm])
-            alert_table.setStyle(TableStyle([
-                ("FONTNAME", (0, 0), (-1, -1), font_name),
-                ("FONTSIZE", (0, 0), (-1, -1), 9),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ]))
-            story.append(alert_table)
+            story.append(_pdf_table(alert_rows, [25 * mm, 25 * mm, 120 * mm]))
 
         if result.batch_results:
             story.append(Spacer(1, 6 * mm))
-            story.append(Paragraph("三、批次结果", header_style))
+            story.append(Paragraph("六、批次结果", header_style))
             story.append(Spacer(1, 3 * mm))
-            batch_rows = [["批次ID", "配方", "周期(分钟)", "合格率", "产出(L)"]]
+            batch_rows = [["批次ID", "配方", "周期(分钟)", "合格率", f"产出({result.unit})"]]
             for b in result.batch_results:
                 batch_rows.append([
                     str(b.get("batch_id", "")),
@@ -379,15 +461,21 @@ def export_pdf(result: SimulationResult, file_path: str) -> bool:
                     f"{b.get('pass_rate', 0) * 100:.1f}%",
                     f"{b.get('yield_l', 0):.1f}",
                 ])
-            batch_table = Table(batch_rows, colWidths=[30 * mm, 35 * mm, 35 * mm, 30 * mm, 40 * mm])
-            batch_table.setStyle(TableStyle([
-                ("FONTNAME", (0, 0), (-1, -1), font_name),
-                ("FONTSIZE", (0, 0), (-1, -1), 9),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ]))
-            story.append(batch_table)
+            story.append(_pdf_table(batch_rows, [30 * mm, 35 * mm, 35 * mm, 30 * mm, 40 * mm]))
+
+        if result.material_events:
+            story.append(Spacer(1, 6 * mm))
+            story.append(Paragraph("七、原料事件", header_style))
+            story.append(Spacer(1, 3 * mm))
+            material_rows = [["时间", "类型", "原料", "数量"]]
+            for event in result.material_events[:50]:
+                material_rows.append([
+                    f"{event.get('time', 0):.0f}s",
+                    str(event.get("type", "")),
+                    str(event.get("material", "")),
+                    str(event.get("quantity", "")),
+                ])
+            story.append(_pdf_table(material_rows, [35 * mm, 35 * mm, 50 * mm, 50 * mm]))
 
         story.append(Spacer(1, 6 * mm))
         story.append(Paragraph(

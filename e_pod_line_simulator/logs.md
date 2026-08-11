@@ -1293,6 +1293,14 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest 137 passed
 
+## 2026-08-11 - PDF 报告多节升级（P2）
+
+### 完成内容
+- PDF 对齐 Excel：产线配置/工序指标/OEE/失衡/原料事件
+
+### 验证
+- pytest 137 passed
+
 ## 2026-08-11 - 主报告 Excel 增强（P1）
 
 ### 完成内容
