@@ -3,6 +3,13 @@
 本项目采用 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)
 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Added
+
+- GitHub Actions 自动打包：tag `v*` 推送时生成分发压缩包，
+  上传 Release 附件并保留构建 Artifact
+
 ## [3.1.0] - 2026-08-11
 
 ### Added

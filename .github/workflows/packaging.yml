@@ -1,0 +1,62 @@
+name: Packaging
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-package:
+    name: Build distributable zip
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Assemble package
+        run: |
+          set -euxo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          STAGE="package/E-Pod-Line-Simulator-${TAG}"
+          mkdir -p "${STAGE}/docs/images"
+          rsync -a \
+            --exclude '__pycache__' \
+            --exclude '.pytest_cache' \
+            --exclude '.coverage' \
+            --exclude '.DS_Store' \
+            --exclude 'logs' \
+            --exclude '*.log' \
+            e_pod_line_simulator "${STAGE}/"
+          cp README.md AGENTS.md LICENSE CHANGELOG.md .gitignore \
+            "电子烟产线仿真优化.md" "电子烟产线仿真优化 2.md" \
+            方案一.json 方案2.json "${STAGE}/"
+          cp docs/images/screenshot_main.png "${STAGE}/docs/images/"
+          cd package
+          zip -rq "../E-Pod-Line-Simulator-${TAG}.zip" "E-Pod-Line-Simulator-${TAG}"
+          cd ..
+          unzip -l "E-Pod-Line-Simulator-${TAG}.zip" | tail -1
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: E-Pod-Line-Simulator-${{ github.ref_name }}
+          path: E-Pod-Line-Simulator-${{ github.ref_name }}.zip
+          if-no-files-found: error
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          ZIP="E-Pod-Line-Simulator-${TAG}.zip"
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" "${ZIP}" --clobber
+          else
+            gh release create "${TAG}" "${ZIP}" --title "${TAG} 发布" --generate-notes
+          fi

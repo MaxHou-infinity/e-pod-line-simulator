@@ -7,6 +7,7 @@
 ![python](https://img.shields.io/badge/Python-3.8%2B-2F6FED)
 ![CI](https://github.com/MaxHou-infinity/e-pod-line-simulator/actions/workflows/ci.yml/badge.svg)
 ![license](https://img.shields.io/badge/license-Attribution%20Authorization-blue)
+![release](https://img.shields.io/github/v/release/MaxHou-infinity/e-pod-line-simulator?label=latest%20release&color=2F6FED)
 
 ![主界面](docs/images/screenshot_main.png)
 
@@ -33,6 +34,8 @@
 ## 快速开始
 
 ### 方式一：压缩包（推荐普通用户）
+
+从 [GitHub Releases 下载最新压缩包](https://github.com/MaxHou-infinity/e-pod-line-simulator/releases/latest)：
 
 1. 解压 `E-Pod-Line-Simulator-v3.1.0.zip`；
 2. 进入 `e_pod_line_simulator`；

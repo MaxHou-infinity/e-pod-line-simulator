@@ -1204,6 +1204,17 @@ y = max(0, min(y, screen_height - dialog_height))
 - V2.0：Web 化
 - P2（V1.1 遗留）：KPI 历史趋势图、配置 Excel 导出、平台打包
 
+## 2026-08-11 - V3.1.0 Release 与自动打包通道
+
+### 完成内容
+- 创建 GitHub Release v3.1.0，附件 `E-Pod-Line-Simulator-v3.1.0.zip`
+- 新增 `.github/workflows/packaging.yml`：tag `v*` 推送时自动打包，
+  上传 Release 附件并保留构建 Artifact
+- README 增加最新 Release 徽章与下载入口
+
+### 验证
+- Release 创建成功；zip 附件可下载；打包工作流待触发验证
+
 ## 2026-08-11 - V3.0 L5 画布视觉升级
 
 ### 完成内容
