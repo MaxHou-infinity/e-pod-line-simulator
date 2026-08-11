@@ -219,6 +219,32 @@ def apply_theme(root, dark: bool = False) -> dict:
         font=(family, 11, 'bold'),
     )
     style.configure('TButton', font=(family, 11), padding=(10, 5))
+    style.configure(
+        'Primary.TButton',
+        background=COLORS['primary'],
+        foreground='#FFFFFF',
+        font=(family, 11),
+        padding=(12, 6),
+    )
+    style.map(
+        'Primary.TButton',
+        background=[('active', COLORS['primary_hover'])],
+        foreground=[('disabled', '#B9C4D4')],
+    )
+    style.configure(
+        'Danger.TButton',
+        background=COLORS['danger'],
+        foreground='#FFFFFF',
+        padding=(12, 6),
+    )
+    style.map('Danger.TButton', background=[('active', '#D9342B')])
+    style.configure(
+        'Secondary.TButton',
+        background=COLORS['surface'],
+        foreground=COLORS['text'],
+        padding=(12, 6),
+    )
+    style.map('Secondary.TButton', background=[('active', COLORS['hover'])])
     style.configure('Accent.TButton', background=COLORS['primary'], foreground='white')
     style.map(
         'Accent.TButton',
@@ -241,8 +267,18 @@ def apply_theme(root, dark: bool = False) -> dict:
         background=COLORS['surface'],
         foreground=COLORS['text'],
     )
-    style.configure('TEntry', fieldbackground=COLORS['surface'])
-    style.configure('TCombobox', fieldbackground=COLORS['surface'])
+    style.configure(
+        'TEntry',
+        fieldbackground=COLORS['surface'],
+        bordercolor=COLORS['border'],
+    )
+    style.map(
+        'TEntry',
+        bordercolor=[('focus', COLORS['focus'])],
+        fieldbackground=[('disabled', COLORS['bg'])],
+    )
+    style.configure('TCombobox', fieldbackground=COLORS['surface'], bordercolor=COLORS['border'])
+    style.map('TCombobox', bordercolor=[('focus', COLORS['focus'])])
 
     root.configure(bg=COLORS['bg'])
     root.option_add('*Font', (family, 11))

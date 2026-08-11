@@ -1018,6 +1018,15 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：84 passed；GUI 冒烟通过
 
+## 2026-08-11 - V3.0 L3 组件视觉规范
+
+### 完成内容
+- Primary/Danger/Secondary 按钮样式与输入框聚焦边框
+- 开始/暂停/停止/保存方案与对话框确定按钮应用新样式
+
+### 验证
+- pytest：84 passed；GUI 冒烟通过
+
 ## 2026-08-10 - V1.3 术语表更新
 
 ### 完成内容

@@ -254,7 +254,8 @@ class MainWindow:
         self.btn_start = ttk.Button(
             control_frame,
             text="开始仿真",
-            command=self._btn_start_simulation
+            command=self._btn_start_simulation,
+            style="Accent.TButton",
         )
         self.btn_start.pack(side=tk.LEFT, padx=5)
         
@@ -263,7 +264,8 @@ class MainWindow:
             control_frame,
             text="暂停",
             command=self._btn_pause_simulation,
-            state=tk.DISABLED
+            state=tk.DISABLED,
+            style="Secondary.TButton",
         )
         self.btn_pause.pack(side=tk.LEFT, padx=5)
         
@@ -272,7 +274,8 @@ class MainWindow:
             control_frame,
             text="停止",
             command=self._btn_stop_simulation,
-            state=tk.DISABLED
+            state=tk.DISABLED,
+            style="Danger.TButton",
         )
         self.btn_stop.pack(side=tk.LEFT, padx=5)
         
@@ -300,7 +303,8 @@ class MainWindow:
         self.btn_save_scenario = ttk.Button(
             control_frame,
             text="保存方案",
-            command=self._btn_save_scenario
+            command=self._btn_save_scenario,
+            style="Primary.TButton",
         )
         self.btn_save_scenario.pack(side=tk.LEFT, padx=5)
 

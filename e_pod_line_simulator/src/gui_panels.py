@@ -815,7 +815,7 @@ class StationDialog:
         button_frame.grid(row=10, column=0, columnspan=2, pady=20)
         
         # 确定按钮
-        btn_ok = ttk.Button(button_frame, text="确定", command=self._btn_ok)
+        btn_ok = ttk.Button(button_frame, text="确定", command=self._btn_ok, style="Primary.TButton")
         btn_ok.pack(side=tk.LEFT, padx=10)
         
         # 取消按钮
@@ -1000,7 +1000,7 @@ class ShiftConfigDialog:
         button_frame.grid(row=3, column=0, columnspan=2, pady=15)
         
         # 确定按钮
-        btn_ok = ttk.Button(button_frame, text="确定", command=self._btn_ok)
+        btn_ok = ttk.Button(button_frame, text="确定", command=self._btn_ok, style="Primary.TButton")
         btn_ok.pack(side=tk.LEFT, padx=5)
         
         # 取消按钮
@@ -1175,7 +1175,9 @@ class SaveScenarioDialog:
         button_frame = ttk.Frame(main_frame)
         button_frame.grid(row=4, column=0, columnspan=2, pady=10)
         
-        ttk.Button(button_frame, text="确定", command=self._on_confirm).pack(side=tk.LEFT, padx=5)
+        ttk.Button(
+            button_frame, text="确定", command=self._on_confirm, style="Primary.TButton"
+        ).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="取消", command=self._on_cancel).pack(side=tk.LEFT, padx=5)
 
     def _browse_path(self) -> None:
