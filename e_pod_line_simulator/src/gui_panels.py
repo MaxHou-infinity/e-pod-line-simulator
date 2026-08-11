@@ -614,7 +614,7 @@ class AlertPanel(ttk.LabelFrame):
         self.btn_copy_alerts.pack(side=tk.RIGHT)
 
         # 报警列表（使用Text组件显示）
-        self.text_widget = tk.Text(self, height=10, wrap=tk.WORD)
+        self.text_widget = tk.Text(self, height=10, width=28, wrap=tk.WORD)
         self.text_widget.pack(fill=tk.BOTH, expand=True)
 
         # 配置文本样式

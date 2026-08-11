@@ -84,14 +84,14 @@ class MainWindow:
         # 创建主窗口
         self.root = tk.Tk()
         self.root.title(f"电子烟产线仿真优化工具 v{__version__}")
-        self.root.geometry("1400x800")  # 窗口大小：宽1400，高800
+        self.root.geometry("1500x900")  # 默认窗口：宽1500，高900
 
         # 应用 V3.0 设计令牌与主题（读取持久化配置）
         self._dark = load_ui_config().get('theme', 'light') == 'dark'
         apply_theme(self.root, dark=self._dark)
         
         # 设置窗口最小尺寸
-        self.root.minsize(1000, 600)
+        self.root.minsize(1200, 700)
         
         # 初始化日志
         self.logger = setup_logger()
@@ -203,9 +203,10 @@ class MainWindow:
         # 创建主容器（使用PanedWindow实现可调整大小的分割）
         main_paned = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         main_paned.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.main_paned = main_paned
         
-        # 左侧：配置面板
-        left_frame = ttk.Frame(main_paned, width=300)
+        # 左侧：配置面板（加宽以完整显示工序列表）
+        left_frame = ttk.Frame(main_paned, width=380)
         main_paned.add(left_frame, weight=1)
         
         self.config_panel = ConfigPanel(
@@ -221,9 +222,12 @@ class MainWindow:
         right_frame = ttk.Frame(main_paned)
         main_paned.add(right_frame, weight=3)
 
-        # 最右侧：报警栏（纵列显示，纵向充分利用窗口高度）
-        alert_frame = ttk.Frame(main_paned, width=320)
-        main_paned.add(alert_frame, weight=1)
+        # 最右侧：报警栏（收窄默认宽度，不随窗口放大而膨胀）
+        alert_frame = ttk.Frame(main_paned, width=260)
+        main_paned.add(alert_frame, weight=0)
+
+        # 默认分隔位置：左 380 / 右 280，中间自适应（V3.1 布局修复）
+        self.root.after_idle(self._set_default_panes)
         
         # 画布视图（2D可视化）
         canvas_frame = ttk.Frame(right_frame)
@@ -231,8 +235,8 @@ class MainWindow:
         
         self.canvas_view = CanvasView(
             canvas_frame,
-            width=1000,
-            height=500,
+            width=800,
+            height=520,
             on_reorder=self._on_canvas_reorder,
             on_station_edit=self._on_edit_station,
             on_station_select=self._on_canvas_select_station,
@@ -336,6 +340,22 @@ class MainWindow:
             anchor=tk.W
         )
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
+    def _set_default_panes(self) -> None:
+        """设置三栏默认宽度（左 380 / 报警 280 / 中间自适应）"""
+        if not hasattr(self, 'main_paned'):
+            return
+        try:
+            self.main_paned.update_idletasks()
+            total = self.main_paned.winfo_width()
+            if total <= 100:
+                total = self.root.winfo_width()
+            sash0 = min(380, max(360, int(total * 0.25)))
+            sash1 = max(sash0 + 400, total - 280)
+            self.main_paned.sashpos(0, sash0)
+            self.main_paned.sashpos(1, sash1)
+        except Exception:
+            pass
     
     def _create_default_line(self) -> None:
         """
