@@ -40,3 +40,37 @@ def test_optimize_output_objective_scores_output():
     )
     assert top
     assert top[0]["score"] == top[0]["total_output"]
+
+
+def test_optimize_actual_unit_cost_present():
+    top = optimize(
+        make_line(), objective="unit_cost",
+        generations=2, population=4, duration_hours=0.5,
+    )
+    assert all("actual_unit_cost" in s and s["actual_unit_cost"] > 0 for s in top)
+
+
+def test_optimize_locked_stations_keep_values():
+    line = make_line()
+    original = line.get_station("s01")
+    top = optimize(
+        line, objective="unit_cost",
+        generations=2, population=4, duration_hours=0.5,
+        locked_stations=["s01"],
+    )
+    for s in top:
+        assert s["params"]["瓶颈"]["worker_count"] == original.worker_count
+        assert s["params"]["瓶颈"]["buffer_capacity"] == original.buffer_capacity
+
+
+def test_optimize_progress_callback_called():
+    calls = []
+
+    optimize(
+        make_line(), objective="output",
+        generations=3, population=4, duration_hours=0.5,
+        progress_callback=lambda g, t, s: calls.append((g, t)),
+    )
+
+    assert len(calls) == 2
+    assert calls[0][0] == 1 and calls[0][1] == 2

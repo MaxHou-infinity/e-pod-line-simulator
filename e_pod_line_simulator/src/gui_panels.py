@@ -16,6 +16,7 @@ GUI面板组件 - 各种功能面板
 import tkinter as tk
 import os
 import webbrowser
+import copy
 from tkinter import ttk, messagebox, filedialog
 from typing import List, Optional, Callable, Dict, Any
 
@@ -50,7 +51,8 @@ from src.history import (
     load_history,
 )
 from src.sensitivity import run_sweep
-from src.optimizer import optimize
+from src.optimizer import _params_text, optimize
+from src.simulation import SimulationEngine
 
 
 def build_template_line(key: str) -> ProductionLine:
@@ -2392,17 +2394,41 @@ class OptimizeDialog:
             row=3, column=1, sticky=tk.W, pady=5
         )
 
+        ttk.Label(main, text="锁定工序ID(逗号分隔):").grid(
+            row=4, column=0, sticky=tk.W, pady=5
+        )
+        self.locked_var = tk.StringVar(value="")
+        ttk.Entry(main, textvariable=self.locked_var, width=24).grid(
+            row=4, column=1, sticky=tk.W, pady=5
+        )
+
         ttk.Button(main, text="开始优化", command=self._run).grid(
-            row=4, column=0, columnspan=2, sticky=tk.W, pady=10
+            row=5, column=0, columnspan=2, sticky=tk.W, pady=10
         )
         ttk.Button(main, text="关闭", command=self._close).grid(
-            row=4, column=1, sticky=tk.E, pady=10
+            row=5, column=1, sticky=tk.E, pady=10
+        )
+        self.progress_var = tk.StringVar(value="")
+        ttk.Label(main, textvariable=self.progress_var).grid(
+            row=6, column=0, columnspan=2, sticky=tk.W
         )
         ttk.Label(
             main,
             text="搜索范围：工序人数 1-10、缓冲区 10-500、机台节拍 ±50%",
             foreground=COLORS["text_secondary"],
-        ).grid(row=5, column=0, columnspan=2, sticky=tk.W)
+        ).grid(row=7, column=0, columnspan=2, sticky=tk.W, pady=(4, 0))
+
+        HelpSection(
+            main,
+            "使用说明",
+            "目标：让产线总产出最大或单位成本最小。\n"
+            "搜索参数：每道工序的人数（1-10）、缓冲区容量（10-500）、"
+            "机台节拍（仅节拍工序，0.5s ~ 当前×1.5）。\n"
+            "锁定工序：填工序ID（如 s01,s03）后，该工序参数保持当前值不参与搜索。\n"
+            "结果口径：理论单位成本=人力成本÷理论日产量；"
+            "实际单位成本=总成本÷本次仿真产出。\n"
+            "提示：代数/种群越大越接近全局最优，但计算时间成倍增加。",
+        ).grid(row=8, column=0, columnspan=2, sticky=tk.W, pady=(8, 0))
 
     def _run(self) -> None:
         try:
@@ -2410,26 +2436,77 @@ class OptimizeDialog:
             generations = int(self.generations_var.get())
             population = int(self.population_var.get())
             duration = float(self.duration_var.get())
+            locked = [
+                s.strip()
+                for s in self.locked_var.get().replace("，", ",").split(",")
+                if s.strip()
+            ]
             self.dialog.config(cursor="watch")
             self.dialog.update_idletasks()
+
+            base = SimulationEngine(copy.deepcopy(self.line)).run_sync(
+                duration_hours=duration
+            )
+            base_row = {
+                "rank": "基线",
+                "output": base.total_output,
+                "unit_cost": round(base.kpis.get("unit_cost", 0.0), 3),
+                "actual_unit_cost": round(
+                    base.kpis.get("total_cost", 0.0) / base.total_output
+                    if base.total_output > 0 else 0.0,
+                    3,
+                ),
+                "total_cost": round(base.kpis.get("total_cost", 0.0), 1),
+                "params": "当前配置",
+            }
+
+            def _progress(generation, total, best):
+                self.progress_var.set(
+                    f"正在优化：第 {generation}/{total} 代，"
+                    f"当前最优得分 {best:.1f}"
+                )
+                self.dialog.update_idletasks()
+
             top = optimize(
                 self.line,
                 objective=objective,
                 generations=generations,
                 population=population,
                 duration_hours=duration,
+                locked_stations=locked,
+                progress_callback=_progress,
             )
             if not top:
                 messagebox.showwarning("提示", "未找到可行方案")
                 return
-            lines = [f"优化目标：{self.OBJECTIVE_LABELS.get(objective, objective)}"]
+
+            rows = [base_row]
             for s in top:
-                lines.append(
-                    f"TOP{s['rank']}：总产出 {s['total_output']}，"
-                    f"单位成本 {s['unit_cost']:.3f}，"
-                    f"参数 {s['params']}"
-                )
-            messagebox.showinfo("优化结果", "\n".join(lines))
+                rows.append({
+                    "rank": f"TOP{s['rank']}",
+                    "output": s["total_output"],
+                    "unit_cost": round(s["unit_cost"], 3),
+                    "actual_unit_cost": round(s["actual_unit_cost"], 3),
+                    "total_cost": round(s["total_cost"], 1),
+                    "params": _params_text(s["params"]),
+                })
+            columns = [
+                ("rank", "方案", 60, tk.CENTER),
+                ("output", "总产出", 90, tk.E),
+                ("unit_cost", "理论单位成本", 110, tk.E),
+                ("actual_unit_cost", "实际单位成本", 110, tk.E),
+                ("total_cost", "总成本", 90, tk.E),
+                ("params", "参数", 420, tk.W),
+            ]
+            ResultTableDialog(
+                self.dialog,
+                f"智能优化结果（{self.OBJECTIVE_LABELS.get(objective, objective)}）",
+                columns,
+                rows,
+                highlight_key="rank",
+                highlight_value="基线",
+            )
+            self.progress_var.set("优化完成")
         except Exception as e:
             messagebox.showerror("优化失败", f"{e}\n\n详细日志：logs/app.log")
         finally:
