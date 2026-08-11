@@ -78,11 +78,17 @@ def test_about_dialog_class_and_urls():
     import os
 
     from src.gui_panels import AboutDialog
-    from src.version import ALIPAY_QR_PATH, BUG_REPORT_URL, WECHAT_QR_PATH
+    from src.version import (
+        ALIPAY_QR_PATH,
+        BUG_REPORT_URL,
+        WECHAT_QR_PATH,
+        WECHAT_QR_SMALL_PATH,
+    )
 
     assert callable(AboutDialog)
     assert BUG_REPORT_URL.startswith("https://")
     assert isinstance(WECHAT_QR_PATH, str)
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     assert os.path.exists(os.path.join(repo_root, WECHAT_QR_PATH))
+    assert os.path.exists(os.path.join(repo_root, WECHAT_QR_SMALL_PATH))
     assert isinstance(ALIPAY_QR_PATH, str)

@@ -24,7 +24,13 @@ from src.utils import validate_station, get_alert_color
 from src.scenario_manager import ScenarioManager
 from src.theme import ALERT_ICONS, COLORS, ToolTip, resolve_font_family
 from src.glossary import GLOSSARY
-from src.version import ALIPAY_QR_PATH, BUG_REPORT_URL, WECHAT_QR_PATH, __version__
+from src.version import (
+    ALIPAY_QR_PATH,
+    BUG_REPORT_URL,
+    WECHAT_QR_PATH,
+    WECHAT_QR_SMALL_PATH,
+    __version__,
+)
 from src.models import (
     ProductionType,
     create_liquid_line,
@@ -1729,18 +1735,21 @@ class AboutDialog:
             "【Bug 反馈】\n"
             f"GitHub Issues：{BUG_REPORT_URL}\n\n"
             "【资助作者】\n"
-            f"微信赞赏码：{WECHAT_QR_PATH}\n"
-            "支付宝赞赏码（可选）：需在 src/version.py 配置 ALIPAY_QR_PATH。\n"
-            "扫描上方二维码即可支持作者，感谢你的资助！"
+            "扫描上方二维码即可支持作者一杯咖啡的钱，感谢你的资助！\n"
         ))
         text.config(state=tk.DISABLED)
         self.about_text = text
 
         # 内嵌微信赞赏码图片（如存在）
         self._qr_image = None
-        if WECHAT_QR_PATH and os.path.exists(WECHAT_QR_PATH):
+        display_path = (
+            WECHAT_QR_SMALL_PATH
+            if WECHAT_QR_SMALL_PATH and os.path.exists(WECHAT_QR_SMALL_PATH)
+            else WECHAT_QR_PATH
+        )
+        if display_path and os.path.exists(display_path):
             try:
-                self._qr_image = tk.PhotoImage(file=WECHAT_QR_PATH)
+                self._qr_image = tk.PhotoImage(file=display_path)
                 ttk.Label(main, image=self._qr_image).pack(pady=(0, 8))
             except Exception:
                 self._qr_image = None
