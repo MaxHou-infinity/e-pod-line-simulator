@@ -2439,6 +2439,154 @@ class OptimizeDialog:
         self.dialog.destroy()
 
 
+class HelpSection:
+    """折叠式「使用说明」区块（V3.3）"""
+
+    def __init__(self, parent, title: str = "使用说明", text: str = ""):
+        self._title = title
+        self.frame = ttk.Frame(parent)
+        self._expanded = False
+        self.btn = ttk.Button(
+            self.frame, text=f"▶ {title}", command=self._toggle
+        )
+        self.btn.pack(anchor=tk.W)
+        height = max(3, min(10, text.count("\n") + 2))
+        self.body = tk.Text(
+            self.frame, height=height, wrap=tk.WORD,
+            font=(resolve_font_family(), 10),
+            foreground=COLORS["text_secondary"],
+            state=tk.DISABLED,
+        )
+        self.body.configure(state=tk.NORMAL)
+        self.body.insert("1.0", text)
+        self.body.configure(state=tk.DISABLED)
+
+    def pack(self, *args, **kwargs):
+        self.frame.pack(*args, **kwargs)
+        return self
+
+    def grid(self, *args, **kwargs):
+        self.frame.grid(*args, **kwargs)
+        return self
+
+    def _toggle(self) -> None:
+        self._expanded = not self._expanded
+        self.btn.config(text=("▼ " if self._expanded else "▶ ") + self._title)
+        if self._expanded:
+            self.body.pack(fill=tk.X, expand=False, padx=(16, 0), pady=(2, 6))
+        else:
+            self.body.pack_forget()
+
+
+class ResultTableDialog:
+    """
+    通用结果表格对话框（V3.3）
+
+    columns: [(key, 列名, 宽度, anchor)]；rows: [{key: value}]
+    highlight_key/highlight_value：满足条件的行高亮为基线行。
+    actions: [(按钮文字, 回调)]
+    """
+
+    def __init__(
+        self,
+        parent,
+        title: str,
+        columns,
+        rows,
+        highlight_key: Optional[str] = None,
+        highlight_value=None,
+        actions=None,
+    ):
+        self.columns = list(columns)
+        self.rows = list(rows)
+        self.highlight_key = highlight_key
+        self.highlight_value = highlight_value
+        self.actions = actions or []
+
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title(title)
+        self.dialog.geometry("820x520")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        self._create_widgets()
+        self.dialog.bind('<Escape>', lambda e: self._close())
+        self.dialog.update_idletasks()
+        x = (self.dialog.winfo_screenwidth() // 2) - (self.dialog.winfo_width() // 2)
+        y = (self.dialog.winfo_screenheight() // 2) - (self.dialog.winfo_height() // 2)
+        self.dialog.geometry(f"+{x}+{y}")
+        self.dialog.wait_window()
+
+    def _create_widgets(self) -> None:
+        main = ttk.Frame(self.dialog, padding=12)
+        main.pack(fill=tk.BOTH, expand=True)
+
+        btn_frame = ttk.Frame(main)
+        btn_frame.pack(fill=tk.X, pady=(0, 6))
+        ttk.Button(btn_frame, text="导出Excel", command=self._export_excel).pack(
+            side=tk.LEFT, padx=4
+        )
+        ttk.Button(btn_frame, text="复制文本", command=self._copy_text).pack(
+            side=tk.LEFT, padx=4
+        )
+        for label, callback in self.actions:
+            ttk.Button(btn_frame, text=label, command=callback).pack(
+                side=tk.LEFT, padx=4
+            )
+        ttk.Button(btn_frame, text="关闭", command=self._close).pack(
+            side=tk.RIGHT, padx=4
+        )
+
+        keys = [c[0] for c in self.columns]
+        self.tree = ttk.Treeview(main, columns=keys, show="headings", height=16)
+        for key, label, width, anchor in self.columns:
+            self.tree.heading(key, text=label)
+            self.tree.column(key, width=width, anchor=anchor)
+        self.tree.pack(fill=tk.BOTH, expand=True)
+
+        for row in self.rows:
+            values = [row.get(key, "") for key in keys]
+            item = self.tree.insert("", tk.END, values=values)
+            if (
+                self.highlight_key is not None
+                and row.get(self.highlight_key) == self.highlight_value
+            ):
+                self.tree.item(item, tags=("baseline",))
+        self.tree.tag_configure("baseline", background="#EAF2FF")
+
+    def _export_excel(self) -> None:
+        try:
+            import pandas as pd
+
+            path = filedialog.asksaveasfilename(
+                title="导出结果",
+                defaultextension=".xlsx",
+                initialfile="分析结果.xlsx",
+                filetypes=[("Excel 文件", "*.xlsx")],
+            )
+            if not path:
+                return
+            df = pd.DataFrame([
+                {label: row.get(key, "") for key, label, _, _ in self.columns}
+                for row in self.rows
+            ])
+            df.to_excel(path, index=False)
+            messagebox.showinfo("成功", f"已导出：{path}")
+        except Exception as e:
+            messagebox.showerror("导出失败", f"{e}\n\n详细日志：logs/app.log")
+
+    def _copy_text(self) -> None:
+        lines = ["\t".join(label for _, label, _, _ in self.columns)]
+        for row in self.rows:
+            lines.append("\t".join(str(row.get(key, "")) for key, _, _, _ in self.columns))
+        text = "\n".join(lines)
+        self.dialog.clipboard_clear()
+        self.dialog.clipboard_append(text)
+        show_toast(self.dialog, "已复制到剪贴板")
+
+    def _close(self) -> None:
+        self.dialog.destroy()
+
+
 class WizardDialog:
     """
     快速配置向导 - 分步引导新手完成产线配置

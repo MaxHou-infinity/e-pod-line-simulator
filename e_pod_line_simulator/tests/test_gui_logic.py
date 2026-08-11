@@ -87,6 +87,15 @@ def test_optimize_dialog_methods_exist():
     assert hasattr(OptimizeDialog, "_close")
 
 
+def test_result_table_and_help_section_methods_exist():
+    from src.gui_panels import HelpSection, ResultTableDialog
+
+    assert hasattr(ResultTableDialog, "_export_excel")
+    assert hasattr(ResultTableDialog, "_copy_text")
+    assert hasattr(ResultTableDialog, "_close")
+    assert hasattr(HelpSection, "_toggle")
+
+
 def test_station_edit_fields_mapping():
     assert station_edit_fields(ProductionType.ASSEMBLY) == set()
     assert station_edit_fields(ProductionType.LIQUID_FILLING) == {
