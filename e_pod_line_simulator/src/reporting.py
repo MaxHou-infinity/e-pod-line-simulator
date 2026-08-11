@@ -68,6 +68,8 @@ def _kpi_rows(result: SimulationResult) -> List[List[str]]:
         ["产线名称", result.line_name],
         ["仿真时长(分钟)", f"{duration_minutes:.1f}"],
         [f"总产出({unit})", f"{result.total_output}"],
+        [f"可发运产出({unit})", f"{k.get('shippable_quantity', result.total_output)}"],
+        ["隔离批次", f"{k.get('rejected_batches', 0)}"],
         [f"瓶颈产能({unit}/h)", f"{k.get('bottleneck_capacity', 0):.1f}"],
         [f"预计日产量({unit})", f"{k.get('daily_output', 0):.0f}"],
         ["日成本(元)", f"{k.get('total_cost', 0):.0f}"],

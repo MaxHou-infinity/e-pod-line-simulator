@@ -78,6 +78,7 @@ class BatchStatus(Enum):
     QC = "qc"
     REWORK = "rework"
     RELEASED = "released"
+    REJECTED = "rejected"
 
 
 UNIT_LABELS = {

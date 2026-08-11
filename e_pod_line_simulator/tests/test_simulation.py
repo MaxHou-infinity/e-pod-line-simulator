@@ -380,6 +380,23 @@ def test_liquid_quality_gate_rework():
     assert result.batch_results[0]["pass_rate"] < 1.0
 
 
+def test_liquid_rejected_batch_isolated_not_shipped():
+    """V3.2 L5：未通过质量门的批次隔离，不计入可发运产出"""
+    line = create_liquid_line()
+    qc = line.get_station("s03")
+    qc.sampling_rate = 1.0
+    qc.defect_rate = 1.0
+    engine = SimulationEngine(line)
+    engine.random_seed = 42
+    result = engine.run_sync(duration_hours=24.0)
+
+    assert result.batch_results[0]["status"] == "rejected"
+    assert result.kpis["rejected_batches"] == 1
+    assert result.kpis["shippable_quantity"] == 0.0
+    assert all(t.current_level_l == 0.0 for t in line.tanks)
+    assert any(a.alert_type == "batch_rejected" for a in result.alerts)
+
+
 def test_pouch_quality_gate_reduces_output():
     line = ProductionLine("袋装质检测试", production_type=ProductionType.POUCH_PACKAGING)
     line.add_station(Station(

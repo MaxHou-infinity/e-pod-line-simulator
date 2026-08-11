@@ -496,10 +496,34 @@ class SimulationEngine:
             'rework_count': batch.rework_count,
         })
 
-        batch.status = BatchStatus.RELEASED
         end_time = self.env.now
         batch.end_time = end_time
         batch.pass_rate = pass_rate
+
+        # 放行/隔离（V3.2）：未通过质量门的批次隔离，不计入可发运产出
+        if pass_rate < 1.0:
+            batch.status = BatchStatus.REJECTED
+            self._emit_alert(Alert(
+                alert_type="batch_rejected",
+                severity="WARNING",
+                station_id="",
+                message=f"批次 {batch.id} 未通过质量门，已隔离",
+                suggestion="检查配方/工艺参数或执行返工/报废流程",
+                timestamp_minutes=round(self.env.now / 60.0, 1),
+            ))
+            self.batch_results.append({
+                'batch_id': batch.id,
+                'recipe_name': batch.recipe_name,
+                'status': 'rejected',
+                'start_time': start_time,
+                'end_time': end_time,
+                'yield_l': 0.0,
+                'cycle_min': round((end_time - start_time) / 60.0, 3),
+                'pass_rate': pass_rate,
+            })
+            return
+
+        batch.status = BatchStatus.RELEASED
 
         # 罐容约束（V3.2）：按可用罐容分批注入，容量不足时等待并报警，
         # 禁止静默丢弃
@@ -1387,6 +1411,11 @@ class SimulationEngine:
         kpis['batch_pass_rate'] = self.line.calculate_batch_pass_rate()
         kpis['yield_rate'] = self.line.calculate_avg_yield_rate()
         kpis['machine_oee'] = self.line.calculate_avg_machine_oee()
+        # V3.2：放行/隔离
+        released = [b for b in self.batch_results if b.get('status') == 'released']
+        rejected = [b for b in self.batch_results if b.get('status') == 'rejected']
+        kpis['shippable_quantity'] = round(sum(b.get('yield_l', 0) for b in released), 3)
+        kpis['rejected_batches'] = len(rejected)
         kpis['cleaning_time_ratio'] = (
             cleaning_seconds / self.duration_seconds if self.duration_seconds else 0.0
         )
