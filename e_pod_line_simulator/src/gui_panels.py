@@ -2711,6 +2711,11 @@ class SweepDialog:
         "oee": "OEE",
         "shift_hours": "班次时长(小时)",
     }
+    METRIC_LABELS = {
+        "total_output": "总产出",
+        "unit_cost": "单位成本",
+        "upph": "UPPH",
+    }
 
     def __init__(self, parent, production_line: Optional[ProductionLine]):
         self.line = production_line
@@ -2733,22 +2738,40 @@ class SweepDialog:
         main.pack(fill=tk.BOTH, expand=True)
 
         ttk.Label(main, text="参数:").grid(row=0, column=0, sticky=tk.W, pady=4)
-        self.param_var = tk.StringVar(value="worker_count")
-        ttk.Combobox(
+        self._param_label_to_key = {
+            label: key for key, label in self.PARAM_LABELS.items()
+        }
+        self._metric_label_to_key = {
+            label: key for key, label in self.METRIC_LABELS.items()
+        }
+        self.param_var = tk.StringVar(value=self.PARAM_LABELS["worker_count"])
+        self.param_combo = ttk.Combobox(
             main,
             textvariable=self.param_var,
-            values=list(self.PARAM_LABELS.keys()),
+            values=list(self.PARAM_LABELS.values()),
             state="readonly",
-            width=18,
-        ).grid(row=0, column=1, sticky=tk.W, pady=4)
+            width=22,
+        )
+        self.param_combo.grid(row=0, column=1, sticky=tk.W, pady=4)
+        self.param_combo.bind("<<ComboboxSelected>>", lambda e: self._on_param_change())
 
-        ttk.Label(main, text="工序ID（留空=瓶颈）:").grid(
+        ttk.Label(main, text="作用工序（空=瓶颈）:").grid(
             row=1, column=0, sticky=tk.W, pady=4
         )
-        self.station_var = tk.StringVar(value="")
-        ttk.Entry(main, textvariable=self.station_var, width=20).grid(
-            row=1, column=1, sticky=tk.W, pady=4
+        station_options = ["（空=瓶颈）"]
+        if self.line:
+            station_options += [
+                f"{s.id} {s.name}" for s in self.line.stations
+            ]
+        self.station_var = tk.StringVar(value=station_options[0])
+        self.station_combo = ttk.Combobox(
+            main,
+            textvariable=self.station_var,
+            values=station_options,
+            state="readonly",
+            width=28,
         )
+        self.station_combo.grid(row=1, column=1, sticky=tk.W, pady=4)
 
         ttk.Label(main, text="取值列表（逗号分隔）:").grid(
             row=2, column=0, sticky=tk.W, pady=4
@@ -2757,6 +2780,11 @@ class SweepDialog:
         ttk.Entry(main, textvariable=self.values_var, width=28).grid(
             row=2, column=1, sticky=tk.W, pady=4
         )
+        ttk.Label(
+            main,
+            text="每个取值运行一次仿真，如 1,2,3 表示试三个档位",
+            foreground=COLORS["text_secondary"],
+        ).grid(row=2, column=2, sticky=tk.W, padx=(8, 0), pady=4)
 
         ttk.Label(main, text="仿真时长(小时):").grid(
             row=3, column=0, sticky=tk.W, pady=4
@@ -2787,37 +2815,54 @@ class SweepDialog:
         ttk.Label(main, text="图表指标:").grid(
             row=6, column=0, sticky=tk.W, pady=8
         )
-        self.metric_var = tk.StringVar(value="total_output")
+        self.metric_var = tk.StringVar(value=self.METRIC_LABELS["total_output"])
         self.metric_combo = ttk.Combobox(
             main,
             textvariable=self.metric_var,
-            values=["total_output", "unit_cost", "upph"],
+            values=list(self.METRIC_LABELS.values()),
             state="readonly",
-            width=14,
+            width=16,
         )
         self.metric_combo.grid(row=6, column=1, sticky=tk.W, pady=8)
         self.metric_combo.bind("<<ComboboxSelected>>", lambda e: self._draw_chart())
-        ttk.Button(main, text="关闭", command=self._close).grid(
+        ttk.Button(main, text="导出Excel", command=self._export_excel).grid(
             row=6, column=2, sticky=tk.E, pady=8, padx=(8, 0)
+        )
+        ttk.Button(main, text="关闭", command=self._close).grid(
+            row=6, column=3, sticky=tk.E, pady=8, padx=(8, 0)
         )
         main.rowconfigure(5, weight=1)
         main.columnconfigure(1, weight=1)
         main.columnconfigure(2, weight=0)
+        main.columnconfigure(3, weight=0)
         self.canvas = tk.Canvas(main, height=180, bg="#FFFFFF", highlightthickness=1)
         self.canvas.grid(row=8, column=0, columnspan=3, sticky=tk.NSEW, pady=(4, 0))
         HelpSection(
             main,
             "使用说明",
             "目的：对同一参数的一组取值批量仿真，观察产出/成本/UPPH 变化。\n"
-            "参数：worker_count=工序人数；machine_takt=机台节拍（秒）；"
-            "oee=设备综合效率；shift_hours=班次时长（小时）。\n"
-            "取值列表用逗号分隔，如 1,2,3。工序ID 留空时作用于瓶颈工序。",
+            "参数：工序人数 / 机台节拍（秒）/ OEE / 班次时长（小时），"
+            "选择后自动给出常用取值建议。\n"
+            "作用工序：下拉选择要试算的工序（列表显示 工序ID+名称，"
+            "如 s01 镭雕）；选“空=瓶颈”则自动作用于瓶颈工序。\n"
+            "取值列表：该参数要试的几个档位，每个取值运行一次仿真，"
+            "如 1,2,3 表示三档。\n"
+            "仿真时长：每次仿真的模拟时长，默认取当前产线班次。\n"
+            "图表指标：展示每次试算的结果指标（总产出/单位成本/UPPH），"
+            "用于观察参数取值与结果的关系；导出 Excel 可进一步分析。",
         ).grid(row=7, column=0, columnspan=3, sticky=tk.W, pady=(8, 0))
 
     def _run(self) -> None:
         try:
-            param = self.param_var.get()
-            station_id = self.station_var.get().strip() or None
+            param = self._param_label_to_key.get(
+                self.param_var.get(), "worker_count"
+            )
+            station_text = self.station_var.get().strip()
+            station_id = (
+                None
+                if not station_text or station_text.startswith("（空")
+                else station_text.split(" ")[0]
+            )
             values = [
                 float(v.strip())
                 for v in self.values_var.get().replace("，", ",").split(",")
@@ -2871,7 +2916,9 @@ class SweepDialog:
                 300, 80, text="运行试算后显示对比曲线", fill="#888888"
             )
             return
-        metric = self.metric_var.get()
+        metric = self._metric_label_to_key.get(
+            self.metric_var.get(), "total_output"
+        )
         series = [row.get(metric, 0.0) for row in self.rows[1:]]
         base_value = self.rows[0].get(metric, 0.0)
         values = series + [base_value]
@@ -2895,9 +2942,60 @@ class SweepDialog:
         )
         self.canvas.create_text(
             8, 6, anchor=tk.NW,
-            text=f"{metric} 曲线（红虚线=基线 {base_value:.2f}）",
+            text=(
+                f"{self.METRIC_LABELS.get(metric, metric)} 曲线"
+                f"（红虚线=基线 {base_value:.2f}）"
+            ),
             fill="#555555",
         )
+
+    def _on_param_change(self) -> None:
+        """切换参数时给出常用取值建议（V3.3.1）"""
+        param = self._param_label_to_key.get(
+            self.param_var.get(), "worker_count"
+        )
+        bottleneck = self.line.find_bottleneck() if self.line else None
+        if param == "worker_count":
+            n = bottleneck.worker_count if bottleneck else 1
+            self.values_var.set(f"{max(1, n - 1)},{n},{n + 1}")
+        elif param == "machine_takt":
+            takt = bottleneck.machine_takt if bottleneck and bottleneck.machine_takt else 2.0
+            self.values_var.set(f"{max(0.5, takt - 1):g},{takt:g},{takt + 1:g}")
+        elif param == "oee":
+            self.values_var.set("0.80,0.85,0.90")
+        elif param == "shift_hours":
+            self.values_var.set("8,10,12")
+
+    def _export_excel(self) -> None:
+        """导出试算结果（V3.3.1）"""
+        try:
+            import pandas as pd
+
+            if not self.rows:
+                messagebox.showinfo("提示", "请先点击「开始试算」")
+                return
+            path = filedialog.asksaveasfilename(
+                title="导出批量试算结果",
+                defaultextension=".xlsx",
+                initialfile="批量试算结果.xlsx",
+                filetypes=[("Excel 文件", "*.xlsx")],
+            )
+            if not path:
+                return
+            df = pd.DataFrame([
+                {
+                    "方案": row["label"],
+                    "总产出": row["total_output"],
+                    "日产量": row["daily_output"],
+                    "单位成本": row["unit_cost"],
+                    "UPPH": row["upph"],
+                }
+                for row in self.rows
+            ])
+            df.to_excel(path, index=False)
+            messagebox.showinfo("成功", f"已导出：{path}")
+        except Exception as e:
+            messagebox.showerror("导出失败", f"{e}\n\n详细日志：logs/app.log")
 
     def _close(self) -> None:
         self.dialog.destroy()

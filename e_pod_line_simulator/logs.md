@@ -1285,6 +1285,14 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest 136 passed
 
+## 2026-08-11 - 批量试算界面优化
+
+### 完成内容
+- 中文下拉/工序下拉/取值建议/导出 Excel
+
+### 验证
+- pytest 136 passed
+
 ## 2026-08-11 - KPI 历史趋势界面优化
 
 ### 完成内容
