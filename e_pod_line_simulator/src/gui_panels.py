@@ -1344,6 +1344,7 @@ class ScenarioCompareDialog:
             messagebox.showerror("错误", f"对比方案失败：{str(e)}")
             self.dialog.destroy()
             return
+        self.export_rows: List[List[str]] = []
 
         first = self.scenario_manager.get_scenario(scenario_names[0])
         self.unit = first.production_line.get_unit() if first else "颗"
@@ -1449,6 +1450,9 @@ class ScenarioCompareDialog:
         # 关闭按钮
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(pady=10)
+        ttk.Button(button_frame, text="导出Excel", command=self._export_excel).pack(
+            side=tk.LEFT, padx=4
+        )
         ttk.Button(button_frame, text="关闭", command=self.dialog.destroy).pack()
         HelpSection(
             main_frame,
@@ -1515,32 +1519,65 @@ class ScenarioCompareDialog:
                 
                 # 根据差异设置颜色（改善=绿色，恶化=红色）
                 # 注意：Treeview的颜色设置需要特殊处理，这里先不设置
+                self.export_rows.append(row_values)
+
+    def _export_excel(self) -> None:
+        """按对比表格呈现方式导出 Excel（V3.3）"""
+        try:
+            import pandas as pd
+
+            path = filedialog.asksaveasfilename(
+                title="导出方案对比",
+                defaultextension=".xlsx",
+                initialfile="方案对比.xlsx",
+                filetypes=[("Excel 文件", "*.xlsx")],
+            )
+            if not path:
+                return
+            headers = ['指标'] + list(self.scenario_names)
+            for i in range(1, len(self.scenario_names)):
+                headers.append(f'差异{i}（{self.scenario_names[i]} vs {self.scenario_names[0]}）')
+            pd.DataFrame(self.export_rows, columns=headers).to_excel(path, index=False)
+            messagebox.showinfo("成功", f"已导出：{path}")
+        except Exception as e:
+            messagebox.showerror("导出失败", f"{e}\n\n详细日志：logs/app.log")
 
 
 class ScenarioManageDialog:
     """
-    方案管理对话框 - 查看与删除已保存的方案
+    方案管理对话框（V3.3 合并方案对比）
 
     使用方式：
-        dialog = ScenarioManageDialog(parent, scenario_manager)
-        # 删除操作会自动持久化到 ScenarioManager 的存储路径
+        dialog = ScenarioManageDialog(parent, scenario_manager, on_import=callback)
+    - 导入方案：把所选方案加载到主界面
+    - 删除方案：删除所选方案
+    - 方案对比：切换对比模式 → 勾选最多 3 个 → 确认对比
     """
 
-    def __init__(self, parent, scenario_manager: ScenarioManager):
+    def __init__(
+        self,
+        parent,
+        scenario_manager: ScenarioManager,
+        on_import=None,
+    ):
         self.scenario_manager = scenario_manager
+        self.on_import = on_import
+        self.compare_mode = False
+        self.checked: Dict[str, bool] = {}
 
         self.dialog = tk.Toplevel(parent)
-        self.dialog.title("方案管理")
-        self.dialog.geometry("720x420")
+        self.dialog.title("方案管理 / 对比")
+        self.dialog.geometry("780x480")
         self.dialog.transient(parent)
         self.dialog.grab_set()
 
         self._create_widgets()
         self.dialog.bind('<Escape>', lambda e: self.dialog.destroy())
+        self.dialog.bind('<Button-1>', self._on_tree_click)
 
         self.dialog.update_idletasks()
-        x = (self.dialog.winfo_screenwidth() - self.dialog.winfo_width()) // 2
-        y = (self.dialog.winfo_screenheight() - self.dialog.winfo_height()) // 2
+        x = (self.dialog.winfo_screenwidth() // 2) - (self.dialog.winfo_width() // 2)
+        y = (self.dialog.winfo_screenheight() // 2) - (self.dialog.winfo_height() // 2)
         self.dialog.geometry(f"+{x}+{y}")
 
     def _create_widgets(self) -> None:
@@ -1548,22 +1585,36 @@ class ScenarioManageDialog:
         main_frame = ttk.Frame(self.dialog, padding=10)
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        columns = ('name', 'created_at', 'description', 'unit_cost')
+        columns = ('check', 'name', 'created_at', 'description', 'unit_cost')
         self.tree = ttk.Treeview(main_frame, columns=columns, show='headings', height=14)
+        self.tree.heading('check', text='☐')
         self.tree.heading('name', text='方案名称')
         self.tree.heading('created_at', text='创建时间')
         self.tree.heading('description', text='描述')
         self.tree.heading('unit_cost', text='单位成本')
+        self.tree.column('check', width=0, stretch=False, anchor=tk.CENTER)
         self.tree.column('name', width=140)
-        self.tree.column('created_at', width=150)
+        self.tree.column('created_at', width=140)
         self.tree.column('description', width=260)
         self.tree.column('unit_cost', width=110)
         self.tree.pack(fill=tk.BOTH, expand=True)
 
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill=tk.X, pady=(10, 0))
+        ttk.Button(button_frame, text="导入方案", command=self._import_selected).pack(side=tk.LEFT)
         ttk.Button(button_frame, text="删除选中", command=self._delete_selected).pack(side=tk.LEFT)
+        ttk.Button(button_frame, text="方案对比", command=self._toggle_compare).pack(side=tk.LEFT)
+        self.btn_confirm_compare = ttk.Button(
+            button_frame, text="确认对比", command=self._confirm_compare
+        )
         ttk.Button(button_frame, text="关闭", command=self.dialog.destroy).pack(side=tk.RIGHT)
+
+        self.compare_hint_var = tk.StringVar(value="")
+        ttk.Label(
+            main_frame,
+            textvariable=self.compare_hint_var,
+            foreground=COLORS["text_secondary"],
+        ).pack(anchor=tk.W, pady=(6, 0))
 
         self._refresh()
 
@@ -1576,12 +1627,98 @@ class ScenarioManageDialog:
         for idx, name in enumerate(self.scenario_manager.list_scenarios()):
             scenario = self.scenario_manager.get_scenario(name)
             kpis = scenario.get_kpis()
+            check_text = "☑" if self.checked.get(name) else "☐"
             self.tree.insert('', tk.END, values=(
+                check_text,
                 name,
                 scenario.created_at,
                 scenario.description,
                 f"{kpis['unit_cost']:.3f}",
             ), tags=(name, 'even' if idx % 2 == 0 else 'odd'))
+
+    def _on_tree_click(self, event: tk.Event) -> None:
+        """点击复选框列切换勾选状态（仅对比模式）"""
+        if not self.compare_mode:
+            return
+        if self.tree.identify_region(event.x, event.y) != "cell":
+            return
+        column = self.tree.identify_column(event.x)
+        if column != "#1":
+            return
+        row_id = self.tree.identify_row(event.y)
+        if not row_id:
+            return
+        tags = self.tree.item(row_id, "tags")
+        if not tags:
+            return
+        name = tags[0]
+        self._toggle_check(name)
+
+    def _toggle_check(self, name: str) -> None:
+        """勾选/取消勾选，最多 3 个"""
+        if self.checked.get(name):
+            self.checked[name] = False
+        else:
+            if sum(1 for v in self.checked.values() if v) >= 3:
+                messagebox.showwarning("提示", "最多只能对比 3 个方案")
+                return
+            self.checked[name] = True
+        self._refresh()
+        selected = self._selected_names()
+        self.btn_confirm_compare.config(
+            state=tk.NORMAL if len(selected) >= 2 else tk.DISABLED
+        )
+        self.compare_hint_var.set(
+            f"已勾选 {len(selected)}/3：{'、'.join(selected) or '（请勾选 2-3 个方案）'}"
+        )
+
+    def _selected_names(self) -> List[str]:
+        return [
+            name for name in self.scenario_manager.list_scenarios()
+            if self.checked.get(name)
+        ]
+
+    def _toggle_compare(self) -> None:
+        """切换对比模式：显示复选框与确认按钮"""
+        self.compare_mode = not self.compare_mode
+        width = 40 if self.compare_mode else 0
+        self.tree.column('check', width=width, stretch=False, anchor=tk.CENTER)
+        if self.compare_mode:
+            self.btn_confirm_compare.pack(side=tk.LEFT, padx=(4, 0))
+            self.btn_confirm_compare.config(state=tk.DISABLED)
+            self.compare_hint_var.set("勾选 2-3 个方案后点击「确认对比」")
+        else:
+            self.btn_confirm_compare.pack_forget()
+            self.checked = {k: False for k in self.checked}
+            self.compare_hint_var.set("")
+        self._refresh()
+
+    def _confirm_compare(self) -> None:
+        """进入方案对比界面（最多 3 个）"""
+        names = self._selected_names()
+        if len(names) < 2:
+            messagebox.showwarning("警告", "请至少勾选 2 个方案")
+            return
+        if len(names) > 3:
+            messagebox.showwarning("警告", "最多只能对比 3 个方案")
+            return
+        ScenarioCompareDialog(self.dialog, self.scenario_manager, names)
+
+    def _import_selected(self) -> None:
+        """导入所选方案到主界面"""
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showwarning("警告", "请先选择一个方案")
+            return
+        tags = self.tree.item(selection[0], 'tags')
+        if not tags:
+            return
+        name = tags[0]
+        if self.on_import:
+            self.on_import(name)
+            messagebox.showinfo("成功", f"已导入方案：{name}")
+        else:
+            messagebox.showinfo("提示", f"选中方案：{name}")
 
     def _delete_selected(self) -> None:
         """删除选中的方案"""

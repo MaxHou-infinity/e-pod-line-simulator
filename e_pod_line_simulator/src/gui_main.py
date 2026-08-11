@@ -38,7 +38,6 @@ from src.gui_panels import (
     KPIDashboard,
     AlertPanel,
     SaveScenarioDialog,
-    ScenarioCompareDialog,
     ScenarioManageDialog,
     GlossaryDialog,
     CommandPalette,
@@ -180,8 +179,7 @@ class MainWindow:
         analysis_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="分析", menu=analysis_menu)
         analysis_menu.add_command(label="分析指南...", command=self._menu_analysis_guide)
-        analysis_menu.add_command(label="方案对比", command=self._menu_compare_solutions)
-        analysis_menu.add_command(label="方案管理", command=self._menu_manage_scenarios)
+        analysis_menu.add_command(label="方案管理 / 对比...", command=self._menu_manage_scenarios)
         analysis_menu.add_command(label="敏感性试算...", command=self._menu_sensitivity)
         analysis_menu.add_command(label="人力规划...", command=self._menu_hr_planning)
         analysis_menu.add_command(label="KPI 历史趋势...", command=self._menu_history)
@@ -597,29 +595,24 @@ class MainWindow:
         AnalysisGuideDialog(self.root)
         self.status_bar.config(text="分析指南已打开")
 
-    def _menu_compare_solutions(self) -> None:
-        """分析菜单 - 方案对比"""
-        # 检查方案数量
-        scenario_count = self.scenario_manager.get_scenario_count()
-        
-        if scenario_count < self.scenario_manager.MIN_SCENARIOS_FOR_COMPARE:
-            messagebox.showwarning(
-                "无法对比",
-                f"至少需要{self.scenario_manager.MIN_SCENARIOS_FOR_COMPARE}个方案才能对比\n"
-                f"当前已保存 {scenario_count} 个方案\n\n"
-                f"请先保存至少{self.scenario_manager.MIN_SCENARIOS_FOR_COMPARE}个方案"
-            )
-            return
-        
-        # 获取所有方案名称
-        scenario_names = self.scenario_manager.list_scenarios()
-        
-        # 打开对比对话框（对比所有方案）
-        ScenarioCompareDialog(self.root, self.scenario_manager, scenario_names)
-
     def _menu_manage_scenarios(self) -> None:
-        """分析菜单 - 方案管理"""
-        ScenarioManageDialog(self.root, self.scenario_manager)
+        """分析菜单 - 方案管理 / 对比（V3.3 合并）"""
+        ScenarioManageDialog(
+            self.root,
+            self.scenario_manager,
+            on_import=self._import_scenario,
+        )
+
+    def _import_scenario(self, name: str) -> None:
+        """导入方案：把所选方案加载到主界面并刷新"""
+        scenario = self.scenario_manager.get_scenario(name)
+        if scenario is None:
+            messagebox.showerror("错误", f"方案不存在：{name}")
+            return
+        self.production_line = scenario.production_line
+        self._dirty = False
+        self._update_display()
+        self.status_bar.config(text=f"已导入方案：{name}")
     
     def _btn_save_scenario(self) -> None:
         """保存方案按钮点击事件"""
@@ -889,7 +882,7 @@ class MainWindow:
             ("开始仿真", self._btn_start_simulation),
             ("暂停仿真", self._btn_pause_simulation),
             ("停止仿真", self._btn_stop_simulation),
-            ("方案对比", self._menu_compare_solutions),
+            ("方案管理/对比", self._menu_manage_scenarios),
             ("方案管理", self._menu_manage_scenarios),
             ("导出报告", self._menu_export_report),
             ("术语说明", self._menu_glossary),

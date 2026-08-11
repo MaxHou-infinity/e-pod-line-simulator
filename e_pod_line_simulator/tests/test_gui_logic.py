@@ -31,6 +31,7 @@ def test_dialog_handler_methods_exist():
     from src.gui_panels import (
         AlertPanel,
         SaveScenarioDialog,
+        ScenarioCompareDialog,
         ScenarioManageDialog,
         ShiftConfigDialog,
         StationDialog,
@@ -46,8 +47,13 @@ def test_dialog_handler_methods_exist():
     assert hasattr(WizardDialog, "_next")
     assert hasattr(WizardDialog, "_cancel")
     assert hasattr(ScenarioManageDialog, "_delete_selected")
+    assert hasattr(ScenarioManageDialog, "_import_selected")
+    assert hasattr(ScenarioManageDialog, "_toggle_compare")
+    assert hasattr(ScenarioManageDialog, "_toggle_check")
+    assert hasattr(ScenarioManageDialog, "_confirm_compare")
     assert hasattr(AlertPanel, "_copy_alerts")
     assert hasattr(SaveScenarioDialog, "_browse_path")
+    assert hasattr(ScenarioCompareDialog, "_export_excel")
     assert hasattr(AlertPanel, "_apply_filter")
     assert hasattr(AlertPanel, "_clear")
     assert hasattr(AlertPanel, "_toggle_collapse")
