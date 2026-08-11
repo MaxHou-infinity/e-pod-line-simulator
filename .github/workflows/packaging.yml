@@ -32,7 +32,6 @@ jobs:
             --exclude '*.log' \
             e_pod_line_simulator "${STAGE}/"
           cp README.md AGENTS.md LICENSE CHANGELOG.md .gitignore \
-            "电子烟产线仿真优化.md" "电子烟产线仿真优化 2.md" \
             方案一.json 方案2.json "${STAGE}/"
           cp docs/images/screenshot_main.png "${STAGE}/docs/images/"
           cd package
