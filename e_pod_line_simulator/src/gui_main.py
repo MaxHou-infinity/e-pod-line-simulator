@@ -49,6 +49,7 @@ from src.gui_panels import (
     SweepDialog,
     OptimizeDialog,
     ResultTableDialog,
+    AnalysisGuideDialog,
 )
 from src.utils import (
     load_config,
@@ -178,6 +179,7 @@ class MainWindow:
         # 分析菜单
         analysis_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="分析", menu=analysis_menu)
+        analysis_menu.add_command(label="分析指南...", command=self._menu_analysis_guide)
         analysis_menu.add_command(label="方案对比", command=self._menu_compare_solutions)
         analysis_menu.add_command(label="方案管理", command=self._menu_manage_scenarios)
         analysis_menu.add_command(label="敏感性试算...", command=self._menu_sensitivity)
@@ -590,6 +592,11 @@ class MainWindow:
         """仿真菜单 - 停止仿真"""
         self._btn_stop_simulation()
     
+    def _menu_analysis_guide(self) -> None:
+        """分析菜单 - 分析指南（V3.3）"""
+        AnalysisGuideDialog(self.root)
+        self.status_bar.config(text="分析指南已打开")
+
     def _menu_compare_solutions(self) -> None:
         """分析菜单 - 方案对比"""
         # 检查方案数量

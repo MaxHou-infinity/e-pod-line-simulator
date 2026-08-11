@@ -101,6 +101,13 @@ def test_result_table_and_help_section_methods_exist():
     assert hasattr(HelpSection, "_toggle")
 
 
+def test_analysis_guide_dialog_exists():
+    from src.gui_panels import AnalysisGuideDialog
+
+    assert hasattr(AnalysisGuideDialog, "GUIDE_TEXT")
+    assert len(AnalysisGuideDialog.GUIDE_TEXT) > 100
+
+
 def test_station_edit_fields_mapping():
     assert station_edit_fields(ProductionType.ASSEMBLY) == set()
     assert station_edit_fields(ProductionType.LIQUID_FILLING) == {

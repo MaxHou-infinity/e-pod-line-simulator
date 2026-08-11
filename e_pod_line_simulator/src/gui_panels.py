@@ -2909,6 +2909,66 @@ class ResultTableDialog:
         self.dialog.destroy()
 
 
+class AnalysisGuideDialog:
+    """分析指南（V3.3）：何时用哪个分析功能"""
+
+    GUIDE_TEXT = """【如何选择分析功能】
+
+1. 想看某个参数变化的影响 → 敏感性试算
+   操作：分析 → 敏感性试算...；结果可一键应用最优建议。
+
+2. 想看同一参数多档取值 → 批量试算
+   操作：分析 → 批量试算...；填参数与取值列表（如 1,2,3），
+   蓝色曲线为方案，红色虚线为当前基线。
+
+3. 想同时调多个参数找最优组合 → 智能优化
+   操作：分析 → 智能优化...；选目标（产出最大/成本最小），
+   可锁定工序；TOP 方案与基线同表对比。
+
+4. 想预估人力/成本/招聘 → 人力规划
+   操作：分析 → 人力规划...；输入目标日产量与班次，
+   结果含工种人数、成本、招聘缺口与达产天数，可导出。
+
+5. 想看多次运行的趋势 → KPI 历史趋势
+   停止仿真或点击“记录当前产线”后查看；可多 KPI 对比与导出。
+
+6. 想对比几个保存方案 → 方案对比 / 方案管理
+   先“保存方案”，再进入方案对比查看推荐。
+
+7. 想要完整存档 → 导出报告
+   自动仿真当前产线并导出 Excel（10+ Sheet）/ PDF。
+
+【通用建议】
+- 先跑一次仿真，再看报警与失衡分析定位瓶颈；
+- 用敏感性/批量试算验证方向，用智能优化做组合寻优；
+- 所有结果均可导出 Excel 或复制文本。"""
+
+    def __init__(self, parent):
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("分析指南")
+        self.dialog.geometry("640x560")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        main = ttk.Frame(self.dialog, padding=14)
+        main.pack(fill=tk.BOTH, expand=True)
+        text = tk.Text(main, wrap=tk.WORD, font=(resolve_font_family(), 11))
+        text.insert("1.0", self.GUIDE_TEXT)
+        text.config(state=tk.DISABLED)
+        scrollbar = ttk.Scrollbar(main, orient=tk.VERTICAL, command=text.yview)
+        text.configure(yscrollcommand=scrollbar.set)
+        text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        ttk.Button(main, text="关闭", command=self.dialog.destroy).pack(
+            side=tk.BOTTOM, pady=8
+        )
+        self.dialog.bind('<Escape>', lambda e: self.dialog.destroy())
+        self.dialog.update_idletasks()
+        x = (self.dialog.winfo_screenwidth() // 2) - (self.dialog.winfo_width() // 2)
+        y = (self.dialog.winfo_screenheight() // 2) - (self.dialog.winfo_height() // 2)
+        self.dialog.geometry(f"+{x}+{y}")
+
+
 class WizardDialog:
     """
     快速配置向导 - 分步引导新手完成产线配置
