@@ -67,3 +67,8 @@ def test_station_edit_fields_mapping():
         "defect_rate",
         "rework_minutes",
     }
+
+
+def test_command_palette_class_available():
+    from src.gui_panels import CommandPalette
+    assert callable(CommandPalette)

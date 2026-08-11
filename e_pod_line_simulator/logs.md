@@ -1036,6 +1036,15 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：85 passed；GUI 冒烟通过
 
+## 2026-08-11 - V3.0 L8 命令面板
+
+### 完成内容
+- Ctrl+K 命令面板：关键词过滤、Enter 执行、Esc 关闭
+- 覆盖 13 个高频命令
+
+### 验证
+- pytest：86 passed；GUI 冒烟通过
+
 ## 2026-08-11 - V3.0 L5 画布视觉升级
 
 ### 完成内容

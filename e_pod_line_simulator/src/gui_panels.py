@@ -1619,6 +1619,69 @@ class GlossaryDialog:
         self.dialog.geometry(f"+{x}+{y}")
 
 
+class CommandPalette:
+    """
+    命令面板（V3.0，Ctrl+K）
+
+    通过关键词过滤命令，Enter 执行选中项，Esc 关闭。
+    """
+
+    def __init__(self, parent, commands: List[tuple]):
+        self.commands = commands
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("命令面板")
+        self.dialog.geometry("520x380")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        family = resolve_font_family()
+        main = ttk.Frame(self.dialog, padding=10)
+        main.pack(fill=tk.BOTH, expand=True)
+        ttk.Label(
+            main,
+            text="输入命令关键词（Enter 执行，Esc 关闭）",
+            font=(family, 9),
+            foreground=COLORS['text_secondary'],
+        ).pack(anchor=tk.W)
+
+        self.search_var = tk.StringVar()
+        self.search_var.trace_add('write', lambda *a: self._render())
+        entry = ttk.Entry(main, textvariable=self.search_var, font=(family, 13))
+        entry.pack(fill=tk.X, pady=5)
+
+        self.tree = ttk.Treeview(main, columns=('label',), show='tree', height=12)
+        self.tree.pack(fill=tk.BOTH, expand=True)
+
+        self.dialog.bind('<Escape>', lambda e: self.dialog.destroy())
+        self.dialog.bind('<Return>', lambda e: self._run_selected())
+
+        self._render()
+        entry.focus_set()
+
+    def _render(self) -> None:
+        """按关键词过滤命令列表"""
+        self.tree.delete(*self.tree.get_children())
+        query = self.search_var.get().strip().lower()
+        for label, _ in self.commands:
+            if not query or query in label.lower():
+                self.tree.insert('', tk.END, text=label, values=(label,))
+
+    def _run_selected(self) -> None:
+        """执行选中的命令（无选中时执行第一条）"""
+        selection = self.tree.selection()
+        if not selection:
+            children = self.tree.get_children()
+            if not children:
+                return
+            selection = (children[0],)
+        label = self.tree.item(selection[0], 'values')[0]
+        for cmd_label, callback in self.commands:
+            if cmd_label == label:
+                self.dialog.destroy()
+                callback()
+                return
+
+
 class WizardDialog:
     """
     快速配置向导 - 分步引导新手完成产线配置

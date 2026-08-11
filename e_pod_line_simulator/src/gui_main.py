@@ -41,6 +41,7 @@ from src.gui_panels import (
     ScenarioCompareDialog,
     ScenarioManageDialog,
     GlossaryDialog,
+    CommandPalette,
     WizardDialog,
 )
 from src.utils import (
@@ -745,7 +746,27 @@ class MainWindow:
         self.root.bind('<Control-o>', lambda e: self._menu_open_config())
         self.root.bind('<Control-s>', lambda e: self._menu_save_config())
         self.root.bind('<Control-e>', lambda e: self._menu_import_excel())
+        self.root.bind('<Control-k>', lambda e: self._open_command_palette())
         self.root.bind('<space>', self._on_space_shortcut)
+
+    def _open_command_palette(self) -> None:
+        """打开命令面板（Ctrl+K，V3.0）"""
+        commands = [
+            ("新建产线", self._menu_new_line),
+            ("打开配置", self._menu_open_config),
+            ("保存配置", self._menu_save_config),
+            ("导入Excel", self._menu_import_excel),
+            ("快速配置向导", self._menu_wizard),
+            ("开始仿真", self._btn_start_simulation),
+            ("暂停仿真", self._btn_pause_simulation),
+            ("停止仿真", self._btn_stop_simulation),
+            ("方案对比", self._menu_compare_solutions),
+            ("方案管理", self._menu_manage_scenarios),
+            ("导出报告", self._menu_export_report),
+            ("切换主题", self._toggle_theme),
+            ("术语说明", self._menu_glossary),
+        ]
+        CommandPalette(self.root, commands)
 
     def _on_space_shortcut(self, event) -> str:
         """空格：开始/暂停/恢复仿真（输入框内不触发）"""
