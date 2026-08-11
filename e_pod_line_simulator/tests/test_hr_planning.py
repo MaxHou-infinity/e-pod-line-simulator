@@ -9,6 +9,7 @@ from src.hr_planning import (
     ShiftPlan,
     build_hr_summary,
     calculate_labor_costs,
+    current_headcount_by_role,
     ramp_days_to_full,
     required_headcount_by_role,
     required_headcount_by_station,
@@ -104,3 +105,30 @@ def test_build_hr_summary_shape():
     assert summary["costs"]["daily_labor_cost"] > 0
     assert len(summary["weekly_gap"]) == 12
     assert summary["days_to_full"] >= 0
+    assert "current_headcount" in summary
+    assert "current_total" in summary
+    assert "initial_gap" in summary
+
+
+def test_current_headcount_by_role_sums_stations():
+    line = ProductionLine("在岗测试")
+    line.add_station(Station("s01", "镭雕", 2.0, 5))
+    line.add_station(Station("s02", "注油", 2.0, 1))
+    line.add_station(Station("s03", "包装", 2.0, 2))
+
+    current = current_headcount_by_role(line)
+    assert current == {"general": 8}
+
+
+def test_gap_uses_station_headcount_when_current_empty():
+    """回归：当前在岗为空时按产线工序人数汇总，缺口不再虚高"""
+    line = ProductionLine("方案-1", shift_hours=8, break_minutes=60)
+    for i, workers in enumerate([5, 1, 1, 1, 1, 1, 2, 2]):
+        line.add_station(Station(f"s{i:02d}", f"工序{i}", 60.0, workers))
+    shift = ShiftPlan(shifts_per_day=1, shift_hours=8, break_minutes=60)
+    summary = build_hr_summary(
+        line, 100, shift, LaborCostConfig(), LearningCurveConfig(),
+        current={}, hiring_plan=[],
+    )
+    assert summary["current_total"] == 14
+    assert summary["initial_gap"] == max(0, summary["total_headcount"] - 14)

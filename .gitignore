@@ -24,3 +24,5 @@ logs/
 *.log
 *.zip
 run_history.json
+/*.xlsx
+/.~*.xlsx

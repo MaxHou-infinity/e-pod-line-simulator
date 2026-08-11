@@ -47,6 +47,7 @@ from src.hr_planning import (
     LearningCurveConfig,
     ShiftPlan,
     build_hr_summary,
+    current_headcount_by_role,
 )
 from src.reporting import export_hr_pdf, export_hr_report
 from src.history import (
@@ -2062,14 +2063,15 @@ class HrPlanningDialog:
              hint="新员工从入职到满效率所需天数（默认 90 天线性爬坡）")
 
         ttk.Label(
-            main, text="当前在岗（每行 工种:人数，默认取产线配置）:"
+            main, text="当前在岗（每行 工种:人数；留空则按产线工序人数自动汇总）:"
         ).grid(row=5, column=0, columnspan=4, sticky=tk.W, pady=(12, 2))
         self.current_text = tk.Text(main, height=3, width=60)
         self.current_text.grid(row=6, column=0, columnspan=4, sticky=tk.W)
-        if line and line.labor_config:
+        if line:
+            current = current_headcount_by_role(line)
             self.current_text.insert(
                 "1.0",
-                "\n".join(f"{role}:{count}" for role, count in line.labor_config.items()),
+                "\n".join(f"{role}:{count}" for role, count in current.items()),
             )
 
         ttk.Label(
@@ -2168,7 +2170,7 @@ class HrPlanningDialog:
             )
             learning = LearningCurveConfig(ramp_days=ramp_days)
             current = self._parse_current() or (
-                dict(self.line.labor_config) if self.line else {}
+                current_headcount_by_role(self.line) if self.line else {}
             )
             self.summary = build_hr_summary(
                 self.line,
@@ -2188,13 +2190,13 @@ class HrPlanningDialog:
 
     def _fill_current(self) -> None:
         """按当前产线在岗配置填充（V3.3）"""
-        if self.line and self.line.labor_config:
+        if self.line:
             self.current_text.delete("1.0", tk.END)
+            current = current_headcount_by_role(self.line)
             self.current_text.insert(
                 "1.0",
                 "\n".join(
-                    f"{role}:{count}"
-                    for role, count in self.line.labor_config.items()
+                    f"{role}:{count}" for role, count in current.items()
                 ),
             )
 
@@ -2209,6 +2211,16 @@ class HrPlanningDialog:
             rows.append({"category": "人力需求", "item": role, "value": f"{count} 人"})
         rows.append({
             "category": "人力需求", "item": "总人数", "value": f"{s['total_headcount']} 人",
+        })
+        for role, count in s["current_headcount"].items():
+            rows.append({"category": "当前在岗", "item": role, "value": f"{count} 人"})
+        rows.append({
+            "category": "当前在岗", "item": "在岗合计",
+            "value": f"{s['current_total']} 人",
+        })
+        rows.append({
+            "category": "招聘缺口", "item": "首周净缺口",
+            "value": f"{s['initial_gap']} 人",
         })
         rows += [
             {"category": "成本", "item": "在岗覆盖人数（含缺勤）",
@@ -2247,6 +2259,14 @@ class HrPlanningDialog:
         ]
         lines += [f"  {role}: {n} 人" for role, n in s["headcount_by_role"].items()]
         lines.append(f"总人数：{s['total_headcount']} 人")
+        lines += [
+            "",
+            "【当前在岗（按产线配置）】",
+        ]
+        lines += [
+            f"  {role}: {n} 人" for role, n in s["current_headcount"].items()
+        ]
+        lines.append(f"在岗合计：{s['current_total']} 人（首周净缺口 {s['initial_gap']} 人）")
         lines += [
             "",
             "【成本测算】",

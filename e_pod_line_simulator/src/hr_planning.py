@@ -111,6 +111,23 @@ def required_headcount_by_role(
     return by_role
 
 
+def current_headcount_by_role(line: ProductionLine) -> Dict[str, int]:
+    """
+    当前在岗（按工序工种 × 人数汇总，V3.3 修复）
+
+    优先按工序实际配置统计；labor_config 中的支持工种（未出现在
+    工序中的，如调香师/清洗工）一并计入。
+    """
+    by_role: Dict[str, int] = {}
+    for station in line.stations:
+        role = station.job_role.value if station.job_role else "general"
+        by_role[role] = by_role.get(role, 0) + station.worker_count
+    for role, count in line.labor_config.items():
+        if role not in by_role:
+            by_role[role] = count
+    return by_role
+
+
 def total_headcount(
     line: ProductionLine,
     daily_target: float,
@@ -224,6 +241,9 @@ def build_hr_summary(
     weeks: int = 12,
 ) -> Dict:
     """汇总 HR 人力规划结果（供报告与 GUI 使用）"""
+    # 当前在岗为空时，按产线工序配置自动汇总（V3.3 修复）
+    if not current:
+        current = current_headcount_by_role(line)
     by_station = required_headcount_by_station(line, daily_target, shift_plan)
     by_role = required_headcount_by_role(line, daily_target, shift_plan)
     total = sum(by_station.values())
@@ -238,6 +258,9 @@ def build_hr_summary(
         'headcount_by_station': by_station,
         'headcount_by_role': by_role,
         'total_headcount': total,
+        'current_headcount': dict(current),
+        'current_total': sum(current.values()),
+        'initial_gap': gap_rows[0]['total_gap'] if gap_rows else 0,
         'costs': costs,
         'weekly_gap': gap_rows,
         'days_to_full': days_to_full,
