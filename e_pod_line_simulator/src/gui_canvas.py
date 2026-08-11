@@ -158,6 +158,7 @@ class CanvasView(tk.Canvas):
         self._drag_moved = False
         self._drop_indicator: Optional[int] = None
         self.drag_enabled = True  # 仿真运行中由主窗口置 False
+        self._hover_station_id: Optional[str] = None
         
         # 布局参数
         self.station_spacing = 200  # 工序间距（像素）
@@ -223,6 +224,8 @@ class CanvasView(tk.Canvas):
                 tags=("empty_state",),
             )
             return
+
+        self._draw_grid()
         
         # 计算每行最大工序数（基于画布宽度）
         # 使用实际画布宽度，而不是固定值
@@ -390,6 +393,16 @@ class CanvasView(tk.Canvas):
         color = get_status_color(station.current_status)
         soft_color = status_soft(station.current_status)
         family = resolve_font_family()
+
+        # 节点阴影（偏移浅色描边，模拟弱阴影）
+        _round_rect(
+            self,
+            rect_x1 + 2, rect_y1 + 3, rect_x2 + 2, rect_y2 + 3,
+            radius=10,
+            fill=COLORS['border'],
+            outline='',
+            tags=(f"station_{station.id}", "station"),
+        )
 
         # 节点卡片：浅色填充 + 圆角 + 边框
         card_id = _round_rect(
@@ -827,6 +840,33 @@ class CanvasView(tk.Canvas):
         """鼠标悬停反馈：工序节点上显示手型光标"""
         station_id = self._station_id_at(event.x, event.y)
         self.configure(cursor='hand2' if station_id and self.drag_enabled else 'arrow')
+        if station_id == self._hover_station_id:
+            return
+        # 重置上一悬停节点
+        if self._hover_station_id and self._hover_station_id in self.station_cards:
+            self.itemconfig(
+                self.station_cards[self._hover_station_id],
+                outline=COLORS['border'],
+                width=1.5,
+            )
+        self._hover_station_id = station_id
+        if station_id and station_id in self.station_cards and self.drag_enabled:
+            self.itemconfig(
+                self.station_cards[station_id],
+                outline=COLORS['focus'],
+                width=2,
+            )
+
+    def _draw_grid(self) -> None:
+        """绘制画布网格底纹（V3.0）"""
+        width = self.winfo_width() if self.winfo_width() > 1 else CANVAS_WIDTH
+        height = self.winfo_height() if self.winfo_height() > 1 else CANVAS_HEIGHT
+        spacing = 40
+        color = COLORS['grid']
+        for x in range(0, width, spacing):
+            self.create_line(x, 0, x, height, fill=color, tags=("grid",))
+        for y in range(0, height, spacing):
+            self.create_line(0, y, width, y, fill=color, tags=("grid",))
 
     def _on_right_click(self, event: tk.Event) -> None:
         """右键菜单：弹出工序操作菜单"""
