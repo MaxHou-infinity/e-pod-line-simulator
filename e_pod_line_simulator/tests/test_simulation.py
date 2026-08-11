@@ -34,6 +34,44 @@ def test_headless_run_returns_result():
     assert result.duration_seconds == 3600
 
 
+def test_tank_full_waits_instead_of_silent_drop():
+    """V3.2 L2：罐容不足时批次等待并报警，禁止静默丢弃"""
+    line = create_liquid_line()
+    line.tanks = [Tank("T1", "成品罐", 1000.0, 950.0)]
+    line.batches = [Batch("B001", "经典烟草", 500.0)]
+    recipe = line.recipes[0]
+    recipe.mixing_time_min = 10.0
+    recipe.aging_time_min = 0.0
+    recipe.filling_rate_l_per_h = 100000.0
+    recipe.qc_time_min = 5.0
+    recipe.clean_time_min = 0.0
+    line.stations[0].process_time = 60.0  # 减缓灌装消耗，触发满罐等待
+
+    result = SimulationEngine(line).run_sync(duration_hours=6.0)
+
+    assert any(
+        b["batch_id"] == "B001" and b["yield_l"] > 0
+        for b in result.batch_results
+    )
+    assert any(a.alert_type == "tank_full" for a in result.alerts)
+    assert all(t.current_level_l <= t.capacity_l + 1e-6 for t in line.tanks)
+
+
+def test_liquid_tanks_drain_by_first_station_capacity():
+    """V3.2 L2：成品罐按首工序（灌装）产能持续消耗"""
+    line = create_liquid_line()
+    tank = Tank("T1", "成品罐", 5000.0, 500.0)
+    line.tanks = [tank]
+
+    result = SimulationEngine(line).run_sync(duration_hours=1.0)
+
+    first_capacity = line.stations[0].get_capacity()
+    withdrawn = 500.0 - tank.current_level_l
+    assert withdrawn > 0
+    assert withdrawn <= first_capacity + first_capacity / 60.0 + 1e-6
+    assert tank.current_level_l >= 0
+
+
 def test_changeover_reduces_output_and_records_event():
     engine = SimulationEngine(make_line())
     engine.trigger_changeover("s01", minutes=30)
@@ -191,8 +229,8 @@ def test_liquid_batch_simulation_matches_manual():
     )
     assert abs(batch["cycle_min"] - expected_cycle) / expected_cycle < 0.03
 
-    # 罐液位 = 批次量 × 收率
-    assert line.tanks[0].current_level_l == pytest.approx(500 * 0.95, rel=1e-6)
+    # 罐液位：批次量 × 收率，随后被灌装线持续消耗（V3.2）
+    assert 0.0 <= line.tanks[0].current_level_l < 500 * 0.95
     # 人力汇总
     assert result.labor_summary["qc_technician"] == 1
     assert result.unit == "升"

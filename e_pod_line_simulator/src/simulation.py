@@ -117,6 +117,8 @@ class SimulationEngine:
         self.station_blocked_seconds: Dict[str, float] = {}
         self._starvation_alerted: set = set()
         self._blocked_alerted: set = set()
+        # V3.2：罐容约束（批次满罐等待去重）
+        self._tank_full_alerted: set = set()
     
     def set_callback(self, callback: Callable[[SimulationState], None]) -> None:
         """
@@ -238,6 +240,52 @@ class SimulationEngine:
             return f"建议平衡「{upstream.name}」与{station.name}的节拍或增加缓存"
         return f"建议提升{station.name}产能或扩大缓冲区"
 
+    def _tank_total_available(self) -> float:
+        """全部储罐的剩余可用容量（升）"""
+        return sum(t.available_capacity() for t in self.line.tanks)
+
+    def _distribute_to_tanks(self, volume: float) -> float:
+        """把产出的液体分配到储罐（按序填充），返回实际注入量"""
+        remaining = volume
+        for tank in self.line.tanks:
+            if remaining <= 0:
+                break
+            take = min(remaining, tank.available_capacity())
+            if take > 0:
+                tank.add_liquid(take)
+                remaining -= take
+        return volume - remaining
+
+    def _withdraw_from_tanks(self, volume: float) -> float:
+        """从储罐取液（优先取液位最高的罐），返回实际取走量"""
+        remaining = volume
+        for tank in sorted(
+            self.line.tanks, key=lambda t: t.current_level_l, reverse=True
+        ):
+            if remaining <= 0:
+                break
+            remaining -= tank.withdraw(remaining)
+        return volume - remaining
+
+    def _tank_drain_process(self) -> simpy.events.Process:
+        """
+        下游灌装线持续消耗储罐液位（V3.2）
+
+        以首工序（灌装）理论产能作为消耗速率（升/小时），每 60 仿真秒
+        从储罐取液，模拟成品罐 → 灌装线的连续出料。
+        """
+        drain_rate_per_h = 0.0
+        if (
+            self.line.production_type == ProductionType.LIQUID_FILLING
+            and self.line.stations
+        ):
+            drain_rate_per_h = self.line.stations[0].get_capacity()
+        if drain_rate_per_h <= 0:
+            return
+        while True:
+            yield self.env.timeout(60)
+            self._withdraw_from_tanks(drain_rate_per_h / 60.0)
+
     def _batch_process(self, batch) -> simpy.events.Process:
         """
         批次过程（V1.3 烟油灌装）
@@ -318,11 +366,43 @@ class SimulationEngine:
         batch.end_time = end_time
         batch.pass_rate = pass_rate
 
-        # 罐液位更新（取第一个有空间的罐）
-        for tank in self.line.tanks:
-            if tank.current_level_l + yielded_l <= tank.capacity_l + 1e-6:
-                tank.current_level_l += yielded_l
-                break
+        # 罐容约束（V3.2）：按可用罐容分批注入，容量不足时等待并报警，
+        # 禁止静默丢弃
+        remaining = yielded_l
+        while remaining > 1e-6:
+            available = self._tank_total_available()
+            if available <= 1e-6:
+                if batch.id not in self._tank_full_alerted:
+                    self._tank_full_alerted.add(batch.id)
+                    self._emit_alert(Alert(
+                        alert_type="tank_full",
+                        severity="WARNING",
+                        station_id="",
+                        message=(
+                            f"批次 {batch.id} 等待储罐容量：需求 {remaining:.1f} 升，"
+                            f"可用 0 升"
+                        ),
+                        suggestion="检查成品罐液位与灌装消耗，或增加储罐容量",
+                        timestamp_minutes=round(self.env.now / 60.0, 1),
+                    ))
+                yield self.env.timeout(60)
+                continue
+            filled = self._distribute_to_tanks(min(remaining, available))
+            remaining -= filled
+            if remaining > 1e-6:
+                if batch.id not in self._tank_full_alerted:
+                    self._tank_full_alerted.add(batch.id)
+                    self._emit_alert(Alert(
+                        alert_type="tank_full",
+                        severity="WARNING",
+                        station_id="",
+                        message=(
+                            f"批次 {batch.id} 分批注入储罐：剩余 {remaining:.1f} 升"
+                        ),
+                        suggestion="检查成品罐液位与灌装消耗，或增加储罐容量",
+                        timestamp_minutes=round(self.env.now / 60.0, 1),
+                    ))
+                yield self.env.timeout(60)
 
         self.batch_results.append({
             'batch_id': batch.id,
@@ -374,6 +454,7 @@ class SimulationEngine:
         self.station_blocked_seconds = {}
         self._starvation_alerted = set()
         self._blocked_alerted = set()
+        self._tank_full_alerted = set()
 
         # 步骤1：创建SimPy环境
         # Environment是SimPy的核心，管理仿真时钟和事件队列
@@ -389,6 +470,7 @@ class SimulationEngine:
         if self.line.production_type == ProductionType.LIQUID_FILLING:
             for batch in self.line.batches:
                 self.env.process(self._batch_process(batch))
+            self.env.process(self._tank_drain_process())
         else:
             self._spawn_station_processes()
         
@@ -1089,6 +1171,7 @@ class SimulationEngine:
         self.station_blocked_seconds = {}
         self._starvation_alerted = set()
         self._blocked_alerted = set()
+        self._tank_full_alerted = set()
 
         self.env = simpy.Environment()
         self._init_resources()
@@ -1096,6 +1179,7 @@ class SimulationEngine:
             # 烟油：批量过程驱动
             for batch in self.line.batches:
                 self.env.process(self._batch_process(batch))
+            self.env.process(self._tank_drain_process())
         else:
             # 组装 / 尼古丁袋：工序进程驱动（袋装使用机台节拍）
             self._spawn_station_processes()

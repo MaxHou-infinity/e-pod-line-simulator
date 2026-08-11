@@ -835,6 +835,23 @@ class Tank:
     current_level_l: float = 0.0
     cleaning_status: str = "clean"  # clean / in_use / cip / sip
 
+    def available_capacity(self) -> float:
+        """剩余可用容量（升）"""
+        return max(0.0, self.capacity_l - self.current_level_l)
+
+    def add_liquid(self, volume: float) -> bool:
+        """注入液体；容量不足时返回 False 且不写入"""
+        if self.available_capacity() + 1e-6 < volume:
+            return False
+        self.current_level_l += volume
+        return True
+
+    def withdraw(self, volume: float) -> float:
+        """取走液体，返回实际取走量（不足时取空）"""
+        take = min(volume, self.current_level_l)
+        self.current_level_l -= take
+        return take
+
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
