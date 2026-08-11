@@ -1313,6 +1313,17 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest 136 passed；真实方案导出验证通过
 
+## 2026-08-11 - V3.3.1 定版与发布
+
+### 完成内容
+- 版本号 v3.3.1；全量回归 pytest 136 passed
+- CHANGELOG [3.3.1]；README/成熟度/开发日志同步
+- 重新生成源码包 v3.3.1；打 tag `v3.3.1` 并推送
+- 触发 CI 与 Release 自动打包（源码包 + macOS App）
+
+### 遗留
+- V2.0：Web 化；Windows EXE 构建
+
 ## 2026-08-11 - 当前在岗留空按 0 计
 
 ### 完成内容
