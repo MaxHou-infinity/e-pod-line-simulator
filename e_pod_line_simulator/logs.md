@@ -1285,6 +1285,14 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest 136 passed
 
+## 2026-08-11 - KPI 历史趋势界面优化
+
+### 完成内容
+- KPI/对比KPI 下拉中文显示；独立选择器行；移除关闭按钮
+
+### 验证
+- pytest 136 passed
+
 ## 2026-08-11 - 烟油灌装计量单位改为千克
 
 ### 完成内容

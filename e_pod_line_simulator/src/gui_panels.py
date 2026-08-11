@@ -2529,31 +2529,34 @@ class HistoryDialog:
         ttk.Button(btn_frame, text="清空历史", command=self._clear_history).pack(
             side=tk.LEFT, padx=4
         )
-        ttk.Label(btn_frame, text="KPI:").pack(side=tk.LEFT, padx=(16, 2))
-        self.kpi_var = tk.StringVar(value="daily_output")
+
+        selector_frame = ttk.Frame(main)
+        selector_frame.pack(fill=tk.X, pady=(0, 6))
+        self._label_to_key = {
+            label: key for key, label in self.KPI_LABELS.items()
+        }
+        ttk.Label(selector_frame, text="KPI:").pack(side=tk.LEFT, padx=(0, 4))
+        self.kpi_var = tk.StringVar(value=self.KPI_LABELS["daily_output"])
         self.kpi_combo = ttk.Combobox(
-            btn_frame,
+            selector_frame,
             textvariable=self.kpi_var,
-            values=list(self.KPI_LABELS.keys()),
+            values=list(self.KPI_LABELS.values()),
             state="readonly",
-            width=18,
+            width=24,
         )
         self.kpi_combo.pack(side=tk.LEFT)
         self.kpi_combo.bind("<<ComboboxSelected>>", lambda e: self._draw_chart())
-        ttk.Label(btn_frame, text="对比KPI:").pack(side=tk.LEFT, padx=(12, 2))
-        self.compare_var = tk.StringVar(value="")
+        ttk.Label(selector_frame, text="对比KPI:").pack(side=tk.LEFT, padx=(20, 4))
+        self.compare_var = tk.StringVar(value="无对比")
         self.compare_combo = ttk.Combobox(
-            btn_frame,
+            selector_frame,
             textvariable=self.compare_var,
-            values=[""] + list(self.KPI_LABELS.keys()),
+            values=["无对比"] + list(self.KPI_LABELS.values()),
             state="readonly",
-            width=18,
+            width=24,
         )
         self.compare_combo.pack(side=tk.LEFT)
         self.compare_combo.bind("<<ComboboxSelected>>", lambda e: self._draw_chart())
-        ttk.Button(btn_frame, text="关闭", command=self._close).pack(
-            side=tk.RIGHT, padx=4
-        )
 
         columns = ("time", "line", "daily", "unit_cost", "balance", "upph")
         self.tree = ttk.Treeview(main, columns=columns, show="headings", height=12)
@@ -2601,9 +2604,9 @@ class HistoryDialog:
 
     def _draw_chart(self) -> None:
         self.canvas.delete("all")
-        kpi = self.kpi_var.get()
+        kpi = self._label_to_key.get(self.kpi_var.get(), "daily_output")
         series = kpi_series(self.history, kpi)
-        compare_kpi = self.compare_var.get()
+        compare_kpi = self._label_to_key.get(self.compare_var.get(), "")
         compare_series = (
             kpi_series(self.history, compare_kpi) if compare_kpi else []
         )
