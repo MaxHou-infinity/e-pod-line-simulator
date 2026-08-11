@@ -12,6 +12,8 @@ from src.models import (
     Station,
     Tank,
     Batch,
+    Material,
+    MaterialArrival,
     create_liquid_line,
 )
 from src.simulation import SimulationEngine, detect_waste
@@ -101,6 +103,34 @@ def test_periodic_cip_by_hours():
     assert len(periodic) >= 1
     assert periodic[0]["clean_min"] == 30
     assert len(result.batch_results) == 2
+
+
+def test_material_shortage_blocks_batch_until_arrival():
+    """V3.2 L4：原料不足时批次阻塞，到货后恢复"""
+    line = ProductionLine("原料测试", production_type=ProductionType.LIQUID_FILLING)
+    line.recipes.append(Recipe(
+        name="配方A", batch_volume_l=100, yield_rate=0.95,
+        mixing_time_min=10, aging_time_min=0,
+        filling_rate_l_per_h=600, qc_time_min=5, clean_time_min=0,
+        ingredients={"尼古丁": 20.0, "丙二醇": 400.0, "香料": 80.0},
+    ))
+    line.materials.append(Material("尼古丁", "kg", 0.0))
+    line.materials.append(Material("丙二醇", "kg", 1000.0))
+    line.materials.append(Material("香料", "kg", 1000.0))
+    line.inventory = {"尼古丁": 0.0, "丙二醇": 1000.0, "香料": 1000.0}
+    line.material_arrivals.append(MaterialArrival(30.0, "尼古丁", 50.0))
+    line.tanks.append(Tank("T01", "成品罐", 10000, 0))
+    line.batches.append(Batch("B001", "配方A", 100))
+
+    result = SimulationEngine(line).run_sync(duration_hours=24.0)
+
+    assert any(a.alert_type == "material_shortage" for a in result.alerts)
+    consume = [e for e in result.material_events if e["type"] == "consume"]
+    arrival = [e for e in result.material_events if e["type"] == "arrival"]
+    assert len(arrival) == 1
+    assert any(e["material"] == "尼古丁" and e["quantity"] == 20.0 for e in consume)
+    assert result.inventory["尼古丁"] == 50.0 - 20.0
+    assert len(result.batch_results) == 1
 
 
 def test_liquid_tanks_drain_by_first_station_capacity():

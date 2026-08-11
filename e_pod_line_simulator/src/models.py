@@ -353,6 +353,11 @@ class ProductionLine:
     # V3.2：周期性 CIP（0 = 禁用）
     cip_interval_batches: int = 0   # 每 N 个批次清洗一次
     cip_interval_hours: float = 0.0  # 每运行 N 小时清洗一次
+
+    # V3.2：原料与库存
+    materials: List["Material"] = field(default_factory=list)
+    inventory: Dict[str, float] = field(default_factory=dict)  # {原料: 当前库存}
+    material_arrivals: List["MaterialArrival"] = field(default_factory=list)
     
     def add_station(self, station: Station) -> None:
         """
@@ -763,6 +768,9 @@ class ProductionLine:
             'skill_matrix': {k: list(v) for k, v in self.skill_matrix.items()},
             'cip_interval_batches': self.cip_interval_batches,
             'cip_interval_hours': self.cip_interval_hours,
+            'materials': [m.to_dict() for m in self.materials],
+            'inventory': dict(self.inventory),
+            'material_arrivals': [a.to_dict() for a in self.material_arrivals],
             'stations': [station.to_dict() for station in self.stations]
         }
     
@@ -792,6 +800,12 @@ class ProductionLine:
             skill_matrix={k: list(v) for k, v in data.get('skill_matrix', {}).items()},
             cip_interval_batches=int(data.get('cip_interval_batches', 0)),
             cip_interval_hours=float(data.get('cip_interval_hours', 0.0)),
+            materials=[Material.from_dict(m) for m in data.get('materials', [])],
+            inventory=dict(data.get('inventory', {})),
+            material_arrivals=[
+                MaterialArrival.from_dict(a)
+                for a in data.get('material_arrivals', [])
+            ],
         )
         
         # 添加所有工序
@@ -892,6 +906,36 @@ class Batch:
     def from_dict(cls, data: Dict[str, Any]) -> "Batch":
         if isinstance(data.get('status'), str):
             data['status'] = BatchStatus(data['status'])
+        return cls(**data)
+
+
+@dataclass
+class Material:
+    """原料（V3.2 库存模型）"""
+    name: str
+    unit: str = "kg"
+    initial_stock: float = 0.0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Material":
+        return cls(**data)
+
+
+@dataclass
+class MaterialArrival:
+    """原料到货计划（V3.2）"""
+    time_minutes: float
+    material: str
+    quantity: float
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "MaterialArrival":
         return cls(**data)
 
 
@@ -1062,6 +1106,8 @@ class SimulationResult:
     batch_results: List[Dict[str, Any]] = field(default_factory=list)
     quality_results: List[Dict[str, Any]] = field(default_factory=list)
     cleaning_events: List[Dict[str, Any]] = field(default_factory=list)
+    material_events: List[Dict[str, Any]] = field(default_factory=list)
+    inventory: Dict[str, float] = field(default_factory=dict)
     labor_summary: Dict[str, int] = field(default_factory=dict)
     unit: str = "颗"
     station_metrics: Dict[str, Dict[str, float]] = field(default_factory=dict)

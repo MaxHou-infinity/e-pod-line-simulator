@@ -121,6 +121,10 @@ class SimulationEngine:
         self._tank_full_alerted: set = set()
         # V3.2：周期性 CIP 计时
         self._last_clean_hour: float = 0.0
+        # V3.2：原料与库存
+        self.material_events: List[Dict[str, Any]] = []
+        self._material_alerted: set = set()
+        self._inventory: Dict[str, float] = {}
     
     def set_callback(self, callback: Callable[[SimulationState], None]) -> None:
         """
@@ -339,6 +343,78 @@ class SimulationEngine:
                 yield self.env.process(self._run_clean('periodic', batch.recipe_name))
             yield self.env.process(self._batch_process(batch))
 
+    def _material_arrival_process(self) -> simpy.events.Process:
+        """按到货计划补充原料库存（V3.2）"""
+        for arrival in sorted(
+            self.line.material_arrivals, key=lambda a: a.time_minutes
+        ):
+            wait_minutes = arrival.time_minutes - self.env.now / 60.0
+            if wait_minutes > 0:
+                yield self.env.timeout(wait_minutes * 60)
+            self._inventory[arrival.material] = (
+                self._inventory.get(arrival.material, 0.0) + arrival.quantity
+            )
+            self.material_events.append({
+                'time': self.env.now,
+                'type': 'arrival',
+                'material': arrival.material,
+                'quantity': arrival.quantity,
+            })
+
+    def _consume_batch_materials(
+        self, recipe, batch
+    ) -> simpy.events.Process:
+        """
+        批次投料（V3.2）：按配方原料 × 批次量/配方基准量 消耗库存；
+        库存不足时等待到货并报警，缺料期间批次阻塞。
+        """
+        scale = (
+            batch.quantity_l / recipe.batch_volume_l
+            if recipe.batch_volume_l > 0
+            else 1.0
+        )
+        required = {
+            name: round(qty * scale, 6)
+            for name, qty in recipe.ingredients.items()
+        }
+
+        def _missing() -> Dict[str, float]:
+            return {
+                m: q for m, q in required.items()
+                if self._inventory.get(m, 0.0) + 1e-9 < q
+            }
+
+        missing = _missing()
+        while missing:
+            for material in missing:
+                key = (batch.id, material)
+                if key not in self._material_alerted:
+                    self._material_alerted.add(key)
+                    self._emit_alert(Alert(
+                        alert_type="material_shortage",
+                        severity="WARNING",
+                        station_id="",
+                        message=(
+                            f"批次 {batch.id} 缺料：{material} 缺 "
+                            f"{missing[material]:.1f}（库存 "
+                            f"{self._inventory.get(material, 0.0):.1f}）"
+                        ),
+                        suggestion="安排原料到货或调整批次投料计划",
+                        timestamp_minutes=round(self.env.now / 60.0, 1),
+                    ))
+            yield self.env.timeout(60)
+            missing = _missing()
+
+        for material, quantity in required.items():
+            self._inventory[material] -= quantity
+            self.material_events.append({
+                'time': self.env.now,
+                'type': 'consume',
+                'batch_id': batch.id,
+                'material': material,
+                'quantity': quantity,
+            })
+
     def _batch_process(self, batch) -> simpy.events.Process:
         """
         批次过程（V1.3 烟油灌装）
@@ -378,6 +454,10 @@ class SimulationEngine:
             })
             self._last_clean_hour = self.env.now / 3600.0
         self._last_batch_recipe = recipe.name
+
+        # 投料：库存不足时等待到货（V3.2；未配置原料时保持原行为）
+        if self.line.materials or self.line.inventory:
+            yield self.env.process(self._consume_batch_materials(recipe, batch))
 
         batch.status = BatchStatus.MIXING
         start_time = self.env.now
@@ -499,6 +579,13 @@ class SimulationEngine:
         self.batch_results = []
         self.quality_results = []
         self.cleaning_events = []
+        self.material_events = []
+        self._material_alerted = set()
+        self._inventory = (
+            dict(self.line.inventory)
+            if self.line.inventory
+            else {m.name: m.initial_stock for m in self.line.materials}
+        )
         self._rng = random.Random(self.random_seed)
         self._blockage_state = {}
         self._blockage_since = {}
@@ -527,6 +614,7 @@ class SimulationEngine:
             # 烟油：批次排产序列驱动（V3.2）
             self.env.process(self._batch_sequence_process())
             self.env.process(self._tank_drain_process())
+            self.env.process(self._material_arrival_process())
         else:
             self._spawn_station_processes()
         
@@ -1217,6 +1305,13 @@ class SimulationEngine:
         self.batch_results = []
         self.quality_results = []
         self.cleaning_events = []
+        self.material_events = []
+        self._material_alerted = set()
+        self._inventory = (
+            dict(self.line.inventory)
+            if self.line.inventory
+            else {m.name: m.initial_stock for m in self.line.materials}
+        )
         self._rng = random.Random(self.random_seed)
         self._blockage_state = {}
         self._blockage_since = {}
@@ -1236,6 +1331,7 @@ class SimulationEngine:
             # 烟油：批次排产序列驱动（V3.2）
             self.env.process(self._batch_sequence_process())
             self.env.process(self._tank_drain_process())
+            self.env.process(self._material_arrival_process())
         else:
             # 组装 / 尼古丁袋：工序进程驱动（袋装使用机台节拍）
             self._spawn_station_processes()
@@ -1330,6 +1426,8 @@ class SimulationEngine:
             batch_results=list(self.batch_results),
             quality_results=list(self.quality_results),
             cleaning_events=list(self.cleaning_events),
+            material_events=list(self.material_events),
+            inventory=dict(self._inventory),
             labor_summary=dict(self.line.labor_config),
             unit=self.line.get_unit(),
             station_metrics=station_metrics,

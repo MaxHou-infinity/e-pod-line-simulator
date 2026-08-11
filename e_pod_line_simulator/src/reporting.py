@@ -160,6 +160,9 @@ def export_excel(result: SimulationResult, file_path: str) -> bool:
             })
         imbalance_df = pd.DataFrame(imbalance_rows)
 
+        # V3.2 原料事件
+        material_df = pd.DataFrame(result.material_events)
+
         directory = os.path.dirname(file_path)
         if directory and not os.path.exists(directory):
             os.makedirs(directory, exist_ok=True)
@@ -178,6 +181,8 @@ def export_excel(result: SimulationResult, file_path: str) -> bool:
                 metrics_df.to_excel(writer, sheet_name="工序指标", index=False)
             if not imbalance_df.empty:
                 imbalance_df.to_excel(writer, sheet_name="失衡分析", index=False)
+            if not material_df.empty:
+                material_df.to_excel(writer, sheet_name="原料事件", index=False)
 
         return True
     except Exception:
