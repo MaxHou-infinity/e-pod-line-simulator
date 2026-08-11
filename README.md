@@ -10,7 +10,7 @@
 ![python](https://img.shields.io/badge/Python-3.8%2B-2F6FED)
 ![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-1F6FEB)
 ![CI](https://github.com/MaxHou-infinity/e-pod-line-simulator/actions/workflows/ci.yml/badge.svg)
-![tests](https://img.shields.io/badge/tests-126%20passed-green)
+![tests](https://img.shields.io/badge/tests-133%20passed-green)
 ![license](https://img.shields.io/badge/license-Attribution%20Authorization-blue)
 ![release](https://img.shields.io/github/v/release/MaxHou-infinity/e-pod-line-simulator?label=latest%20release&color=2F6FED)
 
@@ -24,6 +24,7 @@
 - **覆盖 3 种真实业态**：烟弹组装（颗）、烟油灌装（升·配方/批次/储罐/CIP）、尼古丁袋高速包装（袋·机台节拍/OEE 分解），字段与计量单位自动适配；
 - **HR 视角的人力规划**：目标产量反推各岗位人数、多班次排班、人力成本、招聘缺口与爬坡达产，HRBP/HR 可直接导出 Excel/PDF；
 - **智能评估与优化**：瓶颈/WIP/饥饿/堵塞/预测预警、敏感性试算、批量试算、KPI 历史趋势，乃至遗传算法自动寻优；
+- **分析体验（V3.3）**：统一结果表格（导出/复制/基线对比）、智能优化基线Δ与锁定工序、敏感性一键应用、分析指南与就地术语说明
 - **开箱即用**：macOS App、Windows 启动器、源码三种方式，零配置启动；GitHub Release 一键下载。
 
 ## 👥 面向谁
@@ -98,7 +99,7 @@ python run.py                      # 启动 GUI
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest tests -q          # 126 个用例
+python -m pytest tests -q          # 133 个用例
 ```
 
 ## 📚 文档导航
@@ -108,6 +109,7 @@ python -m pytest tests -q          # 126 个用例
 - [V3.2 人力规划与多业态深化路线图](e_pod_line_simulator/docs/v3.2/需求与开发路线图.md)
 - [V3.3 分析体验与学习成本优化路线图](e_pod_line_simulator/docs/v3.3/需求与开发路线图.md)
 - [V3.2 开发日志](e_pod_line_simulator/docs/v3.2/开发日志.md)
+- [V3.3 开发日志](e_pod_line_simulator/docs/v3.3/开发日志.md)
 - [V1.3 烟油 / 尼古丁袋扩展需求](e_pod_line_simulator/docs/v1.3/需求与开发路线图.md)
 - [V3.0 体验与视觉升级规划](e_pod_line_simulator/docs/v3.0/体验视觉升级规划.md)
 - [项目成熟度分析](e_pod_line_simulator/docs/项目成熟度分析.md)
@@ -120,7 +122,7 @@ python -m pytest tests -q          # 126 个用例
 | SimPy 4.0+ | 离散事件仿真引擎 |
 | pandas / openpyxl | Excel 导入导出 |
 | reportlab | PDF 报告 |
-| pytest / pytest-cov | 126 个用例 + 覆盖率 |
+| pytest / pytest-cov | 133 个用例 + 覆盖率 |
 | GitHub Actions | CI 回归 + Release 自动打包（源码包 / macOS App） |
 
 ## 📁 目录结构
@@ -130,7 +132,7 @@ e_pod_line_simulator/
 ├── src/        # 源码（models / simulation / hr_planning / optimizer / gui / reporting）
 ├── configs/    # 默认配置、Excel 模板、方案与运行历史
 ├── docs/       # PRD、路线图、开发日志（v1.1-v3.2）
-├── tests/      # 126 个 pytest 用例
+├── tests/      # 133 个 pytest 用例
 ├── packaging/  # PyInstaller 打包配置
 └── assets/     # 图标与赞赏码资源
 ```
@@ -140,7 +142,7 @@ e_pod_line_simulator/
 - ✅ V1.0-V1.3：MVP、交互 / 视觉、烟油与尼古丁袋产品形态扩展
 - ✅ V3.0 / V3.1：2026 桌面美学、智能报警与评估
 - ✅ **V3.2**：人力规划与多业态深化（已定版 v3.2.0）
-- 🔄 **V3.3**：分析体验与学习成本优化（开发中）
+- ✅ **V3.3**：分析体验与学习成本优化（已定版 v3.3.0）
 - ⏳ V2.0：Web 化；Windows EXE 打包
 
 ## 💬 支持与反馈
