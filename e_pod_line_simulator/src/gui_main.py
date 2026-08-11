@@ -45,6 +45,7 @@ from src.gui_panels import (
     AboutDialog,
     WizardDialog,
     HrPlanningDialog,
+    HistoryDialog,
 )
 from src.utils import (
     load_config,
@@ -56,6 +57,7 @@ from src.utils import (
 from src.scenario_manager import ScenarioManager
 from src.reporting import export_report
 from src.sensitivity import run_sensitivity
+from src.history import append_snapshot, build_snapshot
 from src.theme import ToolTip, apply_theme, show_toast
 from src.version import __version__
 
@@ -177,6 +179,7 @@ class MainWindow:
         analysis_menu.add_command(label="方案管理", command=self._menu_manage_scenarios)
         analysis_menu.add_command(label="敏感性试算...", command=self._menu_sensitivity)
         analysis_menu.add_command(label="人力规划...", command=self._menu_hr_planning)
+        analysis_menu.add_command(label="KPI 历史趋势...", command=self._menu_history)
         analysis_menu.add_command(label="导出报告", command=self._menu_export_report)
         
         # 帮助菜单
@@ -715,6 +718,11 @@ class MainWindow:
             return
         HrPlanningDialog(self.root, self.production_line)
         self.status_bar.config(text="人力规划完成")
+
+    def _menu_history(self) -> None:
+        """分析菜单 - KPI 历史趋势（V3.2 P1）"""
+        HistoryDialog(self.root, self.production_line)
+        self.status_bar.config(text="KPI 历史趋势已关闭")
     
     def _menu_help(self) -> None:
         """帮助菜单 - 使用说明"""
@@ -893,6 +901,13 @@ class MainWindow:
         """停止仿真按钮"""
         if self.simulation_engine:
             try:
+                # V3.2：停止时自动记录 KPI 历史快照（尽力而为，不影响主流程）
+                append_snapshot(
+                    build_snapshot(
+                        self.production_line,
+                        self.simulation_engine.build_result(),
+                    )
+                )
                 self.simulation_engine.stop()
             except:
                 pass  # 忽略停止时的错误

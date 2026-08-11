@@ -42,6 +42,13 @@ from src.hr_planning import (
     build_hr_summary,
 )
 from src.reporting import export_hr_pdf, export_hr_report
+from src.history import (
+    KPI_NAMES,
+    append_snapshot,
+    build_snapshot,
+    kpi_series,
+    load_history,
+)
 
 
 def build_template_line(key: str) -> ProductionLine:
@@ -2034,6 +2041,160 @@ class HrPlanningDialog:
             messagebox.showerror("失败", "导出失败，请查看 logs/app.log")
 
     def _cancel(self) -> None:
+        self.dialog.destroy()
+
+
+class HistoryDialog:
+    """
+    KPI 历史趋势对话框（V3.2 P1）
+
+    展示跨运行 KPI 记录（表格 + 简易折线图），可记录当前产线快照。
+    """
+
+    KPI_LABELS = {
+        "bottleneck_capacity": "瓶颈产能",
+        "daily_output": "日产量",
+        "total_cost": "日成本",
+        "unit_cost": "单位成本",
+        "balance_rate": "平衡率",
+        "upph": "UPPH",
+        "batch_cycle_min": "批次周期",
+        "batch_pass_rate": "批次合格率",
+        "yield_rate": "收率",
+        "machine_oee": "机台OEE",
+        "shippable_quantity": "可发运产出",
+        "rejected_batches": "隔离批次",
+    }
+
+    def __init__(
+        self,
+        parent,
+        production_line: Optional[ProductionLine],
+        result=None,
+    ):
+        self.line = production_line
+        self.result = result
+        self.history = load_history()
+
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("KPI 历史趋势")
+        self.dialog.geometry("760x620")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        self._create_widgets()
+        self.dialog.bind('<Escape>', lambda e: self._close())
+        self.dialog.update_idletasks()
+        x = (self.dialog.winfo_screenwidth() // 2) - (self.dialog.winfo_width() // 2)
+        y = (self.dialog.winfo_screenheight() // 2) - (self.dialog.winfo_height() // 2)
+        self.dialog.geometry(f"+{x}+{y}")
+        self.dialog.wait_window()
+
+    def _create_widgets(self) -> None:
+        main = ttk.Frame(self.dialog, padding=12)
+        main.pack(fill=tk.BOTH, expand=True)
+
+        btn_frame = ttk.Frame(main)
+        btn_frame.pack(fill=tk.X, pady=(0, 6))
+        ttk.Button(btn_frame, text="记录当前产线", command=self._record).pack(
+            side=tk.LEFT, padx=4
+        )
+        ttk.Button(btn_frame, text="刷新", command=self._refresh).pack(
+            side=tk.LEFT, padx=4
+        )
+        ttk.Label(btn_frame, text="KPI:").pack(side=tk.LEFT, padx=(16, 2))
+        self.kpi_var = tk.StringVar(value="daily_output")
+        self.kpi_combo = ttk.Combobox(
+            btn_frame,
+            textvariable=self.kpi_var,
+            values=list(self.KPI_LABELS.keys()),
+            state="readonly",
+            width=18,
+        )
+        self.kpi_combo.pack(side=tk.LEFT)
+        self.kpi_combo.bind("<<ComboboxSelected>>", lambda e: self._draw_chart())
+        ttk.Button(btn_frame, text="关闭", command=self._close).pack(
+            side=tk.RIGHT, padx=4
+        )
+
+        columns = ("time", "line", "daily", "unit_cost", "balance", "upph")
+        self.tree = ttk.Treeview(main, columns=columns, show="headings", height=12)
+        self.tree.heading("time", text="时间")
+        self.tree.heading("line", text="产线")
+        self.tree.heading("daily", text="日产量")
+        self.tree.heading("unit_cost", text="单位成本")
+        self.tree.heading("balance", text="平衡率")
+        self.tree.heading("upph", text="UPPH")
+        self.tree.column("time", width=140)
+        self.tree.column("line", width=140)
+        self.tree.column("daily", width=80, anchor=tk.E)
+        self.tree.column("unit_cost", width=90, anchor=tk.E)
+        self.tree.column("balance", width=80, anchor=tk.E)
+        self.tree.column("upph", width=90, anchor=tk.E)
+        self.tree.pack(fill=tk.BOTH, expand=True, pady=(0, 6))
+
+        self.canvas = tk.Canvas(main, height=200, bg="#FFFFFF", highlightthickness=1)
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+        self._refresh()
+        self._draw_chart()
+
+    def _refresh(self) -> None:
+        self.history = load_history()
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        for record in reversed(self.history):
+            k = record.get("kpis", {})
+            self.tree.insert("", tk.END, values=(
+                record.get("timestamp", ""),
+                record.get("line_name", ""),
+                round(k.get("daily_output", 0), 1),
+                round(k.get("unit_cost", 0), 3),
+                f"{k.get('balance_rate', 0) * 100:.1f}%",
+                round(k.get("upph", 0), 1),
+            ))
+
+    def _draw_chart(self) -> None:
+        self.canvas.delete("all")
+        kpi = self.kpi_var.get()
+        series = kpi_series(self.history, kpi)
+        if not series:
+            self.canvas.create_text(
+                260, 100, text="暂无记录，点击「记录当前产线」",
+                fill="#888888",
+            )
+            return
+        values = [v for _, v in series]
+        vmin, vmax = min(values), max(values)
+        span = (vmax - vmin) or 1.0
+        width, height = 740, 200
+        pad = 30
+        points = []
+        for i, (label, value) in enumerate(series):
+            x = pad + i * (width - 2 * pad) / max(len(series) - 1, 1)
+            y = height - pad - (value - vmin) / span * (height - 2 * pad)
+            points.append((x, y))
+        for (x1, y1), (x2, y2) in zip(points, points[1:]):
+            self.canvas.create_line(x1, y1, x2, y2, fill="#1F6FEB", width=2)
+        for x, y in points:
+            self.canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="#1F6FEB")
+        self.canvas.create_text(
+            8, 8, anchor=tk.NW,
+            text=f"{self.KPI_LABELS.get(kpi, kpi)}  最高 {vmax:.2f} / 最低 {vmin:.2f}",
+            fill="#555555",
+        )
+
+    def _record(self) -> None:
+        if self.line is None:
+            messagebox.showwarning("警告", "没有当前产线")
+            return
+        record = build_snapshot(self.line, self.result)
+        if append_snapshot(record):
+            show_toast(self.dialog, "已记录本次 KPI 快照")
+        else:
+            messagebox.showerror("失败", "记录失败，请查看 logs/app.log")
+        self._refresh()
+        self._draw_chart()
+
+    def _close(self) -> None:
         self.dialog.destroy()
 
 

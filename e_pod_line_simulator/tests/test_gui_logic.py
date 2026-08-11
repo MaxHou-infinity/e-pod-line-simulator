@@ -64,6 +64,15 @@ def test_hr_planning_dialog_methods_exist():
     assert hasattr(HrPlanningDialog, "_parse_hiring")
 
 
+def test_history_dialog_methods_exist():
+    from src.gui_panels import HistoryDialog
+
+    assert hasattr(HistoryDialog, "_record")
+    assert hasattr(HistoryDialog, "_refresh")
+    assert hasattr(HistoryDialog, "_draw_chart")
+    assert hasattr(HistoryDialog, "_close")
+
+
 def test_station_edit_fields_mapping():
     assert station_edit_fields(ProductionType.ASSEMBLY) == set()
     assert station_edit_fields(ProductionType.LIQUID_FILLING) == {
