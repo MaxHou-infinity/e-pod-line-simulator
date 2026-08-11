@@ -65,6 +65,7 @@ python -m pytest tests -q
 - [V1.3 需求与开发路线图（烟油/尼古丁袋）](e_pod_line_simulator/docs/v1.3/需求与开发路线图.md)
 - [V3.0 体验与视觉升级规划](e_pod_line_simulator/docs/v3.0/体验视觉升级规划.md)
 - [V3.1 开发日志](e_pod_line_simulator/docs/v3.1/开发日志.md)
+- [V4.0 人力规划与多业态深化路线图](e_pod_line_simulator/docs/v4.0/需求与开发路线图.md)
 - [项目成熟度分析](e_pod_line_simulator/docs/项目成熟度分析.md)
 
 ## 技术栈
@@ -93,7 +94,7 @@ e_pod_line_simulator/
 - ✅ **V1.0-V1.3**：MVP、交互/视觉、烟油与尼古丁袋产品形态扩展
 - ✅ **V3.0**：2026 桌面美学体验升级
 - ✅ **V3.1**：智能报警与评估能力（已定版 v3.1.0）
-- ⏳ **V1.4**：AI 自动优化
+- ⏳ **V4.0**：人力规划与多业态深化（HRBP/HR 受众，规划中）
 - ⏳ **V2.0**：Web 化
 
 ## 支持与反馈
