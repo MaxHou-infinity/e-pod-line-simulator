@@ -3289,6 +3289,24 @@ class HelpSection:
             self.body.pack_forget()
 
 
+def build_result_rows(columns, rows, highlight_key=None, highlight_value=None):
+    """
+    生成结果表格行（V3.3.3 回归修复）
+
+    Returns:
+        List[(values, is_baseline)]，供 ResultTableDialog 插入。
+    """
+    keys = [c[0] for c in columns]
+    result = []
+    for row in rows:
+        result.append((
+            [row.get(key, "") for key in keys],
+            highlight_key is not None
+            and row.get(highlight_key) == highlight_value,
+        ))
+    return result
+
+
 class ResultTableDialog:
     """
     通用结果表格对话框（V3.3）
@@ -3361,21 +3379,22 @@ class ResultTableDialog:
                 fill=tk.X, pady=(6, 0)
             )
 
+        for values, is_baseline in build_result_rows(
+            self.columns,
+            self.rows,
+            self.highlight_key,
+            self.highlight_value,
+        ):
+            item = self.tree.insert("", tk.END, values=values)
+            if is_baseline:
+                self.tree.item(item, tags=("baseline",))
+        self.tree.tag_configure("baseline", background="#EAF2FF")
+
     def get_selected_row(self):
         """返回当前选中行（V3.3.1）"""
         if self.selected_index is None or not (0 <= self.selected_index < len(self.rows)):
             return None
         return self.rows[self.selected_index]
-
-        for row in self.rows:
-            values = [row.get(key, "") for key in keys]
-            item = self.tree.insert("", tk.END, values=values)
-            if (
-                self.highlight_key is not None
-                and row.get(self.highlight_key) == self.highlight_value
-            ):
-                self.tree.item(item, tags=("baseline",))
-        self.tree.tag_configure("baseline", background="#EAF2FF")
 
     def _export_excel(self) -> None:
         try:

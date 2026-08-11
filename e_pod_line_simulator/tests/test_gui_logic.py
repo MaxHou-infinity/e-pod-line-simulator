@@ -123,6 +123,22 @@ def test_changeover_dialog_methods_exist():
     assert hasattr(ChangeoverDialog, "_create_widgets")
 
 
+def test_build_result_rows_keeps_all_rows():
+    """V3.3.3 回归：结果表格行插入逻辑不可丢失"""
+    from src.gui_panels import build_result_rows
+
+    columns = [("rank", "方案", 60, "center"), ("output", "总产出", 90, "e")]
+    rows = [
+        {"rank": "基线", "output": 100},
+        {"rank": "TOP1", "output": 200},
+    ]
+    built = build_result_rows(columns, rows, highlight_key="rank", highlight_value="基线")
+
+    assert len(built) == 2
+    assert built[0] == (["基线", 100], True)
+    assert built[1] == (["TOP1", 200], False)
+
+
 def test_canvas_capacity_text_uses_dynamic_unit():
     from src.gui_canvas import format_capacity_text
 
