@@ -24,7 +24,7 @@ from src.utils import validate_station, get_alert_color
 from src.scenario_manager import ScenarioManager
 from src.theme import ALERT_ICONS, COLORS, ToolTip, resolve_font_family
 from src.glossary import GLOSSARY
-from src.version import ALIPAY_QR_PATH, BUG_REPORT_URL, KO_FI_URL, __version__
+from src.version import ALIPAY_QR_PATH, BUG_REPORT_URL, WECHAT_QR_PATH, __version__
 from src.models import (
     ProductionType,
     create_liquid_line,
@@ -1695,7 +1695,7 @@ class AboutDialog:
     def __init__(self, parent):
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("关于")
-        self.dialog.geometry("560x460")
+        self.dialog.geometry("600x660")
         self.dialog.transient(parent)
         self.dialog.grab_set()
 
@@ -1718,7 +1718,7 @@ class AboutDialog:
             foreground=COLORS['text_secondary'],
         ).pack(anchor=tk.W, pady=(0, 10))
 
-        text = tk.Text(main, height=12, wrap=tk.WORD, font=(family, 10))
+        text = tk.Text(main, height=10, wrap=tk.WORD, font=(family, 10))
         text.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         text.insert('1.0', (
             "【隐私声明】\n"
@@ -1729,17 +1729,26 @@ class AboutDialog:
             "【Bug 反馈】\n"
             f"GitHub Issues：{BUG_REPORT_URL}\n\n"
             "【资助作者】\n"
-            f"Ko-fi：{KO_FI_URL}\n"
-            "支付宝赞赏码：点击下方按钮查看（需在 src/version.py 配置 ALIPAY_QR_PATH）。\n"
-            "两个入口可同时保留，分别面向海外与国内支持者。"
+            f"微信赞赏码：{WECHAT_QR_PATH}\n"
+            "支付宝赞赏码（可选）：需在 src/version.py 配置 ALIPAY_QR_PATH。\n"
+            "扫描上方二维码即可支持作者，感谢你的资助！"
         ))
         text.config(state=tk.DISABLED)
         self.about_text = text
 
+        # 内嵌微信赞赏码图片（如存在）
+        self._qr_image = None
+        if WECHAT_QR_PATH and os.path.exists(WECHAT_QR_PATH):
+            try:
+                self._qr_image = tk.PhotoImage(file=WECHAT_QR_PATH)
+                ttk.Label(main, image=self._qr_image).pack(pady=(0, 8))
+            except Exception:
+                self._qr_image = None
+
         button_frame = ttk.Frame(main)
         button_frame.pack(fill=tk.X)
         ttk.Button(button_frame, text="报告 Bug", command=self._open_bug).pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="Ko-fi 资助", command=self._open_kofi).pack(side=tk.LEFT, padx=2)
+        ttk.Button(button_frame, text="微信赞赏码", command=self._show_wechat).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="支付宝赞赏码", command=self._show_alipay).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="关闭", command=self.dialog.destroy).pack(side=tk.RIGHT, padx=2)
 
@@ -1752,8 +1761,15 @@ class AboutDialog:
     def _open_bug(self) -> None:
         webbrowser.open(BUG_REPORT_URL)
 
-    def _open_kofi(self) -> None:
-        webbrowser.open(KO_FI_URL)
+    def _show_wechat(self) -> None:
+        """打开微信赞赏码图片"""
+        if not WECHAT_QR_PATH or not os.path.exists(WECHAT_QR_PATH):
+            messagebox.showinfo(
+                "微信赞赏码",
+                "尚未配置赞赏码图片，请检查 assets/wechat_qr.png。",
+            )
+            return
+        webbrowser.open("file://" + os.path.abspath(WECHAT_QR_PATH))
 
     def _show_alipay(self) -> None:
         """显示/打开支付宝赞赏码图片"""

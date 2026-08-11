@@ -1128,6 +1128,16 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：95 passed；冒烟通过
 
+## 2026-08-11 - V3.1 P2.6 微信赞赏码接入
+
+### 完成内容
+- 移除 Ko-fi，接入微信赞赏码（assets/wechat_qr.png）
+- About 内嵌显示二维码 + 微信赞赏码按钮
+- 支付宝赞赏码保留为可选
+
+### 验证
+- pytest：95 passed；冒烟通过
+
 ## 2026-08-11 - V3.1 P2.3 预测预警文案修正
 
 ### 完成内容

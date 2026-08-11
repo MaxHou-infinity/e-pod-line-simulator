@@ -75,10 +75,14 @@ def test_command_palette_class_available():
 
 
 def test_about_dialog_class_and_urls():
+    import os
+
     from src.gui_panels import AboutDialog
-    from src.version import ALIPAY_QR_PATH, BUG_REPORT_URL, KO_FI_URL
+    from src.version import ALIPAY_QR_PATH, BUG_REPORT_URL, WECHAT_QR_PATH
 
     assert callable(AboutDialog)
     assert BUG_REPORT_URL.startswith("https://")
-    assert KO_FI_URL.startswith("https://")
+    assert isinstance(WECHAT_QR_PATH, str)
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    assert os.path.exists(os.path.join(repo_root, WECHAT_QR_PATH))
     assert isinstance(ALIPAY_QR_PATH, str)
