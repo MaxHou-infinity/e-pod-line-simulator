@@ -185,8 +185,14 @@ def weekly_hiring_gap(
     hiring_plan: List[Tuple[int, str, int]],
     weeks: int = 12,
 ) -> List[Dict]:
-    """按周招聘缺口时间线（到岗人数按周累计）"""
+    """
+    按周招聘缺口时间线（V3.3）
+
+    gap = 截至该周末还缺的人数（累计口径）；
+    new_gap = 本周相对上周的新增缺口（增量口径，避免“每周重复招人”误解）。
+    """
     rows = []
+    prev_total = 0
     for week in range(1, weeks + 1):
         gap: Dict[str, int] = {}
         for role, req in required.items():
@@ -195,11 +201,15 @@ def weekly_hiring_gap(
                 qty for (w, r, qty) in hiring_plan if r == role and w <= week
             )
             gap[role] = max(0, req - cur - arrivals)
+        total_gap = sum(gap.values())
+        new_gap = max(0, total_gap - prev_total)
         rows.append({
             'week': week,
             'gap': gap,
-            'total_gap': sum(gap.values()),
+            'total_gap': total_gap,
+            'new_gap': new_gap,
         })
+        prev_total = total_gap
     return rows
 
 
@@ -258,9 +268,18 @@ def build_hr_summary(
     for station in line.stations:
         capacity = station.get_capacity()
         per_head = _per_head_capacity(station)
+        changeover_minutes = (station.changeover_time or 0) + (
+            station.clean_time_minutes or 0
+        )
         station_derivation.append({
             'name': station.name,
             'configured': station.worker_count,
+            'process_time': station.process_time,
+            'machine_takt': station.machine_takt,
+            'oee': station.oee,
+            'efficiency': station.efficiency,
+            'changeover_minutes': changeover_minutes,
+            'collaboration': station.collaboration_type.value,
             'capacity': round(capacity, 2),
             'per_head': round(per_head, 2),
             'needed': by_station.get(station.id, 1),
@@ -277,6 +296,7 @@ def build_hr_summary(
         'current_headcount': dict(current),
         'current_total': sum(current.values()),
         'initial_gap': gap_rows[0]['total_gap'] if gap_rows else 0,
+        'one_time_hiring': gap_rows[0]['total_gap'] if gap_rows else 0,
         'excess_headcount': max(0, sum(current.values()) - total),
         'station_derivation': station_derivation,
         'costs': costs,

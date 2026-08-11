@@ -369,7 +369,8 @@ def export_hr_report(summary: dict, file_path: str) -> bool:
         for row in summary.get("weekly_gap", []):
             gap_rows.append({
                 "周": row.get("week", 0),
-                "总缺口": row.get("total_gap", 0),
+                "周底还缺(累计)": row.get("total_gap", 0),
+                "本周新增需求": row.get("new_gap", 0),
                 **{f"缺口_{role}": v for role, v in row.get("gap", {}).items()},
             })
         gap_df = pd.DataFrame(gap_rows)

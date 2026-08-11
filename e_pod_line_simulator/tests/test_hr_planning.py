@@ -76,6 +76,10 @@ def test_weekly_hiring_gap_timeline():
     assert rows[1]["gap"]["filling_operator"] == 1
     assert rows[2]["gap"]["filling_operator"] == 0
     assert rows[3]["total_gap"] == 0
+    # 新增口径：第 1 周新增 1，后续无新增（不是每周重复招 1 人）
+    assert rows[0]["new_gap"] == 1
+    assert rows[1]["new_gap"] == 0
+    assert rows[2]["new_gap"] == 0
 
 
 def test_ramp_days_to_full():
@@ -111,6 +115,10 @@ def test_build_hr_summary_shape():
     assert "required_hourly" in summary
     assert "station_derivation" in summary
     assert "excess_headcount" in summary
+    assert "one_time_hiring" in summary
+    first = summary["station_derivation"][0]
+    assert "process_time" in first and "oee" in first
+    assert "efficiency" in first and "changeover_minutes" in first
 
 
 def test_current_headcount_by_role_sums_stations():

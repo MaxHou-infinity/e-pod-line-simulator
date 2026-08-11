@@ -2007,6 +2007,9 @@ class HrPlanningDialog:
 
     def _create_widgets(self) -> None:
         line = self.line
+        station_roles = {s.job_role.value for s in (line.stations if line else [])}
+        labor_roles = set(line.labor_config.keys()) if line else set()
+        self._single_role = len(station_roles | labor_roles) <= 1
         daily_default = (
             str(int(line.calculate_daily_output()))
             if line and line.stations
@@ -2062,20 +2065,33 @@ class HrPlanningDialog:
         _row(4, 2, "爬坡天数:", self.ramp_var, padx=(16, 0),
              hint="新员工从入职到满效率所需天数（默认 90 天线性爬坡）")
 
-        ttk.Label(
-            main, text="当前在岗（每行 工种:人数；留空则按产线工序人数自动汇总）:"
-        ).grid(row=5, column=0, columnspan=4, sticky=tk.W, pady=(12, 2))
+        current_label = (
+            "当前在岗（人数；留空则按产线工序人数自动汇总）:"
+            if self._single_role
+            else "当前在岗（每行 工种:人数；留空则按产线自动汇总）:"
+        )
+        ttk.Label(main, text=current_label).grid(
+            row=5, column=0, columnspan=4, sticky=tk.W, pady=(12, 2)
+        )
         self.current_text = tk.Text(main, height=3, width=60)
         self.current_text.grid(row=6, column=0, columnspan=4, sticky=tk.W)
         if line:
             current = current_headcount_by_role(line)
-            self.current_text.insert(
-                "1.0",
-                "\n".join(f"{role}:{count}" for role, count in current.items()),
-            )
+            if self._single_role:
+                self.current_text.insert("1.0", str(sum(current.values())))
+            else:
+                self.current_text.insert(
+                    "1.0",
+                    "\n".join(f"{role}:{count}" for role, count in current.items()),
+                )
 
+        hiring_label = (
+            "招聘计划（每行 周,人数，如 1,2；也可写 周,工种,人数）:"
+            if self._single_role
+            else "招聘计划（每行 周,工种,人数，如 1,filling_operator,2）:"
+        )
         ttk.Label(
-            main, text="招聘计划（每行 周,工种,人数，如 1,filling_operator,2）:"
+            main, text=hiring_label
         ).grid(row=7, column=0, columnspan=4, sticky=tk.W, pady=(8, 2))
         self.hiring_text = tk.Text(main, height=3, width=60)
         self.hiring_text.grid(row=8, column=0, columnspan=4, sticky=tk.W)
@@ -2102,10 +2118,12 @@ class HrPlanningDialog:
             "使用说明",
             "目的：按目标产量估算产线需要的人数、排班与人力成本，"
             "供 HRBP/HR 做预算、招聘与爬坡规划。\n"
-            "口径：人力需求 = 达成目标产量的最低人数，按各工序单人工位产能反推；"
-            "协同工序加人不提升产能。\n"
-            "缺口 = 需求 − 当前在岗 − 已计划到岗；需求低于在岗时缺口为 0，"
-            "并显示富余人数。\n"
+            "需求口径：达成目标产量的最低人数；"
+            "每工序需求 = 每小时目标 ÷ 单人产能（向上取整）。\n"
+            "单人产能公式：3600÷单件耗时×OEE×效率×(1−切换占比)（并联时÷人数）。\n"
+            "缺口口径：缺口 = 需求 − 当前在岗 − 已计划到岗，"
+            "指“还缺多少人”（累计），不是每周都要招这么多人；"
+            "本周新增 = 较上周的新增缺口。\n"
             "成本 = 在岗人数 ×（基本工资 + 加班 + 社保福利）。\n"
             "术语：UPPH=每人每小时产出；缺勤率/离职率/爬坡天数见字段提示。\n"
             "结果仅供规划参考，不构成用工承诺。",
@@ -2113,7 +2131,10 @@ class HrPlanningDialog:
 
     def _parse_current(self) -> Dict[str, int]:
         result: Dict[str, int] = {}
-        for line in self.current_text.get("1.0", tk.END).strip().splitlines():
+        raw = self.current_text.get("1.0", tk.END).strip()
+        if raw and ":" not in raw and "," not in raw and "\n" not in raw:
+            return {"general": int(raw.strip())}
+        for line in raw.splitlines():
             line = line.strip()
             if not line:
                 continue
@@ -2133,6 +2154,9 @@ class HrPlanningDialog:
             if not line:
                 continue
             parts = [p.strip() for p in line.replace("，", ",").split(",")]
+            if len(parts) == 2:
+                result.append((int(parts[0]), "general", int(parts[1])))
+                continue
             if len(parts) != 3:
                 continue
             result.append((int(parts[0]), parts[1], int(parts[2])))
@@ -2195,12 +2219,13 @@ class HrPlanningDialog:
         if self.line:
             self.current_text.delete("1.0", tk.END)
             current = current_headcount_by_role(self.line)
-            self.current_text.insert(
-                "1.0",
-                "\n".join(
-                    f"{role}:{count}" for role, count in current.items()
-                ),
-            )
+            if self._single_role:
+                self.current_text.insert("1.0", str(sum(current.values())))
+            else:
+                self.current_text.insert(
+                    "1.0",
+                    "\n".join(f"{role}:{count}" for role, count in current.items()),
+                )
 
     def _open_result_table(self) -> None:
         """以表格展示人力规划结果（V3.3）"""
@@ -2221,22 +2246,28 @@ class HrPlanningDialog:
                 "item": (
                     f"{d['name']}{'（瓶颈）' if d['is_bottleneck'] else ''}："
                     f"配置 {d['configured']} 人 / 单人产能 {d['per_head']}/h"
+                    f"（单件耗时 {d['process_time']}s × OEE {d['oee']} × "
+                    f"效率 {d['efficiency']} × 切换{d['changeover_minutes']}min）"
                 ),
                 "value": f"需求 {d['needed']} 人",
             })
-        for role, count in s["headcount_by_role"].items():
+        if self._single_role:
             rows.append({
                 "category": "人力需求（按目标反推）",
-                "item": role,
-                "value": f"{count} 人",
+                "item": "通用（合计）",
+                "value": f"{s['total_headcount']} 人",
             })
-        rows.append({
-            "category": "人力需求（按目标反推）",
-            "item": "总人数",
-            "value": f"{s['total_headcount']} 人",
-        })
-        for role, count in s["current_headcount"].items():
-            rows.append({"category": "当前在岗", "item": role, "value": f"{count} 人"})
+        else:
+            for role, count in s["headcount_by_role"].items():
+                rows.append({
+                    "category": "人力需求（按目标反推）",
+                    "item": role,
+                    "value": f"{count} 人",
+                })
+            for role, count in s["current_headcount"].items():
+                rows.append({
+                    "category": "当前在岗", "item": role, "value": f"{count} 人"
+                })
         rows.append({
             "category": "当前在岗", "item": "在岗合计",
             "value": f"{s['current_total']} 人",
@@ -2244,6 +2275,11 @@ class HrPlanningDialog:
         rows.append({
             "category": "招聘缺口", "item": "首周净缺口（需求−在岗−到岗）",
             "value": f"{s['initial_gap']} 人",
+        })
+        rows.append({
+            "category": "招聘缺口",
+            "item": "一次性招聘建议（若需补齐）",
+            "value": f"{s['one_time_hiring']} 人",
         })
         rows.append({
             "category": "招聘缺口", "item": "富余人数（在岗−需求）",
@@ -2261,8 +2297,8 @@ class HrPlanningDialog:
         for week in s["weekly_gap"]:
             rows.append({
                 "category": "招聘缺口",
-                "item": f"第 {week['week']} 周",
-                "value": f"{week['total_gap']} 人",
+                "item": f"第 {week['week']} 周底还缺",
+                "value": f"{week['total_gap']} 人（本周新增 {week['new_gap']}）",
             })
         ResultTableDialog(
             self.dialog,
@@ -2283,26 +2319,37 @@ class HrPlanningDialog:
             f"每日有效工时：{s['effective_hours_per_day']:.1f} 小时　"
             f"每小时需求：{s['required_hourly']:.2f}",
             "",
-            "【计算明细（每工序需求=每小时需求÷单人产能，向上取整）】",
+            "【计算明细】",
+            "产能公式：3600÷单件耗时×人数×OEE×效率×(1−切换占比)",
         ]
         lines += [
             f"  {d['name']}{'（瓶颈）' if d['is_bottleneck'] else ''}："
-            f"配置 {d['configured']} 人，单人产能 {d['per_head']}/h → 需求 {d['needed']} 人"
+            f"单件耗时{d['process_time']}s×OEE{d['oee']}×效率{d['efficiency']}"
+            f"×切换{d['changeover_minutes']}min → 产能 {d['capacity']}/h，"
+            f"单人 {d['per_head']}/h → 需求 {d['needed']} 人"
             for d in s["station_derivation"]
         ]
         lines += [
             "",
             "【人力需求（按目标反推，最低人数）】",
         ]
-        lines += [f"  {role}: {n} 人" for role, n in s["headcount_by_role"].items()]
-        lines.append(f"总人数：{s['total_headcount']} 人")
+        if self._single_role:
+            lines.append(f"  通用（合计）：{s['total_headcount']} 人")
+        else:
+            lines += [
+                f"  {role}: {n} 人" for role, n in s["headcount_by_role"].items()
+            ]
+            lines.append(f"总人数：{s['total_headcount']} 人")
         lines += [
             "",
             "【当前在岗（按产线配置）】",
         ]
-        lines += [
-            f"  {role}: {n} 人" for role, n in s["current_headcount"].items()
-        ]
+        if self._single_role:
+            lines.append(f"  通用（合计）：{s['current_total']} 人")
+        else:
+            lines += [
+                f"  {role}: {n} 人" for role, n in s["current_headcount"].items()
+            ]
         lines.append(
             f"在岗合计：{s['current_total']} 人　"
             f"首周净缺口（需求−在岗−到岗）：{s['initial_gap']} 人　"
@@ -2317,12 +2364,20 @@ class HrPlanningDialog:
             f"  单位人力成本：{c['per_unit_labor_cost']} 元/单位",
             "",
             "【招聘缺口（前 12 周）】",
+            "口径：缺口=截至该周末还缺的人数（累计）；"
+            "本周新增=较上周的新增缺口；无新增时不会每周重复招聘。",
         ]
         lines += [
-            f"  第 {w['week']} 周：{w['total_gap']} 人"
+            f"  第 {w['week']} 周底还缺：{w['total_gap']} 人"
+            f"（本周新增 {w['new_gap']}）"
             for w in s["weekly_gap"][:12]
         ]
-        lines += ["", f"【达产预测】约 {s['days_to_full']} 天达产"]
+        lines += [
+            "",
+            f"【一次性招聘建议】{s['one_time_hiring']} 人"
+            f"（按首周一次性补齐，之后无新增则无需重复招聘）",
+            f"【达产预测】约 {s['days_to_full']} 天达产",
+        ]
 
         self.result_text.config(state=tk.NORMAL)
         self.result_text.delete("1.0", tk.END)
