@@ -1908,6 +1908,9 @@ class HrPlanningDialog:
         btn_frame = ttk.Frame(main)
         btn_frame.grid(row=9, column=0, columnspan=4, pady=10, sticky=tk.W)
         ttk.Button(btn_frame, text="计算", command=self._compute).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btn_frame, text="按当前产线填充", command=self._fill_current).pack(
+            side=tk.LEFT, padx=4
+        )
         ttk.Button(btn_frame, text="导出Excel", command=self._export_excel).pack(
             side=tk.LEFT, padx=4
         )
@@ -2004,10 +2007,61 @@ class HrPlanningDialog:
                 self._parse_hiring(),
             )
             self._render()
+            self._open_result_table()
             return True
         except Exception as e:
             messagebox.showerror("计算失败", f"{e}\n\n详细日志：logs/app.log")
             return False
+
+    def _fill_current(self) -> None:
+        """按当前产线在岗配置填充（V3.3）"""
+        if self.line and self.line.labor_config:
+            self.current_text.delete("1.0", tk.END)
+            self.current_text.insert(
+                "1.0",
+                "\n".join(
+                    f"{role}:{count}"
+                    for role, count in self.line.labor_config.items()
+                ),
+            )
+
+    def _open_result_table(self) -> None:
+        """以表格展示人力规划结果（V3.3）"""
+        if not self.summary:
+            return
+        s = self.summary
+        c = s["costs"]
+        rows = []
+        for role, count in s["headcount_by_role"].items():
+            rows.append({"category": "人力需求", "item": role, "value": f"{count} 人"})
+        rows.append({
+            "category": "人力需求", "item": "总人数", "value": f"{s['total_headcount']} 人",
+        })
+        rows += [
+            {"category": "成本", "item": "在岗覆盖人数（含缺勤）",
+             "value": f"{c['covered_headcount']} 人"},
+            {"category": "成本", "item": "日人力成本", "value": f"{c['daily_labor_cost']} 元"},
+            {"category": "成本", "item": "月总成本", "value": f"{c['monthly_total']} 元"},
+            {"category": "成本", "item": "单位人力成本",
+             "value": f"{c['per_unit_labor_cost']} 元/单位"},
+            {"category": "达产", "item": "达产天数", "value": f"{s['days_to_full']} 天"},
+        ]
+        for week in s["weekly_gap"]:
+            rows.append({
+                "category": "招聘缺口",
+                "item": f"第 {week['week']} 周",
+                "value": f"{week['total_gap']} 人",
+            })
+        ResultTableDialog(
+            self.dialog,
+            "人力规划结果",
+            [
+                ("category", "类别", 90, tk.W),
+                ("item", "项目", 220, tk.W),
+                ("value", "数值", 160, tk.W),
+            ],
+            rows,
+        )
 
     def _render(self) -> None:
         s = self.summary

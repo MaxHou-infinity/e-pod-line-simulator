@@ -62,6 +62,8 @@ def test_hr_planning_dialog_methods_exist():
     assert hasattr(HrPlanningDialog, "_cancel")
     assert hasattr(HrPlanningDialog, "_parse_current")
     assert hasattr(HrPlanningDialog, "_parse_hiring")
+    assert hasattr(HrPlanningDialog, "_fill_current")
+    assert hasattr(HrPlanningDialog, "_open_result_table")
 
 
 def test_history_dialog_methods_exist():
