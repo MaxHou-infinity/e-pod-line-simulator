@@ -633,7 +633,7 @@ class AlertPanel(ttk.LabelFrame):
     
     def __init__(self, parent):
         """初始化报警面板"""
-        super().__init__(parent, text="报警信息", padding=10)
+        super().__init__(parent, text="报警信息", padding=8)
         self._alerts: List[Alert] = []
         self._collapsed = False
 
@@ -645,21 +645,21 @@ class AlertPanel(ttk.LabelFrame):
             header,
             textvariable=self.filter_var,
             values=["全部", "严重", "警告", "信息"],
-            width=6,
+            width=4,
             state="readonly",
         )
         self.filter_combo.pack(side=tk.LEFT, padx=2)
         self.filter_combo.bind('<<ComboboxSelected>>', lambda e: self._apply_filter())
-        self.btn_clear = ttk.Button(header, text="清空", width=6, command=self._clear)
+        self.btn_clear = ttk.Button(header, text="清空", width=5, command=self._clear)
         self.btn_clear.pack(side=tk.LEFT, padx=2)
         self.btn_collapse = ttk.Button(
-            header, text="折叠", width=6, command=self._toggle_collapse
+            header, text="折叠", width=5, command=self._toggle_collapse
         )
         self.btn_collapse.pack(side=tk.LEFT, padx=2)
         self.btn_copy_alerts = ttk.Button(
             header,
             text="📋 复制",
-            width=8,
+            width=7,
             command=self._copy_alerts,
         )
         self.btn_copy_alerts.pack(side=tk.RIGHT)

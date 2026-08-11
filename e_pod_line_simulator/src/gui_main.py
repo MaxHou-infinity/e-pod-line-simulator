@@ -93,7 +93,7 @@ class MainWindow:
         apply_theme(self.root)
         
         # 设置窗口最小尺寸
-        self.root.minsize(1200, 700)
+        self.root.minsize(1280, 700)
         
         # 初始化日志
         self.logger = setup_logger()
@@ -212,7 +212,7 @@ class MainWindow:
         main_paned.add(right_frame, weight=3)
 
         # 最右侧：报警栏（收窄默认宽度，不随窗口放大而膨胀）
-        alert_frame = ttk.Frame(main_paned, width=260)
+        alert_frame = ttk.Frame(main_paned, width=290)
         main_paned.add(alert_frame, weight=0)
 
         # 默认分隔位置：左 380 / 右 280，中间自适应（V3.1 布局修复）
@@ -345,7 +345,7 @@ class MainWindow:
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
     def _set_default_panes(self) -> None:
-        """设置三栏默认宽度（左 380 / 报警 280 / 中间自适应）"""
+        """设置三栏默认宽度（左 380 / 报警 290 / 中间自适应）"""
         if not hasattr(self, 'main_paned'):
             return
         try:
@@ -354,7 +354,7 @@ class MainWindow:
             if total <= 100:
                 total = self.root.winfo_width()
             sash0 = min(380, max(360, int(total * 0.25)))
-            sash1 = max(sash0 + 400, total - 280)
+            sash1 = max(sash0 + 400, total - 290)
             self.main_paned.sashpos(0, sash0)
             self.main_paned.sashpos(1, sash1)
         except Exception:
