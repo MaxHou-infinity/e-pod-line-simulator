@@ -8,8 +8,8 @@ PuffLine Planner 是面向电子烟制造场景的离散事件仿真与人力规
 
 前往 [GitHub Releases](https://github.com/MaxHou-infinity/puffline-planner/releases)，下载与操作系统对应的压缩包：
 
-- 当前公开版本 v3.3.2：下载 `E-Pod-Line-Simulator-macOS-v3.3.2.zip` 或 `E-Pod-Line-Simulator-Windows-v3.3.2.zip`，解压后运行历史名称的 App 或 EXE。
-- 下一补丁版本起：下载 `PuffLine-Planner-macOS-v<版本号>.zip` 或 `PuffLine-Planner-Windows-v<版本号>.zip`，解压后运行 `PuffLine Planner.app` 或 `PuffLine-Planner.exe`。
+- 当前公开版本 v3.3.3 起：下载 `PuffLine-Planner-macOS-v<版本号>.zip` 或 `PuffLine-Planner-Windows-v<版本号>.zip`，解压后运行 `PuffLine Planner.app` 或 `PuffLine-Planner.exe`。
+- 历史 v3.3.2：附件仍使用 `E-Pod-Line-Simulator-macOS-v3.3.2.zip` 或 `E-Pod-Line-Simulator-Windows-v3.3.2.zip`，解压后运行历史名称的 App 或 EXE。
 
 已打包应用无需另行安装 Python 依赖。请以 Release 页面实际列出的附件为准。
 
