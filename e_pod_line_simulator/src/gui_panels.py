@@ -50,6 +50,7 @@ from src.history import (
     load_history,
 )
 from src.sensitivity import run_sweep
+from src.optimizer import optimize
 
 
 def build_template_line(key: str) -> ProductionLine:
@@ -2321,6 +2322,116 @@ class SweepDialog:
                 ))
         except Exception as e:
             messagebox.showerror("试算失败", f"{e}\n\n详细日志：logs/app.log")
+        finally:
+            self.dialog.config(cursor="")
+
+    def _close(self) -> None:
+        self.dialog.destroy()
+
+
+class OptimizeDialog:
+    """
+    智能优化对话框（V3.2 P2）
+
+    以单位成本最小或总产出最大为目标，遗传算法搜索 TOP 方案。
+    """
+
+    OBJECTIVE_LABELS = {
+        "unit_cost": "单位成本最小",
+        "output": "总产出最大",
+    }
+
+    def __init__(self, parent, production_line: Optional[ProductionLine]):
+        self.line = production_line
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("智能优化（遗传算法）")
+        self.dialog.geometry("520x300")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        self._create_widgets()
+        self.dialog.bind('<Escape>', lambda e: self._close())
+        self.dialog.update_idletasks()
+        x = (self.dialog.winfo_screenwidth() // 2) - (self.dialog.winfo_width() // 2)
+        y = (self.dialog.winfo_screenheight() // 2) - (self.dialog.winfo_height() // 2)
+        self.dialog.geometry(f"+{x}+{y}")
+        self.dialog.wait_window()
+
+    def _create_widgets(self) -> None:
+        main = ttk.Frame(self.dialog, padding=16)
+        main.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(main, text="优化目标:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        self.objective_var = tk.StringVar(value="unit_cost")
+        ttk.Combobox(
+            main,
+            textvariable=self.objective_var,
+            values=list(self.OBJECTIVE_LABELS.keys()),
+            state="readonly",
+            width=20,
+        ).grid(row=0, column=1, sticky=tk.W, pady=5)
+
+        ttk.Label(main, text="迭代代数:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        self.generations_var = tk.StringVar(value="8")
+        ttk.Entry(main, textvariable=self.generations_var, width=12).grid(
+            row=1, column=1, sticky=tk.W, pady=5
+        )
+
+        ttk.Label(main, text="种群大小:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        self.population_var = tk.StringVar(value="6")
+        ttk.Entry(main, textvariable=self.population_var, width=12).grid(
+            row=2, column=1, sticky=tk.W, pady=5
+        )
+
+        ttk.Label(main, text="仿真时长(小时):").grid(
+            row=3, column=0, sticky=tk.W, pady=5
+        )
+        self.duration_var = tk.StringVar(
+            value=str(self.line.shift_hours) if self.line else "8"
+        )
+        ttk.Entry(main, textvariable=self.duration_var, width=12).grid(
+            row=3, column=1, sticky=tk.W, pady=5
+        )
+
+        ttk.Button(main, text="开始优化", command=self._run).grid(
+            row=4, column=0, columnspan=2, sticky=tk.W, pady=10
+        )
+        ttk.Button(main, text="关闭", command=self._close).grid(
+            row=4, column=1, sticky=tk.E, pady=10
+        )
+        ttk.Label(
+            main,
+            text="搜索范围：工序人数 1-10、缓冲区 10-500、机台节拍 ±50%",
+            foreground=COLORS["text_secondary"],
+        ).grid(row=5, column=0, columnspan=2, sticky=tk.W)
+
+    def _run(self) -> None:
+        try:
+            objective = self.objective_var.get()
+            generations = int(self.generations_var.get())
+            population = int(self.population_var.get())
+            duration = float(self.duration_var.get())
+            self.dialog.config(cursor="watch")
+            self.dialog.update_idletasks()
+            top = optimize(
+                self.line,
+                objective=objective,
+                generations=generations,
+                population=population,
+                duration_hours=duration,
+            )
+            if not top:
+                messagebox.showwarning("提示", "未找到可行方案")
+                return
+            lines = [f"优化目标：{self.OBJECTIVE_LABELS.get(objective, objective)}"]
+            for s in top:
+                lines.append(
+                    f"TOP{s['rank']}：总产出 {s['total_output']}，"
+                    f"单位成本 {s['unit_cost']:.3f}，"
+                    f"参数 {s['params']}"
+                )
+            messagebox.showinfo("优化结果", "\n".join(lines))
+        except Exception as e:
+            messagebox.showerror("优化失败", f"{e}\n\n详细日志：logs/app.log")
         finally:
             self.dialog.config(cursor="")
 

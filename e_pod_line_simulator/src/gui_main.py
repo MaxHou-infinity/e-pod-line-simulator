@@ -47,6 +47,7 @@ from src.gui_panels import (
     HrPlanningDialog,
     HistoryDialog,
     SweepDialog,
+    OptimizeDialog,
 )
 from src.utils import (
     load_config,
@@ -182,6 +183,7 @@ class MainWindow:
         analysis_menu.add_command(label="人力规划...", command=self._menu_hr_planning)
         analysis_menu.add_command(label="KPI 历史趋势...", command=self._menu_history)
         analysis_menu.add_command(label="批量试算...", command=self._menu_sweep)
+        analysis_menu.add_command(label="智能优化...", command=self._menu_optimize)
         analysis_menu.add_command(label="导出报告", command=self._menu_export_report)
         
         # 帮助菜单
@@ -733,6 +735,14 @@ class MainWindow:
             return
         SweepDialog(self.root, self.production_line)
         self.status_bar.config(text="批量试算已关闭")
+
+    def _menu_optimize(self) -> None:
+        """分析菜单 - 智能优化（V3.2 P2，遗传算法）"""
+        if self.production_line is None or not self.production_line.stations:
+            messagebox.showwarning("警告", "没有可优化的产线配置")
+            return
+        OptimizeDialog(self.root, self.production_line)
+        self.status_bar.config(text="智能优化已关闭")
     
     def _menu_help(self) -> None:
         """帮助菜单 - 使用说明"""

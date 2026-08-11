@@ -80,6 +80,13 @@ def test_sweep_dialog_methods_exist():
     assert hasattr(SweepDialog, "_close")
 
 
+def test_optimize_dialog_methods_exist():
+    from src.gui_panels import OptimizeDialog
+
+    assert hasattr(OptimizeDialog, "_run")
+    assert hasattr(OptimizeDialog, "_close")
+
+
 def test_station_edit_fields_mapping():
     assert station_edit_fields(ProductionType.ASSEMBLY) == set()
     assert station_edit_fields(ProductionType.LIQUID_FILLING) == {
