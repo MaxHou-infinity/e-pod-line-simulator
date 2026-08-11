@@ -6,7 +6,7 @@
 > Production Line Simulation & Optimization for E-cigarette Pods, E-liquid Filling
 > and Nicotine Pouches — powered by SimPy.
 
-![version](https://img.shields.io/badge/version-3.2.0-1F2329)
+![version](https://img.shields.io/badge/version-3.3.0-1F2329)
 ![python](https://img.shields.io/badge/Python-3.8%2B-2F6FED)
 ![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-1F6FEB)
 ![CI](https://github.com/MaxHou-infinity/e-pod-line-simulator/actions/workflows/ci.yml/badge.svg)
@@ -140,7 +140,7 @@ e_pod_line_simulator/
 - ✅ V1.0-V1.3：MVP、交互 / 视觉、烟油与尼古丁袋产品形态扩展
 - ✅ V3.0 / V3.1：2026 桌面美学、智能报警与评估
 - ✅ **V3.2**：人力规划与多业态深化（已定版 v3.2.0）
-- ⏳ **V3.3**：分析体验与学习成本优化（规划中）
+- 🔄 **V3.3**：分析体验与学习成本优化（开发中）
 - ⏳ V2.0：Web 化；Windows EXE 打包
 
 ## 💬 支持与反馈
