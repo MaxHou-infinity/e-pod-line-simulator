@@ -997,6 +997,17 @@ y = max(0, min(y, screen_height - dialog_height))
 - 新增 `docs/v3.0/目标模式启动指令.md`（可直接粘贴的自主开发提示词）
 - 提示词固化：仅展示层/交互层、零逻辑变更、L1-L9、验收标准与停止条件
 
+## 2026-08-11 - V3.0 L1 Design Tokens 2.0
+
+### 完成内容
+- RADIUS/SHADOW/MOTION 令牌
+- THEMES 亮/暗双主题色板与 get_palette/is_dark
+- 状态色/浅色/报警色按当前主题动态解析
+- apply_theme(root, dark) 支持双主题
+
+### 验证
+- pytest：83 passed
+
 ## 2026-08-10 - V1.3 术语表更新
 
 ### 完成内容

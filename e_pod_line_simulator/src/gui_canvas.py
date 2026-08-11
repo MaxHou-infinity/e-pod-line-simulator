@@ -19,7 +19,7 @@ from typing import Optional, Dict, Any, List, Callable
 
 from src.models import ProductionLine, Station, SimulationState
 from src.utils import get_status_color, CANVAS_WIDTH, CANVAS_HEIGHT, STATION_WIDTH, STATION_HEIGHT
-from src.theme import COLORS, STATUS_COLORS, STATUS_SOFT, resolve_font_family
+from src.theme import COLORS, status_soft, resolve_font_family
 
 
 def compute_reorder_order(
@@ -123,7 +123,7 @@ class CanvasView(tk.Canvas):
             width: 画布宽度（像素）
             height: 画布高度（像素）
         """
-        super().__init__(parent, width=width, height=height, bg='white', **kwargs)
+        super().__init__(parent, width=width, height=height, bg=COLORS['canvas'], **kwargs)
         
         # 产线数据
         self.production_line: Optional[ProductionLine] = None
@@ -382,7 +382,7 @@ class CanvasView(tk.Canvas):
 
         # 获取状态颜色
         color = get_status_color(station.current_status)
-        soft_color = STATUS_SOFT.get(station.current_status, STATUS_SOFT['idle'])
+        soft_color = status_soft(station.current_status)
         family = resolve_font_family()
 
         # 节点卡片：浅色填充 + 圆角 + 边框
@@ -652,7 +652,7 @@ class CanvasView(tk.Canvas):
             if station.id in self.station_cards:
                 self.itemconfig(
                     self.station_cards[station.id],
-                    fill=STATUS_SOFT.get(status, STATUS_SOFT['idle']),
+                    fill=status_soft(status),
                 )
             if station.id in self.status_strips:
                 self.itemconfig(self.status_strips[station.id], fill=color)

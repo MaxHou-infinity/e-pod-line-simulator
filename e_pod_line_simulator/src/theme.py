@@ -67,6 +67,97 @@ SPACING = {
     'xl': 24,
 }
 
+# V3.0 Design Tokens 2.0
+RADIUS = {'sm': 8, 'md': 12, 'lg': 16}
+SHADOW = {'card': (0, 1, 2), 'popup': (0, 4, 12)}
+MOTION = {'fast': 120, 'normal': 180}
+
+# 亮 / 暗双主题色板（V3.0）
+THEMES = {
+    'light': {
+        **COLORS,
+        'canvas': '#FFFFFF',
+        'grid': '#EDEFF3',
+        'hover': '#F0F3F8',
+        'focus': '#2F6FED',
+        'toast_bg': '#1F2329',
+        'toast_fg': '#FFFFFF',
+    },
+    'dark': {
+        'bg': '#17181C',
+        'surface': '#23252B',
+        'border': '#34373F',
+        'text': '#ECEDEF',
+        'text_secondary': '#9BA1AB',
+        'primary': '#5B8DEF',
+        'primary_hover': '#7BA2F2',
+        'primary_soft': '#26344D',
+        'success': '#4CD07D',
+        'danger': '#FF6B5E',
+        'warning': '#FFB340',
+        'info': '#5BA8FF',
+        'idle': '#3A3D45',
+        'canvas': '#121316',
+        'grid': '#23262C',
+        'hover': '#2A2D34',
+        'focus': '#7BA2F2',
+        'toast_bg': '#ECEDEF',
+        'toast_fg': '#17181C',
+    },
+}
+
+STATUS_COLORS_DARK = {
+    'idle': '#3A3D45',
+    'running': '#4CD07D',
+    'blocked': '#FF6B5E',
+    'waiting': '#FFB340',
+    'changeover': '#5BA8FF',
+}
+
+STATUS_SOFT_DARK = {
+    'idle': '#2A2D34',
+    'running': '#1E3529',
+    'blocked': '#3A2220',
+    'waiting': '#3A2F1C',
+    'changeover': '#1E2C3D',
+}
+
+ALERT_COLORS_DARK = {
+    'critical': '#FF6B5E',
+    'warning': '#FFB340',
+    'info': '#5BA8FF',
+}
+
+_current_dark = False
+
+
+def is_dark() -> bool:
+    """当前是否为深色主题"""
+    return _current_dark
+
+
+def get_palette(dark: bool = False) -> dict:
+    """返回指定主题的完整色板"""
+    return THEMES['dark' if dark else 'light']
+
+
+def status_color(status: str) -> str:
+    """按当前主题返回工序状态色"""
+    palette = STATUS_COLORS_DARK if _current_dark else STATUS_COLORS
+    return palette.get(status, palette['idle'])
+
+
+def status_soft(status: str) -> str:
+    """按当前主题返回工序状态浅色填充"""
+    palette = STATUS_SOFT_DARK if _current_dark else STATUS_SOFT
+    return palette.get(status, palette['idle'])
+
+
+def alert_color(severity: str) -> str:
+    """按当前主题返回报警级别色"""
+    palette = ALERT_COLORS_DARK if _current_dark else ALERT_COLORS
+    return palette.get(severity, '#CCCCCC')
+
 
 def resolve_font_family() -> str:
     """
@@ -83,7 +174,7 @@ def resolve_font_family() -> str:
     return 'Arial'
 
 
-def apply_theme(root) -> None:
+def apply_theme(root, dark: bool = False) -> dict:
     """
     将设计令牌应用到 Tk 根窗口
 
@@ -92,7 +183,16 @@ def apply_theme(root) -> None:
 
     Args:
         root: tk.Tk 根窗口
+        dark: 是否使用深色主题（默认 False）
+
+    Returns:
+        dict: 生效的主题色板
     """
+    global _current_dark, COLORS
+    _current_dark = bool(dark)
+    palette = get_palette(_current_dark)
+    COLORS.update(palette)  # 就地更新模块级 COLORS，兼容既有引用
+
     import tkinter as tk
     from tkinter import ttk
 
@@ -132,6 +232,8 @@ def apply_theme(root) -> None:
         foreground=COLORS['text'],
         rowheight=26,
         font=(family, 10),
+        selectbackground=COLORS['primary'],
+        selectforeground=COLORS['inverse_text'] if 'inverse_text' in COLORS else '#FFFFFF',
     )
     style.configure(
         'Treeview.Heading',
@@ -144,6 +246,7 @@ def apply_theme(root) -> None:
 
     root.configure(bg=COLORS['bg'])
     root.option_add('*Font', (family, 11))
+    return palette
 
     # HiDPI：按系统实际 DPI 设置 Tk 缩放，保证高分屏清晰
     try:

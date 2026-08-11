@@ -27,7 +27,8 @@ from src.models import (
     Station,
     Tank,
 )
-from src.theme import ALERT_COLORS, STATUS_COLORS
+from src.theme import alert_color as _theme_alert_color
+from src.theme import status_color as _theme_status_color
 
 
 # ==================== 文件I/O ====================
@@ -705,7 +706,7 @@ def get_status_color(status: str) -> str:
         - waiting: 橙色（等待）
         - changeover: 蓝色（切换中）
     """
-    return STATUS_COLORS.get(status, STATUS_COLORS['idle'])
+    return _theme_status_color(status)
 
 
 def get_alert_color(severity: str) -> str:
@@ -718,7 +719,7 @@ def get_alert_color(severity: str) -> str:
     Returns:
         str: 颜色代码
     """
-    return ALERT_COLORS.get(severity, '#CCCCCC')
+    return _theme_alert_color(severity)
 
 
 # ==================== 常量定义 ====================
