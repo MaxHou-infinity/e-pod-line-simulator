@@ -20,7 +20,9 @@ from src.utils import (
     get_status_color,
     import_from_excel,
     load_config,
+    load_ui_config,
     save_config,
+    save_ui_config,
     setup_logger,
     validate_production_line,
     validate_station,
@@ -128,3 +130,13 @@ def test_setup_logger_writes_file(tmp_path):
         handler.flush()
     content = open(log_path, encoding="utf-8").read()
     assert "测试日志" in content
+
+
+def test_ui_config_roundtrip(tmp_path, monkeypatch):
+    import src.utils as utils_mod
+
+    path = str(tmp_path / "ui.json")
+    monkeypatch.setattr(utils_mod, "UI_CONFIG_FILE", path)
+    assert save_ui_config({"theme": "dark"}) is True
+    assert load_ui_config() == {"theme": "dark"}
+    assert load_ui_config()["theme"] == "dark"

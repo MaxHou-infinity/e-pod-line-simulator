@@ -364,6 +364,12 @@ class CanvasView(tk.Canvas):
                     tags=("batch_summary",),
                 )
             ]
+
+    def apply_palette(self, palette: dict) -> None:
+        """按主题色板刷新画布底色（V3.0）"""
+        self.configure(bg=palette['canvas'])
+        if self.production_line and self.production_line.stations:
+            self._redraw_production_line()
     
     def _draw_station(self, station: Station, x: int, y: int) -> None:
         """

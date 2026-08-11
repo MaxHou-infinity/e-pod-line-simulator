@@ -43,7 +43,15 @@ from src.gui_panels import (
     GlossaryDialog,
     WizardDialog,
 )
-from src.utils import load_config, save_config, import_from_excel, validate_production_line, setup_logger
+from src.utils import (
+    load_config,
+    save_config,
+    load_ui_config,
+    save_ui_config,
+    import_from_excel,
+    validate_production_line,
+    setup_logger,
+)
 from src.scenario_manager import ScenarioManager
 from src.reporting import export_report
 from src.theme import ToolTip, apply_theme
@@ -76,8 +84,9 @@ class MainWindow:
         self.root.title(f"电子烟产线仿真优化工具 v{__version__}")
         self.root.geometry("1400x800")  # 窗口大小：宽1400，高800
 
-        # 应用 V1.2.0 设计令牌与主题
-        apply_theme(self.root)
+        # 应用 V3.0 设计令牌与主题（读取持久化配置）
+        self._dark = load_ui_config().get('theme', 'light') == 'dark'
+        apply_theme(self.root, dark=self._dark)
         
         # 设置窗口最小尺寸
         self.root.minsize(1000, 600)
@@ -149,6 +158,11 @@ class MainWindow:
         edit_menu.add_command(label="添加工序", command=self._menu_add_station)
         edit_menu.add_command(label="编辑工序", command=self._menu_edit_station)
         edit_menu.add_command(label="删除工序", command=self._menu_delete_station)
+
+        # 视图菜单（V3.0）
+        view_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="视图", menu=view_menu)
+        view_menu.add_command(label="切换深色/浅色模式", command=self._toggle_theme)
         
         # 仿真菜单
         sim_menu = tk.Menu(menubar, tearoff=0)
@@ -676,6 +690,21 @@ class MainWindow:
     def _menu_glossary(self) -> None:
         """帮助菜单 - 术语说明"""
         GlossaryDialog(self.root)
+
+    def _toggle_theme(self) -> None:
+        """切换深色/浅色主题并持久化（V3.0）"""
+        self._dark = not self._dark
+        palette = apply_theme(self.root, dark=self._dark)
+        if self.canvas_view:
+            self.canvas_view.apply_palette(palette)
+        if self.kpi_dashboard:
+            self.kpi_dashboard.recolor(palette)
+        if self.alert_panel:
+            self.alert_panel.recolor()
+        save_ui_config({'theme': 'dark' if self._dark else 'light'})
+        mode = '深色' if self._dark else '浅色'
+        self.status_bar.config(text=f"已切换到{mode}模式")
+        self.logger.info("主题切换：%s", mode)
 
     def _on_callback_exception(self, exc_type, exc_value, exc_tb) -> None:
         """Tkinter 回调异常统一处理：记录日志并弹窗提示"""

@@ -1008,6 +1008,16 @@ y = max(0, min(y, screen_height - dialog_height))
 ### 验证
 - pytest：83 passed
 
+## 2026-08-11 - V3.0 L2 亮暗主题切换与持久化
+
+### 完成内容
+- 视图菜单"切换深色/浅色模式"
+- 主题持久化到 configs/ui_config.json，启动自动读取
+- 画布/KPI 卡片/报警按主题重绘
+
+### 验证
+- pytest：84 passed；GUI 冒烟通过
+
 ## 2026-08-10 - V1.3 术语表更新
 
 ### 完成内容

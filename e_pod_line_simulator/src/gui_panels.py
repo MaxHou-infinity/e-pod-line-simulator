@@ -342,6 +342,7 @@ class KPIDashboard(ttk.LabelFrame):
         self.kpi_labels: Dict[str, ttk.Label] = {}
         self.kpi_name_labels: Dict[str, tk.Label] = {}
         self.kpi_unit_labels: Dict[str, tk.Label] = {}
+        self.kpi_cells: Dict[str, tk.Frame] = {}
         
         # 创建界面
         self._create_widgets()
@@ -400,6 +401,7 @@ class KPIDashboard(ttk.LabelFrame):
             )
             cell.grid(row=0, column=i, sticky='nsew', padx=6, pady=4)
             kpi_frame.grid_columnconfigure(i, weight=1)
+            self.kpi_cells[key] = cell
 
             # KPI 名称
             name_label = tk.Label(
@@ -550,6 +552,19 @@ class KPIDashboard(ttk.LabelFrame):
             if key in self.kpi_unit_labels:
                 self.kpi_unit_labels[key].config(text=unit_text)
 
+    def recolor(self, palette: dict) -> None:
+        """按主题色板重绘 KPI 卡片（V3.0）"""
+        for key, cell in self.kpi_cells.items():
+            cell.config(bg=palette['surface'], highlightbackground=palette['border'])
+            if key in self.kpi_name_labels:
+                self.kpi_name_labels[key].config(bg=palette['surface'], fg=palette['text_secondary'])
+            if key in self.kpi_labels:
+                self.kpi_labels[key].config(bg=palette['surface'], fg=palette['text'])
+            if key in self.kpi_unit_labels:
+                self.kpi_unit_labels[key].config(bg=palette['surface'], fg=palette['text_secondary'])
+        if hasattr(self, 'v13_label'):
+            self.v13_label.config(foreground=palette['text_secondary'])
+
 
 class AlertPanel(ttk.LabelFrame):
     """
@@ -643,6 +658,14 @@ class AlertPanel(ttk.LabelFrame):
         top.clipboard_append(content)
         self.btn_copy_alerts.config(text="✅ 已复制")
         self.after(1200, lambda: self.btn_copy_alerts.config(text="📋 复制报警"))
+
+    def recolor(self) -> None:
+        """按当前主题刷新报警级别颜色（V3.0）"""
+        for severity in ('critical', 'warning', 'info'):
+            try:
+                self.text_widget.tag_config(severity, foreground=get_alert_color(severity))
+            except Exception:
+                pass
 
 
 class StationDialog:

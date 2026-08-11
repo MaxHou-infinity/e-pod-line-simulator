@@ -120,6 +120,33 @@ def save_config(production_line: ProductionLine, file_path: str) -> bool:
         return False
 
 
+def load_ui_config() -> Dict[str, Any]:
+    """
+    读取 UI 配置（如主题），文件不存在时返回空字典
+    """
+    try:
+        with open(UI_CONFIG_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def save_ui_config(config: Dict[str, Any]) -> bool:
+    """
+    保存 UI 配置（如主题）
+    """
+    try:
+        directory = os.path.dirname(UI_CONFIG_FILE)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+        with open(UI_CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception:
+        return False
+
+
 def import_from_excel(file_path: str) -> Tuple[Optional[ProductionLine], Optional[str]]:
     """
     从Excel文件导入产线配置
@@ -731,6 +758,13 @@ DEFAULT_CONFIG_FILE = os.path.join(DEFAULT_CONFIG_DIR, "default.json")
 # 日志文件路径
 LOG_DIR = "logs"
 LOG_FILE = os.path.join(LOG_DIR, "app.log")
+
+# UI 配置（V3.0：主题等）
+UI_CONFIG_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    'configs',
+    'ui_config.json',
+)
 
 # GUI配置
 CANVAS_WIDTH = 1200  # 画布宽度（像素）
