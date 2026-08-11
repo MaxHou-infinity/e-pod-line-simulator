@@ -96,6 +96,7 @@ def test_optimize_dialog_methods_exist():
 
     assert hasattr(OptimizeDialog, "_run")
     assert hasattr(OptimizeDialog, "_close")
+    assert hasattr(OptimizeDialog, "_apply_selected")
 
 
 def test_result_table_and_help_section_methods_exist():
@@ -104,6 +105,7 @@ def test_result_table_and_help_section_methods_exist():
     assert hasattr(ResultTableDialog, "_export_excel")
     assert hasattr(ResultTableDialog, "_copy_text")
     assert hasattr(ResultTableDialog, "_close")
+    assert hasattr(ResultTableDialog, "get_selected_row")
     assert hasattr(HelpSection, "_toggle")
 
 

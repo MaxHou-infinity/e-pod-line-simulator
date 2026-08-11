@@ -804,8 +804,18 @@ class MainWindow:
         if self.production_line is None or not self.production_line.stations:
             messagebox.showwarning("警告", "没有可优化的产线配置")
             return
-        OptimizeDialog(self.root, self.production_line)
+        OptimizeDialog(
+            self.root,
+            self.production_line,
+            on_apply=self._refresh_after_optimize,
+        )
         self.status_bar.config(text="智能优化已关闭")
+
+    def _refresh_after_optimize(self) -> None:
+        """智能优化方案应用到产线后刷新主界面（V3.3.1）"""
+        self._dirty = True
+        self._update_display()
+        self.status_bar.config(text="已应用智能优化方案")
     
     def _menu_help(self) -> None:
         """帮助菜单 - 使用说明"""

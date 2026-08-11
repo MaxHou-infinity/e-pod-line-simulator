@@ -1688,6 +1688,17 @@ class ScenarioManageDialog:
         self.tree.column('description', width=260)
         self.tree.column('unit_cost', width=110)
         self.tree.pack(fill=tk.BOTH, expand=True)
+        self.selected_index: Optional[int] = None
+        self.tree.bind(
+            "<<TreeviewSelect>>",
+            lambda e: setattr(
+                self,
+                "selected_index",
+                self.tree.index(self.tree.selection()[0])
+                if self.tree.selection()
+                else None,
+            ),
+        )
 
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill=tk.X, pady=(10, 0))
@@ -3013,11 +3024,17 @@ class OptimizeDialog:
         "output": "总产出最大",
     }
 
-    def __init__(self, parent, production_line: Optional[ProductionLine]):
+    def __init__(
+        self,
+        parent,
+        production_line: Optional[ProductionLine],
+        on_apply=None,
+    ):
         self.line = production_line
+        self.on_apply = on_apply
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("智能优化（遗传算法）")
-        self.dialog.geometry("520x300")
+        self.dialog.geometry("580x560")
         self.dialog.transient(parent)
         self.dialog.grab_set()
         self._create_widgets()
@@ -3033,14 +3050,18 @@ class OptimizeDialog:
         main.pack(fill=tk.BOTH, expand=True)
 
         ttk.Label(main, text="优化目标:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.objective_var = tk.StringVar(value="unit_cost")
-        ttk.Combobox(
+        self._objective_label_to_key = {
+            label: key for key, label in self.OBJECTIVE_LABELS.items()
+        }
+        self.objective_var = tk.StringVar(value=self.OBJECTIVE_LABELS["unit_cost"])
+        self.objective_combo = ttk.Combobox(
             main,
             textvariable=self.objective_var,
-            values=list(self.OBJECTIVE_LABELS.keys()),
+            values=list(self.OBJECTIVE_LABELS.values()),
             state="readonly",
-            width=20,
-        ).grid(row=0, column=1, sticky=tk.W, pady=5)
+            width=22,
+        )
+        self.objective_combo.grid(row=0, column=1, sticky=tk.W, pady=5)
 
         ttk.Label(main, text="迭代代数:").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.generations_var = tk.StringVar(value="8")
@@ -3064,19 +3085,19 @@ class OptimizeDialog:
             row=3, column=1, sticky=tk.W, pady=5
         )
 
-        ttk.Label(main, text="锁定工序ID(逗号分隔):").grid(
+        ttk.Label(main, text="锁定工序（可多选，Cmd/Ctrl 点选）:").grid(
             row=4, column=0, sticky=tk.W, pady=5
         )
-        self.locked_var = tk.StringVar(value="")
-        ttk.Entry(main, textvariable=self.locked_var, width=24).grid(
-            row=4, column=1, sticky=tk.W, pady=5
+        self.locked_listbox = tk.Listbox(
+            main, height=4, selectmode=tk.EXTENDED, exportselection=False
         )
+        if self.line:
+            for station in self.line.stations:
+                self.locked_listbox.insert(tk.END, f"{station.id} {station.name}")
+        self.locked_listbox.grid(row=4, column=1, sticky=tk.W, pady=5)
 
         ttk.Button(main, text="开始优化", command=self._run).grid(
             row=5, column=0, columnspan=2, sticky=tk.W, pady=10
-        )
-        ttk.Button(main, text="关闭", command=self._close).grid(
-            row=5, column=1, sticky=tk.E, pady=10
         )
         self.progress_var = tk.StringVar(value="")
         ttk.Label(main, textvariable=self.progress_var).grid(
@@ -3094,22 +3115,30 @@ class OptimizeDialog:
             "目标：让产线总产出最大或单位成本最小。\n"
             "搜索参数：每道工序的人数（1-10）、缓冲区容量（10-500）、"
             "机台节拍（仅节拍工序，0.5s ~ 当前×1.5）。\n"
-            "锁定工序：填工序ID（如 s01,s03）后，该工序参数保持当前值不参与搜索。\n"
+            "迭代代数：遗传算法进化的轮数；代数越多搜索越充分、越接近最优，"
+            "但计算时间成倍增加（每代 = 种群大小次仿真）。\n"
+            "种群大小：每一代同时评估的方案个数；越大搜索覆盖面越广，"
+            "每代计算越慢。总仿真次数 ≈ 种群 × 代数。\n"
+            "锁定工序：在列表中选中工序（可多选）后，该工序参数保持当前值"
+            "不参与搜索，适合固定设备/不可变工位。\n"
             "结果口径：理论单位成本=人力成本÷理论日产量；"
             "实际单位成本=总成本÷本次仿真产出。\n"
-            "提示：代数/种群越大越接近全局最优，但计算时间成倍增加。",
+            "方案运用：在结果表选中某个 TOP 方案，点「应用选中方案」，"
+            "该方案的人数/缓冲区/节拍会写入当前产线并刷新主界面，"
+            "之后可保存方案或继续仿真验证。",
         ).grid(row=8, column=0, columnspan=2, sticky=tk.W, pady=(8, 0))
 
     def _run(self) -> None:
         try:
-            objective = self.objective_var.get()
+            objective = self._objective_label_to_key.get(
+                self.objective_var.get(), "unit_cost"
+            )
             generations = int(self.generations_var.get())
             population = int(self.population_var.get())
             duration = float(self.duration_var.get())
             locked = [
-                s.strip()
-                for s in self.locked_var.get().replace("，", ",").split(",")
-                if s.strip()
+                self.locked_listbox.get(index).split(" ")[0]
+                for index in self.locked_listbox.curselection()
             ]
             self.dialog.config(cursor="watch")
             self.dialog.update_idletasks()
@@ -3149,6 +3178,7 @@ class OptimizeDialog:
             if not top:
                 messagebox.showwarning("提示", "未找到可行方案")
                 return
+            self._top = top
 
             rows = [base_row]
             for s in top:
@@ -3168,19 +3198,52 @@ class OptimizeDialog:
                 ("total_cost", "总成本", 90, tk.E),
                 ("params", "参数", 420, tk.W),
             ]
-            ResultTableDialog(
+            dialog = ResultTableDialog(
                 self.dialog,
                 f"智能优化结果（{self.OBJECTIVE_LABELS.get(objective, objective)}）",
                 columns,
                 rows,
                 highlight_key="rank",
                 highlight_value="基线",
+                actions=[("应用选中方案", lambda: self._apply_selected(dialog))],
             )
             self.progress_var.set("优化完成")
         except Exception as e:
             messagebox.showerror("优化失败", f"{e}\n\n详细日志：logs/app.log")
         finally:
             self.dialog.config(cursor="")
+
+    def _apply_selected(self, dialog) -> None:
+        """把选中的 TOP 方案应用到当前产线（V3.3.1）"""
+        row = dialog.get_selected_row()
+        if row is None:
+            messagebox.showwarning("提示", "请先在结果表选中一个方案")
+            return
+        rank = row.get("rank", "")
+        if rank == "基线":
+            messagebox.showinfo("提示", "基线为当前配置，无需应用")
+            return
+        entry = next(
+            (t for t in getattr(self, "_top", []) if f"TOP{t['rank']}" == rank),
+            None,
+        )
+        if entry is None:
+            return
+        for station in self.line.stations:
+            params = entry["params"].get(station.name)
+            if not params:
+                continue
+            station.worker_count = params["worker_count"]
+            station.buffer_capacity = params["buffer_capacity"]
+            if station.machine_takt and params.get("machine_takt"):
+                station.machine_takt = params["machine_takt"]
+        if self.on_apply:
+            self.on_apply()
+        messagebox.showinfo(
+            "已应用",
+            f"已应用「{rank}」到当前产线，主界面工序配置已刷新；"
+            "可保存为方案或继续仿真验证。",
+        )
 
     def _close(self) -> None:
         self.dialog.destroy()
@@ -3296,6 +3359,12 @@ class ResultTableDialog:
             HelpSection(self.dialog, "结果说明", self.help_text).pack(
                 fill=tk.X, pady=(6, 0)
             )
+
+    def get_selected_row(self):
+        """返回当前选中行（V3.3.1）"""
+        if self.selected_index is None or not (0 <= self.selected_index < len(self.rows)):
+            return None
+        return self.rows[self.selected_index]
 
         for row in self.rows:
             values = [row.get(key, "") for key in keys]
