@@ -1225,6 +1225,20 @@ y = max(0, min(y, screen_height - dialog_height))
 - 产出 `docs/v3.2/需求与开发路线图.md`；README 路线图与文档导航同步
 - 版本号登记与 tag 在开发启动时执行
 
+## 2026-08-11 - V3.2 定版与发布（v3.2.0）
+
+### 完成内容
+- 全量回归：pytest 126 passed；py_compile 通过
+- 版本号 v3.2.0；打 tag `v3.2.0` 并推送
+- CHANGELOG 生成 [3.2.0] 条目；README 路线图/核心功能/压缩包名同步
+- 项目成熟度分析与 V3.2 开发日志定版
+- 重新生成源码包 `E-Pod-Line-Simulator-v3.2.0.zip`
+- macOS App 包 `E-Pod-Line-Simulator-v3.2.0-macOS.zip`（PyInstaller）
+
+### 遗留
+- Windows EXE 构建（CI 后续扩展 windows-latest）
+- V2.0：Web 化
+
 ## 2026-08-11 - V3.0 L5 画布视觉升级
 
 ### 完成内容
