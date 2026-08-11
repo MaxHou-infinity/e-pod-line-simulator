@@ -3,6 +3,8 @@
 from src.history import (
     append_snapshot,
     build_snapshot,
+    clear_history,
+    export_history,
     kpi_series,
     load_history,
 )
@@ -48,3 +50,26 @@ def test_history_capped_at_max(tmp_path):
     for _ in range(MAX_RECORDS + 10):
         append_snapshot(build_snapshot(line), path)
     assert len(load_history(path)) == MAX_RECORDS
+
+
+def test_export_history_excel(tmp_path):
+    path = str(tmp_path / "history.json")
+    line = make_line()
+    append_snapshot(build_snapshot(line), path)
+    out = str(tmp_path / "history.xlsx")
+
+    assert export_history(out, load_history(path)) is True
+
+    from openpyxl import load_workbook
+
+    wb = load_workbook(out)
+    assert "Sheet1" in wb.sheetnames
+
+
+def test_clear_history_removes_file(tmp_path):
+    path = str(tmp_path / "history.json")
+    line = make_line()
+    append_snapshot(build_snapshot(line), path)
+
+    assert clear_history(path) is True
+    assert load_history(path) == []

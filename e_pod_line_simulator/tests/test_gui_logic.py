@@ -73,6 +73,8 @@ def test_history_dialog_methods_exist():
     assert hasattr(HistoryDialog, "_refresh")
     assert hasattr(HistoryDialog, "_draw_chart")
     assert hasattr(HistoryDialog, "_close")
+    assert hasattr(HistoryDialog, "_export_history")
+    assert hasattr(HistoryDialog, "_clear_history")
 
 
 def test_sweep_dialog_methods_exist():

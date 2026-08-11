@@ -107,3 +107,40 @@ def kpi_series(
         (record["timestamp"], record["kpis"].get(kpi_name, 0.0))
         for record in history
     ]
+
+
+def export_history(
+    path_out: str,
+    history: Optional[List[Dict[str, Any]]] = None,
+) -> bool:
+    """导出历史记录为 Excel（V3.3）"""
+    try:
+        import pandas as pd
+
+        records = history if history is not None else load_history()
+        if not records:
+            return False
+        rows = []
+        for record in records:
+            row = {
+                "timestamp": record.get("timestamp", ""),
+                "line_name": record.get("line_name", ""),
+            }
+            row.update({
+                k: record.get("kpis", {}).get(k, 0.0) for k in KPI_NAMES
+            })
+            rows.append(row)
+        pd.DataFrame(rows).to_excel(path_out, index=False)
+        return True
+    except Exception:
+        return False
+
+
+def clear_history(path: str = DEFAULT_HISTORY_PATH) -> bool:
+    """清空历史记录（V3.3）"""
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+        return True
+    except Exception:
+        return False

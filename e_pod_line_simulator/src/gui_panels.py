@@ -49,6 +49,8 @@ from src.history import (
     build_snapshot,
     kpi_series,
     load_history,
+    export_history,
+    clear_history,
 )
 from src.sensitivity import run_sweep
 from src.optimizer import _params_text, optimize
@@ -2190,6 +2192,12 @@ class HistoryDialog:
         ttk.Button(btn_frame, text="刷新", command=self._refresh).pack(
             side=tk.LEFT, padx=4
         )
+        ttk.Button(btn_frame, text="导出历史", command=self._export_history).pack(
+            side=tk.LEFT, padx=4
+        )
+        ttk.Button(btn_frame, text="清空历史", command=self._clear_history).pack(
+            side=tk.LEFT, padx=4
+        )
         ttk.Label(btn_frame, text="KPI:").pack(side=tk.LEFT, padx=(16, 2))
         self.kpi_var = tk.StringVar(value="daily_output")
         self.kpi_combo = ttk.Combobox(
@@ -2201,6 +2209,17 @@ class HistoryDialog:
         )
         self.kpi_combo.pack(side=tk.LEFT)
         self.kpi_combo.bind("<<ComboboxSelected>>", lambda e: self._draw_chart())
+        ttk.Label(btn_frame, text="对比KPI:").pack(side=tk.LEFT, padx=(12, 2))
+        self.compare_var = tk.StringVar(value="")
+        self.compare_combo = ttk.Combobox(
+            btn_frame,
+            textvariable=self.compare_var,
+            values=[""] + list(self.KPI_LABELS.keys()),
+            state="readonly",
+            width=18,
+        )
+        self.compare_combo.pack(side=tk.LEFT)
+        self.compare_combo.bind("<<ComboboxSelected>>", lambda e: self._draw_chart())
         ttk.Button(btn_frame, text="关闭", command=self._close).pack(
             side=tk.RIGHT, padx=4
         )
@@ -2253,13 +2272,22 @@ class HistoryDialog:
         self.canvas.delete("all")
         kpi = self.kpi_var.get()
         series = kpi_series(self.history, kpi)
+        compare_kpi = self.compare_var.get()
+        compare_series = (
+            kpi_series(self.history, compare_kpi) if compare_kpi else []
+        )
+        values = [v for _, v in series] + [v for _, v in compare_series]
+        reference = None
+        if self.line is not None:
+            reference = build_snapshot(self.line).get("kpis", {}).get(kpi, None)
+            if reference is not None:
+                values.append(reference)
         if not series:
             self.canvas.create_text(
                 260, 100, text="暂无记录，点击「记录当前产线」",
                 fill="#888888",
             )
             return
-        values = [v for _, v in series]
         vmin, vmax = min(values), max(values)
         span = (vmax - vmin) or 1.0
         width, height = 740, 200
@@ -2273,9 +2301,28 @@ class HistoryDialog:
             self.canvas.create_line(x1, y1, x2, y2, fill="#1F6FEB", width=2)
         for x, y in points:
             self.canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="#1F6FEB")
+        if compare_series:
+            compare_points = []
+            for i, (_, value) in enumerate(compare_series):
+                x = pad + i * (width - 2 * pad) / max(len(compare_series) - 1, 1)
+                y = height - pad - (value - vmin) / span * (height - 2 * pad)
+                compare_points.append((x, y))
+            for (x1, y1), (x2, y2) in zip(compare_points, compare_points[1:]):
+                self.canvas.create_line(x1, y1, x2, y2, fill="#2DA44E", width=2)
+        if reference is not None:
+            ref_y = height - pad - (reference - vmin) / span * (height - 2 * pad)
+            self.canvas.create_line(
+                pad, ref_y, width - pad, ref_y,
+                fill="#B3261E", dash=(4, 3),
+            )
         self.canvas.create_text(
             8, 8, anchor=tk.NW,
-            text=f"{self.KPI_LABELS.get(kpi, kpi)}  最高 {vmax:.2f} / 最低 {vmin:.2f}",
+            text=(
+                f"{self.KPI_LABELS.get(kpi, kpi)}"
+                f"{' vs ' + self.KPI_LABELS.get(compare_kpi, compare_kpi) if compare_kpi else ''}"
+                f"  最高 {vmax:.2f} / 最低 {vmin:.2f}"
+                f"（红虚线=当前值 {reference:.2f}）" if reference is not None else ""
+            ),
             fill="#555555",
         )
 
@@ -2293,6 +2340,28 @@ class HistoryDialog:
 
     def _close(self) -> None:
         self.dialog.destroy()
+
+    def _export_history(self) -> None:
+        path = filedialog.asksaveasfilename(
+            title="导出历史",
+            defaultextension=".xlsx",
+            initialfile="KPI历史.xlsx",
+            filetypes=[("Excel 文件", "*.xlsx")],
+        )
+        if not path:
+            return
+        if export_history(path, self.history):
+            messagebox.showinfo("成功", f"已导出：{path}")
+        else:
+            messagebox.showerror("失败", "无历史记录或导出失败")
+
+    def _clear_history(self) -> None:
+        if not messagebox.askyesno("确认", "确定清空全部 KPI 历史记录？"):
+            return
+        if clear_history():
+            self._refresh()
+            self._draw_chart()
+            show_toast(self.dialog, "历史已清空")
 
 
 class SweepDialog:
