@@ -35,6 +35,13 @@ from src.models import (
     create_liquid_line,
     create_pouch_line,
 )
+from src.hr_planning import (
+    LaborCostConfig,
+    LearningCurveConfig,
+    ShiftPlan,
+    build_hr_summary,
+)
+from src.reporting import export_hr_pdf, export_hr_report
 
 
 def build_template_line(key: str) -> ProductionLine:
@@ -1777,6 +1784,258 @@ class AboutDialog:
             )
             return
         webbrowser.open("file://" + os.path.abspath(WECHAT_QR_PATH))
+
+
+class HrPlanningDialog:
+    """
+    人力规划对话框（V3.2） - 面向 HRBP/HR
+
+    输入目标产量、班次、成本、爬坡与招聘计划，输出岗位人数、
+    成本、招聘缺口与达产天数，支持导出 Excel/PDF。
+    """
+
+    def __init__(self, parent, production_line: Optional[ProductionLine]):
+        self.line = production_line
+        self.summary: Optional[Dict[str, Any]] = None
+
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("人力规划（HRBP/HR）")
+        self.dialog.geometry("720x760")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        self._create_widgets()
+        self.dialog.bind('<Escape>', lambda e: self._cancel())
+
+        self.dialog.update_idletasks()
+        x = (self.dialog.winfo_screenwidth() // 2) - (self.dialog.winfo_width() // 2)
+        y = (self.dialog.winfo_screenheight() // 2) - (self.dialog.winfo_height() // 2)
+        self.dialog.geometry(f"+{x}+{y}")
+        self.dialog.wait_window()
+
+    def _create_widgets(self) -> None:
+        line = self.line
+        daily_default = (
+            str(int(line.calculate_daily_output()))
+            if line and line.stations
+            else "0"
+        )
+        shift_default = str(line.shift_hours) if line else "8"
+        break_default = str(line.break_minutes) if line else "60"
+        wage_default = str(line.worker_hourly_wage) if line else "20.0"
+
+        main = ttk.Frame(self.dialog, padding=15)
+        main.pack(fill=tk.BOTH, expand=True)
+
+        def _row(row, col, label, var, width=12, padx=(0, 0)):
+            ttk.Label(main, text=label).grid(
+                row=row, column=col, sticky=tk.W, pady=4
+            )
+            ttk.Entry(main, textvariable=var, width=width).grid(
+                row=row, column=col + 1, sticky=tk.W, pady=4, padx=padx
+            )
+
+        self.target_var = tk.StringVar(value=daily_default)
+        self.shifts_var = tk.StringVar(value="1")
+        self.shift_hours_var = tk.StringVar(value=shift_default)
+        self.break_var = tk.StringVar(value=break_default)
+        self.overtime_var = tk.StringVar(value="0")
+        self.wage_var = tk.StringVar(value=wage_default)
+        self.social_var = tk.StringVar(value="0.30")
+        self.absence_var = tk.StringVar(value="0")
+        self.turnover_var = tk.StringVar(value="0")
+        self.ramp_var = tk.StringVar(value="90")
+
+        _row(0, 0, "目标日产量:", self.target_var)
+        _row(0, 2, "班次数:", self.shifts_var, padx=(16, 0))
+        _row(1, 0, "班次时长(小时):", self.shift_hours_var)
+        _row(1, 2, "休息(分钟):", self.break_var, padx=(16, 0))
+        _row(2, 0, "加班(小时/班):", self.overtime_var)
+        _row(2, 2, "时薪(元/h):", self.wage_var, padx=(16, 0))
+        _row(3, 0, "社保/福利比例:", self.social_var)
+        _row(3, 2, "缺勤率(0-1):", self.absence_var, padx=(16, 0))
+        _row(4, 0, "月离职率(0-1):", self.turnover_var)
+        _row(4, 2, "爬坡天数:", self.ramp_var, padx=(16, 0))
+
+        ttk.Label(
+            main, text="当前在岗（每行 工种:人数，默认取产线配置）:"
+        ).grid(row=5, column=0, columnspan=4, sticky=tk.W, pady=(12, 2))
+        self.current_text = tk.Text(main, height=3, width=60)
+        self.current_text.grid(row=6, column=0, columnspan=4, sticky=tk.W)
+        if line and line.labor_config:
+            self.current_text.insert(
+                "1.0",
+                "\n".join(f"{role}:{count}" for role, count in line.labor_config.items()),
+            )
+
+        ttk.Label(
+            main, text="招聘计划（每行 周,工种,人数，如 1,filling_operator,2）:"
+        ).grid(row=7, column=0, columnspan=4, sticky=tk.W, pady=(8, 2))
+        self.hiring_text = tk.Text(main, height=3, width=60)
+        self.hiring_text.grid(row=8, column=0, columnspan=4, sticky=tk.W)
+
+        btn_frame = ttk.Frame(main)
+        btn_frame.grid(row=9, column=0, columnspan=4, pady=10, sticky=tk.W)
+        ttk.Button(btn_frame, text="计算", command=self._compute).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btn_frame, text="导出Excel", command=self._export_excel).pack(
+            side=tk.LEFT, padx=4
+        )
+        ttk.Button(btn_frame, text="导出PDF", command=self._export_pdf).pack(
+            side=tk.LEFT, padx=4
+        )
+        ttk.Button(btn_frame, text="关闭", command=self._cancel).pack(side=tk.LEFT, padx=4)
+
+        self.result_text = tk.Text(main, height=16, width=70, state=tk.DISABLED)
+        self.result_text.grid(row=10, column=0, columnspan=4, sticky=tk.NSEW, pady=(4, 0))
+        main.rowconfigure(10, weight=1)
+
+    def _parse_current(self) -> Dict[str, int]:
+        result: Dict[str, int] = {}
+        for line in self.current_text.get("1.0", tk.END).strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if ":" in line:
+                role, count = line.split(":", 1)
+            elif "," in line:
+                role, count = line.split(",", 1)
+            else:
+                continue
+            result[role.strip()] = int(count.strip())
+        return result
+
+    def _parse_hiring(self):
+        result = []
+        for line in self.hiring_text.get("1.0", tk.END).strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            parts = [p.strip() for p in line.replace("，", ",").split(",")]
+            if len(parts) != 3:
+                continue
+            result.append((int(parts[0]), parts[1], int(parts[2])))
+        return result
+
+    def _compute(self) -> bool:
+        try:
+            target = float(self.target_var.get())
+            shifts = int(self.shifts_var.get())
+            shift_hours = float(self.shift_hours_var.get())
+            break_minutes = int(self.break_var.get())
+            overtime = float(self.overtime_var.get())
+            wage = float(self.wage_var.get())
+            social = float(self.social_var.get())
+            absence = float(self.absence_var.get())
+            turnover = float(self.turnover_var.get())
+            ramp_days = int(self.ramp_var.get())
+
+            if target <= 0:
+                messagebox.showerror("错误", "目标日产量必须大于 0")
+                return False
+            if shift_hours <= 0 or break_minutes >= shift_hours * 60:
+                messagebox.showerror("错误", "班次时长/休息时间不合理")
+                return False
+
+            shift_plan = ShiftPlan(
+                shifts_per_day=shifts,
+                shift_hours=shift_hours,
+                break_minutes=break_minutes,
+                overtime_hours_per_shift=overtime,
+            )
+            cost = LaborCostConfig(
+                base_hourly_wage=wage,
+                social_insurance_rate=social,
+                absence_rate=absence,
+                monthly_turnover_rate=turnover,
+            )
+            learning = LearningCurveConfig(ramp_days=ramp_days)
+            current = self._parse_current() or (
+                dict(self.line.labor_config) if self.line else {}
+            )
+            self.summary = build_hr_summary(
+                self.line,
+                target,
+                shift_plan,
+                cost,
+                learning,
+                current,
+                self._parse_hiring(),
+            )
+            self._render()
+            return True
+        except Exception as e:
+            messagebox.showerror("计算失败", f"{e}\n\n详细日志：logs/app.log")
+            return False
+
+    def _render(self) -> None:
+        s = self.summary
+        c = s["costs"]
+        lines = [
+            f"目标日产量：{s['daily_target']:.0f}　"
+            f"每日有效工时：{s['effective_hours_per_day']:.1f} 小时",
+            "",
+            "【人力需求（按工种）】",
+        ]
+        lines += [f"  {role}: {n} 人" for role, n in s["headcount_by_role"].items()]
+        lines.append(f"总人数：{s['total_headcount']} 人")
+        lines += [
+            "",
+            "【成本测算】",
+            f"  在岗覆盖人数（含缺勤）：{c['covered_headcount']} 人",
+            f"  日人力成本：{c['daily_labor_cost']} 元",
+            f"  月总成本：{c['monthly_total']} 元",
+            f"  单位人力成本：{c['per_unit_labor_cost']} 元/单位",
+            "",
+            "【招聘缺口（前 12 周）】",
+        ]
+        lines += [
+            f"  第 {w['week']} 周：{w['total_gap']} 人"
+            for w in s["weekly_gap"][:12]
+        ]
+        lines += ["", f"【达产预测】约 {s['days_to_full']} 天达产"]
+
+        self.result_text.config(state=tk.NORMAL)
+        self.result_text.delete("1.0", tk.END)
+        self.result_text.insert("1.0", "\n".join(lines))
+        self.result_text.config(state=tk.DISABLED)
+
+    def _export_excel(self) -> None:
+        if self.summary is None:
+            messagebox.showinfo("提示", "请先点击「计算」")
+            return
+        path = filedialog.asksaveasfilename(
+            title="导出人力规划 Excel",
+            defaultextension=".xlsx",
+            initialfile="人力规划报告.xlsx",
+            filetypes=[("Excel 文件", "*.xlsx")],
+        )
+        if not path:
+            return
+        if export_hr_report(self.summary, path):
+            messagebox.showinfo("成功", f"已导出：{path}")
+        else:
+            messagebox.showerror("失败", "导出失败，请查看 logs/app.log")
+
+    def _export_pdf(self) -> None:
+        if self.summary is None:
+            messagebox.showinfo("提示", "请先点击「计算」")
+            return
+        path = filedialog.asksaveasfilename(
+            title="导出人力规划 PDF",
+            defaultextension=".pdf",
+            initialfile="人力规划摘要.pdf",
+            filetypes=[("PDF 文件", "*.pdf")],
+        )
+        if not path:
+            return
+        if export_hr_pdf(self.summary, path):
+            messagebox.showinfo("成功", f"已导出：{path}")
+        else:
+            messagebox.showerror("失败", "导出失败，请查看 logs/app.log")
+
+    def _cancel(self) -> None:
+        self.dialog.destroy()
+
 
 class WizardDialog:
     """

@@ -44,6 +44,7 @@ from src.gui_panels import (
     CommandPalette,
     AboutDialog,
     WizardDialog,
+    HrPlanningDialog,
 )
 from src.utils import (
     load_config,
@@ -175,6 +176,7 @@ class MainWindow:
         analysis_menu.add_command(label="方案对比", command=self._menu_compare_solutions)
         analysis_menu.add_command(label="方案管理", command=self._menu_manage_scenarios)
         analysis_menu.add_command(label="敏感性试算...", command=self._menu_sensitivity)
+        analysis_menu.add_command(label="人力规划...", command=self._menu_hr_planning)
         analysis_menu.add_command(label="导出报告", command=self._menu_export_report)
         
         # 帮助菜单
@@ -705,6 +707,14 @@ class MainWindow:
             )
         messagebox.showinfo("敏感性试算结果", "\n".join(lines))
         self.status_bar.config(text="敏感性试算完成")
+
+    def _menu_hr_planning(self) -> None:
+        """分析菜单 - 人力规划（V3.2，面向 HRBP/HR）"""
+        if self.production_line is None:
+            messagebox.showwarning("警告", "没有可规划的产线，请先新建或打开产线")
+            return
+        HrPlanningDialog(self.root, self.production_line)
+        self.status_bar.config(text="人力规划完成")
     
     def _menu_help(self) -> None:
         """帮助菜单 - 使用说明"""

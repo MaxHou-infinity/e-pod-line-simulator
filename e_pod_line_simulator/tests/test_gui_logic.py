@@ -53,6 +53,17 @@ def test_dialog_handler_methods_exist():
     assert hasattr(AlertPanel, "_toggle_collapse")
 
 
+def test_hr_planning_dialog_methods_exist():
+    from src.gui_panels import HrPlanningDialog
+
+    assert hasattr(HrPlanningDialog, "_compute")
+    assert hasattr(HrPlanningDialog, "_export_excel")
+    assert hasattr(HrPlanningDialog, "_export_pdf")
+    assert hasattr(HrPlanningDialog, "_cancel")
+    assert hasattr(HrPlanningDialog, "_parse_current")
+    assert hasattr(HrPlanningDialog, "_parse_hiring")
+
+
 def test_station_edit_fields_mapping():
     assert station_edit_fields(ProductionType.ASSEMBLY) == set()
     assert station_edit_fields(ProductionType.LIQUID_FILLING) == {
