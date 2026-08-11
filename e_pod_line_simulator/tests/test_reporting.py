@@ -3,7 +3,13 @@
 import os
 
 from src.models import ProductionLine, Station, create_liquid_line
-from src.reporting import export_excel, export_pdf, export_report
+from src.reporting import (
+    export_excel,
+    export_hr_pdf,
+    export_hr_report,
+    export_pdf,
+    export_report,
+)
 from src.simulation import SimulationEngine
 
 
@@ -64,3 +70,40 @@ def test_liquid_report_contains_batch_sheets(tmp_path):
         str(c.value) for row in wb["KPI"].iter_rows() for c in row if c.value
     ]
     assert any("升" in v for v in kpi_values)
+
+
+def test_export_hr_report_excel_and_pdf(tmp_path):
+    from src.hr_planning import (
+        LaborCostConfig,
+        LearningCurveConfig,
+        ShiftPlan,
+        build_hr_summary,
+    )
+
+    line = ProductionLine("HR报告测试", shift_hours=8, break_minutes=60)
+    line.add_station(Station(
+        "s01", "组装", 60.0, 2,
+        oee=1.0, efficiency=1.0, changeover_time=0,
+    ))
+    summary = build_hr_summary(
+        line,
+        840,
+        ShiftPlan(shifts_per_day=1, shift_hours=8, break_minutes=60),
+        LaborCostConfig(),
+        LearningCurveConfig(ramp_days=30),
+        current={"general": 2},
+        hiring_plan=[],
+    )
+
+    xlsx = str(tmp_path / "hr.xlsx")
+    pdf = str(tmp_path / "hr.pdf")
+    assert export_hr_report(summary, xlsx) is True
+    assert export_hr_pdf(summary, pdf) is True
+
+    from openpyxl import load_workbook
+
+    wb = load_workbook(xlsx)
+    assert "人力需求-工序" in wb.sheetnames
+    assert "人力需求-工种" in wb.sheetnames
+    assert "成本" in wb.sheetnames
+    assert "招聘缺口" in wb.sheetnames

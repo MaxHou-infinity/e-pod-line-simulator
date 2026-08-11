@@ -335,6 +335,144 @@ def export_pdf(result: SimulationResult, file_path: str) -> bool:
         return False
 
 
+def export_hr_report(summary: dict, file_path: str) -> bool:
+    """导出人力规划 Excel 报告（V3.2）"""
+    try:
+        import pandas as pd
+
+        station_df = pd.DataFrame([
+            {"工序ID": sid, "所需人数": n}
+            for sid, n in summary.get("headcount_by_station", {}).items()
+        ])
+        role_df = pd.DataFrame([
+            {"工种": role, "所需人数": n}
+            for role, n in summary.get("headcount_by_role", {}).items()
+        ])
+        costs = summary.get("costs", {})
+        cost_df = pd.DataFrame([
+            ["目标日产量", summary.get("daily_target", 0)],
+            ["每日有效工时(小时)", summary.get("effective_hours_per_day", 0)],
+            ["总人数", costs.get("headcount", 0)],
+            ["在岗覆盖人数（含缺勤）", costs.get("covered_headcount", 0)],
+            ["日人力成本(元)", costs.get("daily_labor_cost", 0)],
+            ["月人力成本(元)", costs.get("monthly_labor_cost", 0)],
+            ["月招聘/培训(元)", costs.get("monthly_recruit_training", 0)],
+            ["月总成本(元)", costs.get("monthly_total", 0)],
+            ["单位人力成本(元/单位)", costs.get("per_unit_labor_cost", 0)],
+            ["达产天数", summary.get("days_to_full", 0)],
+        ], columns=["指标", "值"])
+        gap_rows = []
+        for row in summary.get("weekly_gap", []):
+            gap_rows.append({
+                "周": row.get("week", 0),
+                "总缺口": row.get("total_gap", 0),
+                **{f"缺口_{role}": v for role, v in row.get("gap", {}).items()},
+            })
+        gap_df = pd.DataFrame(gap_rows)
+
+        directory = os.path.dirname(file_path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+
+        with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
+            station_df.to_excel(writer, sheet_name="人力需求-工序", index=False)
+            role_df.to_excel(writer, sheet_name="人力需求-工种", index=False)
+            cost_df.to_excel(writer, sheet_name="成本", index=False)
+            gap_df.to_excel(writer, sheet_name="招聘缺口", index=False)
+        return True
+    except Exception:
+        return False
+
+
+def export_hr_pdf(summary: dict, file_path: str) -> bool:
+    """导出人力规划 PDF 摘要（V3.2）"""
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.lib.units import mm
+        from reportlab.platypus import (
+            Paragraph,
+            SimpleDocTemplate,
+            Spacer,
+            Table,
+            TableStyle,
+        )
+
+        font_name = _register_cn_font()
+        directory = os.path.dirname(file_path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+
+        doc = SimpleDocTemplate(
+            file_path, pagesize=A4,
+            rightMargin=20 * mm, leftMargin=20 * mm,
+            topMargin=20 * mm, bottomMargin=20 * mm,
+        )
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            "CNTitle", parent=styles["Title"],
+            fontName=font_name, fontSize=18, leading=24,
+        )
+        body_style = ParagraphStyle(
+            "CNBody", parent=styles["Normal"],
+            fontName=font_name, fontSize=10, leading=14,
+        )
+
+        costs = summary.get("costs", {})
+        story = [
+            Paragraph("人力规划报告", title_style),
+            Spacer(1, 6 * mm),
+            Paragraph(
+                f"目标日产量：{summary.get('daily_target', 0)}　"
+                f"每日有效工时：{summary.get('effective_hours_per_day', 0)} 小时",
+                body_style,
+            ),
+            Spacer(1, 4 * mm),
+            Paragraph("一、人力需求（按工种）", body_style),
+        ]
+        role_rows = [["工种", "所需人数"]]
+        role_rows += [
+            [role, str(count)]
+            for role, count in summary.get("headcount_by_role", {}).items()
+        ]
+        role_table = Table(role_rows, colWidths=[80 * mm, 40 * mm])
+        role_table.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (-1, -1), font_name),
+            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F2329")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("ALIGN", (1, 0), (1, -1), "CENTER"),
+        ]))
+        story.append(role_table)
+        story.append(Spacer(1, 4 * mm))
+        story.append(Paragraph("二、成本测算", body_style))
+        cost_rows = [
+            ["总人数", costs.get("headcount", 0)],
+            ["在岗覆盖人数（含缺勤）", costs.get("covered_headcount", 0)],
+            ["日人力成本(元)", costs.get("daily_labor_cost", 0)],
+            ["月总成本(元)", costs.get("monthly_total", 0)],
+            ["单位人力成本(元/单位)", costs.get("per_unit_labor_cost", 0)],
+        ]
+        cost_table = Table(cost_rows, colWidths=[80 * mm, 40 * mm])
+        cost_table.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (-1, -1), font_name),
+            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ]))
+        story.append(cost_table)
+        story.append(Spacer(1, 4 * mm))
+        story.append(Paragraph(
+            f"三、达产预测：预计 {summary.get('days_to_full', 0)} 天达产",
+            body_style,
+        ))
+        doc.build(story)
+        return True
+    except Exception:
+        return False
+
+
 def export_report(result: SimulationResult, file_path: str) -> bool:
     """
     按文件扩展名导出报告
