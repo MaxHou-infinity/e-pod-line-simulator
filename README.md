@@ -8,8 +8,6 @@
 ![CI](https://github.com/MaxHou-infinity/e-pod-line-simulator/actions/workflows/ci.yml/badge.svg)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
-![主界面](docs/images/screenshot_main.png)
-
 ---
 
 ## 为什么用这个工具？
